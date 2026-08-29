@@ -32,8 +32,11 @@ React 19 + TanStack Router frontend, PocketBase backend, built with Bun and Vite
 - `bunfig.toml` enforces a 7-day cooldown on newly published package versions;
   postinstall scripts run only for `trustedDependencies` in `package.json`.
 
-## Task management
+## Agent context
 
-Kata is the system of record for tasks and intent. Full conventions (workflow,
-work.* signals, delegation, closing evidence): `.agents/context/kata.md`.
-Shared agent context files live in `.agents/context/`.
+Shared agent context files live in `.agents/context/`:
+
+- **Task management**: kata is the system of record for tasks and intent —
+  conventions in `.agents/context/kata.md`.
+- **Adding a feature**: the staged procedure (kata issue → backend if PocketBase
+  is touched → frontend → verify) is `.agents/context/feature-workflow.md`.
