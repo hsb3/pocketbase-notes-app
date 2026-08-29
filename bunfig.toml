@@ -1,0 +1,5 @@
+[install]
+# 7-day cooldown before a newly published version is installable (was pnpm minimumReleaseAge: 10080).
+minimumReleaseAge = 604800
+# Bun blocks all dependency postinstall scripts by default; only these are trusted to run.
+# Mirrors the former pnpm allowBuilds list. Kept in package.json trustedDependencies.

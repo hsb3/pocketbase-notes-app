@@ -1,0 +1,17 @@
+# Run from the repo root: make up
+# (docker compose --project-directory . -f deploy/local/docker-compose.yml up)
+services:
+  pocketbase:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    container_name: pocketbase
+    ports:
+      - "${PB_PORT:-8080}:8080"
+    environment:
+      - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:?Set PB_ENCRYPTION_KEY to a securely generated value in .env}
+    volumes:
+      - ./pb/data:/pb/pb_data
+      - ./pb/hooks:/pb/pb_hooks
+      - ./pb/migrations:/pb/pb_migrations
