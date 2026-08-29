@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { VerificationOnboarding } from "@/components/interfaces/auth/email-verifications";
+import { VerificationOnboarding } from "@/features/auth/email-verifications";
 
 export const Route = createFileRoute("/auth/email-verification")({
   component: VerifyEmail,

@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { PasswordResetAttempt } from "@/components/interfaces/auth/password-reset";
+import { PasswordResetAttempt } from "@/features/auth/password-reset";
 
 export const Route = createFileRoute("/auth/password-reset-confirm")({
   component: ResetPassword,

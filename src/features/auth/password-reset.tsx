@@ -6,7 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useFormState } from "@/components/hooks/use-form-state";
+import { useFormState } from "@/hooks/use-form-state";
 import { FormError, FormField, FormLabel } from "@/components/ui/form";
 import {
   IconLoader2,

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Link, useRouter } from "@tanstack/react-router";
-import { useFormState } from "@/components/hooks/use-form-state";
+import { useFormState } from "@/hooks/use-form-state";
 import { FormError, FormField, FormLabel } from "@/components/ui/form";
 import {
   type AuthMethodsList,

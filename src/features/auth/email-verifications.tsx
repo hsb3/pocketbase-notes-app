@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { FC, useEffect, useState } from "react";
 import { Separator } from "@/components/ui/separator";
-import { useCountDown } from "@/components/hooks/use-countdown";
+import { useCountDown } from "@/hooks/use-countdown";
 import { IconCircleCheck, IconExclamationCircle } from "@tabler/icons-react";
 
 const VerificationRequest: FC<{ email: string }> = ({ email }) => {
