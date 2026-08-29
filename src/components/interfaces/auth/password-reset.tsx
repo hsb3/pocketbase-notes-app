@@ -108,8 +108,8 @@ export const PasswordResetAttempt: FC<{ token?: string }> = ({ token }) => {
       password: (value) =>
         !value.trim()
           ? "Password cannot be blank"
-          : !/^[A-Za-z\d]{8,}$/.test(value)
-            ? "Password minimum 8 chracters"
+          : value.length < 8
+            ? "Password minimum 8 characters"
             : undefined,
       passwordConfirm: (value, data) =>
         !value.trim()

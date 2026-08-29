@@ -1,52 +1,97 @@
-import { useState } from "react";
+import { IconLoader2 } from "@tabler/icons-react";
+import { useEffect, useState } from "react";
 import { cn } from "@/utils/classnames";
 import { pb } from "@/services/pocketbase";
 import { formHandler } from "@/utils/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ClientResponseError } from "pocketbase";
 import { Separator } from "@/components/ui/separator";
 import { Link, useRouter } from "@tanstack/react-router";
 import { useFormState } from "@/components/hooks/use-form-state";
-import { IconBrandGithub, IconLoader2 } from "@tabler/icons-react";
 import { FormError, FormField, FormLabel } from "@/components/ui/form";
+import {
+  type AuthMethodsList,
+  type AuthProviderInfo,
+  ClientResponseError,
+} from "pocketbase";
 
-const SocialAuth = () => {
+const SocialAuth = ({
+  providers,
+  redirect,
+}: {
+  providers: AuthProviderInfo[];
+  redirect?: string;
+}) => {
   const router = useRouter();
 
-  const [isLoading, setIsLoading] = useState<boolean>();
+  const [loading, setLoading] = useState<string>();
 
-  const login = async () => {
-    setIsLoading(true);
+  const login = async (provider: string) => {
+    setLoading(provider);
 
     const openWindow = window.open();
 
     await pb
       .collection("users")
       .authWithOAuth2({
-        provider: "github",
+        provider,
         urlCallback: (url) => {
           if (openWindow) openWindow.location.href = url;
         },
       })
-      .then(() => router.navigate({ to: "/" }))
-      .finally(() => setIsLoading(false));
+      .then(async ({ record, meta }) => {
+        /**
+         * best-effort sync of the OAuth profile onto the user
+         * record; a failure here must never block navigation.
+         */
+        try {
+          const formData = new FormData();
+
+          if (meta?.name && !record.name) formData.append("name", meta.name);
+
+          if (meta?.avatarUrl && !record.avatar)
+            formData.append(
+              "avatar",
+              await fetch(meta.avatarUrl).then((res) => res.blob()),
+            );
+
+          if (formData.has("name") || formData.has("avatar"))
+            await pb.collection("users").update(record.id, formData);
+        } catch {
+          /* profile sync is optional */
+        }
+
+        if (redirect) return router.navigate({ href: redirect });
+
+        return router.navigate({ to: "/" });
+      })
+      .finally(() => setLoading(undefined));
   };
 
   return (
-    <div className="flex flex-col">
-      <Button
-        type="button"
-        onClick={login}
-        variant="outline"
-        disabled={isLoading}
-        className="space-x-2"
-      >
-        {isLoading && <IconLoader2 className="size-4 animate-spin" />}
-        {!isLoading && <IconBrandGithub className="size-4" />}
-        <span>Continue with Github</span>
-      </Button>
+    <div className="flex flex-col gap-2">
+      {providers.map((provider) => (
+        <Button
+          type="button"
+          key={provider.name}
+          variant="outline"
+          disabled={!!loading}
+          className="space-x-2"
+          onClick={() => login(provider.name)}
+        >
+          {loading === provider.name ? (
+            <IconLoader2 className="size-4 animate-spin" />
+          ) : (
+            <img
+              className="size-4"
+              alt={`${provider.displayName} logo`}
+              src={pb.buildURL(`/_/images/oauth2/${provider.name}.svg`)}
+            />
+          )}
+          <span>Continue with {provider.displayName}</span>
+        </Button>
+      ))}
     </div>
   );
 };
@@ -56,8 +101,20 @@ const SocialAuth = () => {
  *
  * @returns
  */
-export const LoginForm = () => {
+export const LoginForm = ({ redirect }: { redirect?: string }) => {
   const router = useRouter();
+
+  const [authMethods, setAuthMethods] = useState<AuthMethodsList>();
+
+  useEffect(() => {
+    pb.collection("users")
+      .listAuthMethods()
+      .then(setAuthMethods)
+      /** backend unreachable: fall back to no oauth providers */
+      .catch(() => setAuthMethods(undefined));
+  }, []);
+
+  const providers = authMethods?.oauth2.providers ?? [];
 
   const form = useFormState({
     defaultValue: { identity: "", password: "" },
@@ -73,7 +130,11 @@ export const LoginForm = () => {
     form.submit(async (data) => {
       pb.collection("users")
         .authWithPassword(data.identity, data.password)
-        .then(() => router.navigate({ to: "/" }))
+        .then(() =>
+          redirect
+            ? router.navigate({ href: redirect })
+            : router.navigate({ to: "/" }),
+        )
         .catch(async (err) => {
           if (err instanceof ClientResponseError)
             if (err.status === 403)
@@ -102,61 +163,75 @@ export const LoginForm = () => {
       onSubmit={formHandler(loginWithPassword)}
       className="m-auto flex flex-col gap-3 p-2"
     >
-      <FormField>
-        <FormLabel error={!!form.errors?.identity} htmlFor="identity">
-          Email
-        </FormLabel>
-        <Input
-          name="identity"
-          value={form.data.identity}
-          disabled={form.isSubmitting}
-          placeholder="email@example.com"
-          onChange={(e) => form.setValue("identity", e.target.value)}
-          className={cn(
-            !!form.errors?.identity &&
-              "border-destructive focus-visible:ring-destructive",
-          )}
-        />
-        <FormError>{form.errors?.identity}</FormError>
-      </FormField>
+      {(authMethods?.password.enabled ?? true) && (
+        <>
+          <FormField>
+            <FormLabel error={!!form.errors?.identity} htmlFor="identity">
+              Email
+            </FormLabel>
+            <Input
+              name="identity"
+              value={form.data.identity}
+              disabled={form.isSubmitting}
+              placeholder="email@example.com"
+              onChange={(e) => form.setValue("identity", e.target.value)}
+              className={cn(
+                !!form.errors?.identity &&
+                  "border-destructive focus-visible:ring-destructive",
+              )}
+            />
+            <FormError>{form.errors?.identity}</FormError>
+          </FormField>
 
-      <FormField>
-        <FormLabel error={!!form.errors?.password} htmlFor="password">
-          Password
-        </FormLabel>
-        <Input
-          name="password"
-          type="password"
-          value={form.data.password}
-          disabled={form.isSubmitting}
-          onChange={(e) => form.setValue("password", e.target.value)}
-          className={cn(
-            !!form.errors?.password &&
-              "border-destructive focus-visible:ring-destructive",
-          )}
-        />
-        <FormError>{form.errors?.password}</FormError>
-      </FormField>
+          <FormField>
+            <FormLabel error={!!form.errors?.password} htmlFor="password">
+              Password
+            </FormLabel>
+            <Input
+              name="password"
+              type="password"
+              value={form.data.password}
+              disabled={form.isSubmitting}
+              onChange={(e) => form.setValue("password", e.target.value)}
+              className={cn(
+                !!form.errors?.password &&
+                  "border-destructive focus-visible:ring-destructive",
+              )}
+            />
+            <FormError>{form.errors?.password}</FormError>
+          </FormField>
 
-      <Label asChild>
-        <Link to="/auth/password-reset">Forgot Password?</Link>
-      </Label>
+          <Label asChild>
+            <Link to="/auth/password-reset">Forgot Password?</Link>
+          </Label>
 
-      <Button type="submit" className="space-x-2" disabled={form.isSubmitting}>
-        {form.isSubmitting && <IconLoader2 className="size-4 animate-spin" />}
-        <span>Login</span>
-      </Button>
+          <Button
+            type="submit"
+            className="space-x-2"
+            disabled={form.isSubmitting}
+          >
+            {form.isSubmitting && (
+              <IconLoader2 className="size-4 animate-spin" />
+            )}
+            <span>Login</span>
+          </Button>
 
-      <div className="text-center text-sm">
-        <span>No Account Yet? </span>
-        <Link to="/auth/register" className="font-bold">
-          Register
-        </Link>
-      </div>
+          <div className="text-center text-sm">
+            <span>No Account Yet? </span>
+            <Link to="/auth/register" className="font-bold">
+              Register
+            </Link>
+          </div>
+        </>
+      )}
 
-      <Separator />
+      {providers.length > 0 && (
+        <>
+          {(authMethods?.password.enabled ?? true) && <Separator />}
 
-      <SocialAuth />
+          <SocialAuth providers={providers} redirect={redirect} />
+        </>
+      )}
     </form>
   );
 };
@@ -182,14 +257,14 @@ export const RegisterForm = () => {
       email: (value) =>
         !value.trim()
           ? "Email cannot be blank"
-          : !/[a-z0-9]+@[a-z]+\.[a-z]{2,3}/.test(value)
+          : !value.includes("@")
             ? "Email not valid"
             : undefined,
       password: (value) =>
         !value.trim()
           ? "Password cannot be blank"
-          : !/^[A-Za-z\d]{8,}$/.test(value)
-            ? "Password minimum 8 chracters"
+          : value.length < 8
+            ? "Password minimum 8 characters"
             : undefined,
       passwordConfirm: (value, data) =>
         !value.trim()
