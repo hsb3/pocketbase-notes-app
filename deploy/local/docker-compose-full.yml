@@ -40,14 +40,16 @@ services:
       MP_SMTP_TLS_KEY: /development/key.pem
       MP_SMTP_TLS_CERT: /development/cert.pem
 
+  # Dev-parity only, like mailpit: lets the S3 code path run locally.
+  # Production uses local pb_data on a named volume, not S3 (see kata#xgr3).
   minio:
     image: minio/minio
     container_name: minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      - MINIO_ROOT_USER=pocketbase
-      - MINIO_ROOT_PASSWORD=pocketbase
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-pocketbase}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-pocketbase}
     volumes:
       - minio:/data
     ports:
