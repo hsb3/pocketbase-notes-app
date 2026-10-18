@@ -32,9 +32,6 @@ dist-ssr
 pb/data*
 scripts/**.pem
 
-# local agent session state
-_meta/
-.kata.local.toml
 
 # atelier per-project activation - local, never committed
 .claude/*.local.md
