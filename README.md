@@ -17,16 +17,20 @@ does that once so you don't.
 - **Custom auth pages** on top of PocketBase's API (not its default admin-style
   UI): login (password + GitHub OAuth2), register, password reset
   request/confirm, email verification request/confirm. Proof below.
+
 - **Session-aware routing** via TanStack Router — the root route resolves
   `isAuthenticated` from PocketBase's local auth store before first render;
   an `_authenticated` layout route redirects anyone unauthenticated to
   `/auth/login`.
+
 - **Typed PocketBase client** — `make codegen` runs `pocketbase-typegen`
   against your running instance, so collection records are typed without
   hand-maintained interfaces.
+
 - **One Docker image** serving both the built frontend and PocketBase, with a
   pinned, checksum-verified PocketBase binary per architecture (native
   arm64/amd64 builds), plus a Railway config-as-code file.
+
 - **A local dev stack** with optional Mailpit (SMTP capture) and MinIO (S3)
   so email and file-upload flows are testable without real credentials.
 
@@ -47,12 +51,12 @@ does that once so you don't.
 Captured from the actual running app — Vite dev server in front of a real,
 freshly seeded PocketBase 0.40 instance, zero browser console errors.
 
-| Logged out | Login |
-|---|---|
+| Logged out                                           | Login                           |
+| ---------------------------------------------------- | ------------------------------- |
 | ![Home, logged out](docs/images/home-logged-out.png) | ![Login](docs/images/login.png) |
 
-| Register | Password reset request |
-|---|---|
+| Register                              | Password reset request                            |
+| ------------------------------------- | ------------------------------------------------- |
 | ![Register](docs/images/register.png) | ![Password reset](docs/images/password-reset.png) |
 
 Logging in as the seeded test user (`user@example.com`) against the live
