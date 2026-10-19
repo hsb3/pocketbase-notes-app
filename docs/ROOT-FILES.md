@@ -30,7 +30,7 @@ TypeScript config for the app source (`src/`). Strict mode, bundler-style module
 
 ### `tsconfig.node.json`
 
-Separate TS project for Node/Bun-context files — currently just `vite.config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`).
+Separate TS project for Node/Bun-context files — `vite.config.ts` and `playwright.config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`).
 
 ## Code Quality
 
@@ -84,7 +84,7 @@ Task runner tying everything together: `make start` = backend up + seed + dev se
 
 Excludes build output, `node_modules`, secrets (`.env`, `*.pem`), PocketBase data (`pb/data`), and local agent/editor state from version control.
 
-### `PRODUCT.md`
+### `docs/SPEC.md`
 
 Product purpose, boundaries and links to the notes/journal design.
 
@@ -101,3 +101,9 @@ Mailpit/RustFS ports and a one-shot `storage-init` setup profile. `make up-full`
 that initializer and `scripts/configure-services.ts`; `make start-full` also seeds
 and starts Vite. `make check-services` runs `scripts/test-services.ts` against real
 email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_URL`.
+
+### `playwright.config.ts`
+
+Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium execution,
+a managed Vite server and failure artifacts. `.env` supplies the local backend;
+`TEST_APP_URL` can select an existing local frontend. See [testing](VERIFICATION.md).

@@ -10,7 +10,7 @@ COPY package.json bun.lock bunfig.toml ./
 
 RUN --mount=type=cache,id=bun,target=/root/.bun/install/cache bun install --frozen-lockfile
 
-COPY index.html tsconfig.json tsconfig.node.json vite.config.ts ./
+COPY index.html tsconfig.json tsconfig.node.json vite.config.ts playwright.config.ts ./
 COPY src ./src
 
 RUN bun run build

@@ -33,27 +33,18 @@ and [attachment storage](../docs/ATTACHMENTS.md).
 Stop with `make down` or `make down-full`; do not use `docker compose down -v`
 unless deleting the Mailpit/RustFS data is intended.
 
-### Storage images and migration
+### RustFS storage
 
-RustFS and its `rc` CLI are pinned to publicly pullable multi-architecture digests.
-No Docker Hardened Images entitlement or MinIO image is required for fresh installs.
-The service uses a separate `rustfs` volume; never mount an old MinIO data directory
-into RustFS. Their on-disk formats are not interchangeable.
+RustFS and its `rc` CLI use pinned, publicly pullable arm64/amd64 images. The
+`storage-init` setup service creates the configured bucket idempotently. Files
+live in the named `rustfs` volume and are accessed through PocketBase's protected
+file API; browser code receives no S3 credentials.
 
-For an existing MinIO-backed instance, stop application writes, back up PocketBase,
-run RustFS temporarily without host ports (or on different ports), copy the bucket
-through the S3 API, and compare object keys and downloaded bytes
-before changing PocketBase's S3 endpoint to `http://rustfs:9000`. Keep the old
-container/volume until the copied files are verified through PocketBase. Stop MinIO
-before starting RustFS with the normal host ports: both use 9000/9001. The setup
-script deliberately refuses to switch an existing different S3 endpoint automatically.
-A rollback after new writes also requires copying those new objects back.
-
-RustFS console/API credentials are `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY`;
-`RUSTFS_BUCKET` selects the bucket. These are local development settings with defaults
-in `.env.example`; production storage remains configured separately in PocketBase.
-The former `MINIO_*` variables are no longer used. A retained old MinIO container
-may appear as a Compose orphan during migration; do not remove its data volume.
+`RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` configure the local API and console login;
+`RUSTFS_BUCKET` selects the bucket. Defaults are documented in `.env.example`.
+Production storage is configured separately in PocketBase. Changing an endpoint
+or bucket does not copy files: back up, transfer and verify existing objects first.
+The setup script refuses to overwrite a different active provider or bucket.
 
 References: [RustFS Docker setup](https://docs.rustfs.com/en/installation/container/docker)
 and [RustFS source](https://github.com/rustfs/rustfs).

@@ -18,7 +18,9 @@
       "!src/route-tree.gen.ts",
       "!src/services/pocketbase-types.ts",
       "!src/styles/globals.css",
-      "!**/.agents/skills/**"
+      "!**/.agents/skills/**",
+      "!**/test-results/**",
+      "!**/playwright-report/**"
     ]
   },
   "formatter": {
@@ -114,8 +116,14 @@
   },
   "overrides": [
     {
-      "includes": ["scripts/**"],
-      "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+      "includes": ["scripts/**", "tests/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
     },
     {
       "includes": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],

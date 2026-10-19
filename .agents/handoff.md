@@ -20,15 +20,6 @@ Local Mailpit and RustFS integration is implemented and verified. Use
 The running development session uses Vite on port 5173; backend host port comes
 from the ignored `.env`. No production deployment or remote push was performed.
 
-RustFS replaced MinIO locally on 2026-10-19. The old bucket was copied over S3
-with application writes stopped; object keys and downloaded bytes matched before
-switching PocketBase. The original protected attachment was readable afterward and its bytes survived
-a RustFS restart. Re-running `make up-full` is idempotent.
-PocketBase backup: `pb/data/backups/before-rustfs-20261019.zip`. The stopped `minio`
-container has restart disabled; `react-pocketbase_minio` remains intact for rollback.
-Do not prune that volume. New storage uses `react-pocketbase_rustfs`. Compose may
-report the retained MinIO container as an orphan; it is intentionally preserved.
-
 ## Decisions and safety contracts
 
 - Prefer upstream prebuilt blocks; the full editor comes from
@@ -60,16 +51,21 @@ Passed against the local backend during this session:
 - `bun run scripts/test-attachments.ts`: rich document round trip, protected
   downloads, cross-account denial, file/URL validation and reference-safe deletion.
   Cleanup selection uses fixture SQL; the live cleanup job retained a fresh upload.
-- `node --env-file=.env scripts/test-browser.cjs`: saves, navigation, conflict and
+- `bunx playwright test notebook`: saves, navigation, conflict and
   expired-session recovery, sidebar/calendar collapse, focus mode and mobile layout.
-- `node --env-file=.env scripts/test-editor-files.cjs`: upload before first save,
+- `bunx playwright test attachments`: upload before first save,
   private images after reload, download bytes, tables, removal and rejected files.
-  Both browser scripts require Playwright/Chromium; an external install can use
-  `NODE_PATH`. Desktop/mobile screenshots are under `docs/images/`.
+  Install Chromium with `bun run test:install`. Browser runs manage their own Vite
+  server and put artifacts in ignored `test-results/` and `playwright-report/`.
+
+The smoke test was verified to fail against an isolated app copy that saved the
+wrong title. Failure artifacts were produced and its test user was cleaned up.
+The normal smoke and complete API/browser suites passed.
 
 ## Known caveats and next session
 
-Deployment review and RustFS replacement are complete for local integration.
+RustFS powers local object storage. `make smoke` and `make e2e` run live service
+and browser checks; setup and coverage are in `docs/VERIFICATION.md`.
 No pending approval; no remote is configured. The full editor adds a large lazy
 bundle; Vite's chunk-size warning remains. Real-time collaboration and public
 sharing would require new product/backend work, not a configuration change.

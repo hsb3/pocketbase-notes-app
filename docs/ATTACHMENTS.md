@@ -53,12 +53,13 @@ files; download unsaved files before discarding a conflicting draft.
   files; unsafe URLs; reference-protected deletion. The cleanup SQL is tested with
   old referenced, old unreferenced and recent fixture rows; the live job retains a
   fresh upload.
-- `node --env-file=.env scripts/test-editor-files.cjs`: real browser upload before
-  first Save, private image insertion/reload, text download bytes, underline, slash
-  table creation, removal and rejected uploads. Requires Playwright/Chromium and the
-  running Vite/full backend; a global install can use `NODE_PATH`.
-- `scripts/test-browser.cjs` continues to cover ordinary notes, navigation, saves,
-  conflicts, expiry recovery, sidebar/full-screen behavior and mobile layout.
+- `bunx playwright test attachments`: real browser upload before first Save,
+  private image insertion/reload, text download bytes, underline, slash table
+  creation, removal and rejected uploads.
+- `bunx playwright test notebook`: ordinary notes, navigation, saves, conflicts,
+  expiry recovery, sidebar/full-screen behavior and mobile layout.
+
+Run `make e2e` for all checks. See [test setup and reports](VERIFICATION.md).
 
 Source: [ProseKit full registry block](https://prosekit.dev/r/react-example-full.json).
 [Upstream license notices](design/prebuilt-ui.md#source-notices) apply to copied code.

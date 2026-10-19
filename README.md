@@ -44,24 +44,20 @@ Mailpit and RustFS automatically; `make check-services` verifies both. See the
 ## Checks
 
 ```sh
-bun run lint
-bun run build
-bun run scripts/test-entries.ts
+bun install
+bun run test:install  # install the pinned Playwright Chromium browser
+make up-full         # configure PocketBase, Mailpit and RustFS
+make smoke           # service checks + login/save/reload smoke test
+make e2e             # full API and desktop/mobile browser coverage
 ```
 
-The API test requires the running backend and superuser credentials in `.env`.
-It creates temporary accounts, tests access boundaries and concurrent saves,
-and deletes those accounts afterward. Use a development instance.
+Tests use disposable accounts against the local backend configured in `.env`.
+Playwright starts and stops a separate Vite server automatically. Reports, traces
+and screenshots stay in ignored test-output directories. No global Playwright
+installation or manually started frontend is required.
 
-Browser checks require an available Playwright installation and Chromium:
-
-```sh
-node --env-file=.env scripts/test-browser.cjs
-```
-
-For a global Playwright installation, set `NODE_PATH` to its module directory.
-`TEST_APP_URL` defaults to the local Vite server. Browser checks create their own
-account, exercise real UI/API behavior, capture screenshots and clean up the account.
+Run `bun run lint` and `bun run build` for static checks, or `bun run test:report`
+to open the browser report. See [testing details](docs/VERIFICATION.md).
 
 ## Boundaries
 

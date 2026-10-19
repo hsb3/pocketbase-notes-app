@@ -36,3 +36,7 @@ scripts/**.pem
 # atelier per-project activation - local, never committed
 .claude/*.local.md
 .claude/*.stamp
+
+# Browser test artifacts
+test-results/
+playwright-report/

@@ -10,7 +10,7 @@ COMPOSE_FULL = docker compose --project-directory . -f deploy/local/docker-compo
 
 .DEFAULT_GOAL := help
 
-.PHONY: help start start-full check-services up up-full dev-cert down down-full logs health seed dev dev-solo install codegen lint build clean
+.PHONY: help start start-full check-services smoke e2e up up-full dev-cert down down-full logs health seed dev dev-solo install codegen lint build clean
 
 ##@ General
 
@@ -81,3 +81,11 @@ build: ## type-check + production build
 
 clean: ## remove build output and installed deps (keeps pb/data)
 	rm -rf dist .tanstack node_modules
+
+##@ Testing
+
+smoke: ## fast live service + browser smoke checks (backend must be running)
+	bun run test:smoke
+
+e2e: ## API + desktop/mobile browser suite (backend must be running)
+	bun run test:e2e

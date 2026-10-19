@@ -18,3 +18,6 @@ scripts/*.pem
 *.p12
 *.pfx
 *.log
+
+test-results
+playwright-report

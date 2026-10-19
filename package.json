@@ -9,7 +9,12 @@
     "lint": "biome check --verbose .",
     "lint:fix": "biome check --verbose --write .",
     "preview": "vite preview",
-    "pb:codegen": "bun run scripts/codegen.ts"
+    "pb:codegen": "bun run scripts/codegen.ts",
+    "test:install": "playwright install chromium",
+    "test:smoke": "bun run scripts/test-services.ts && playwright test --grep @smoke",
+    "test:api": "bun run scripts/test-services.ts && bun run scripts/test-entries.ts && bun run scripts/test-attachments.ts",
+    "test:e2e": "bun run test:api && playwright test",
+    "test:report": "playwright show-report"
   },
   "trustedDependencies": [
     "@biomejs/biome",
@@ -38,6 +43,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.9",
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-devtools": "^1.167.1",
     "@tanstack/router-plugin": "^1.168.34",
