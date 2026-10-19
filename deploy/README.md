@@ -52,7 +52,7 @@ and [RustFS source](https://github.com/rustfs/rustfs).
 ## Shared image
 
 ```sh
-docker build -f deploy/docker/Dockerfile -t notebook .
+docker build -f deploy/docker/Dockerfile -t pocketbase-notes-app .
 ```
 
 The build copies only frontend inputs, uses the frozen Bun lockfile, and excludes

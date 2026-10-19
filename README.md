@@ -1,9 +1,9 @@
-# Notebook
+# PocketBase Notes
 
 A private notes and journaling app built with React, TanStack Router, PocketBase,
 shadcn/ui and ProseKit. Write a thought, save it, and return to it later.
 
-![Notebook on desktop](docs/images/notebook-desktop.png)
+![PocketBase Notes on desktop](docs/images/notebook-desktop.png)
 
 The interface at `/entries` uses shadcn’s `sidebar-09` and ProseKit’s full
 editor block. See [component sources and adaptations](docs/design/prebuilt-ui.md).

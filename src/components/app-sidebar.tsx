@@ -91,7 +91,9 @@ export function AppSidebar({
                     <Command className="size-4" />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">Notebook</span>
+                    <span className="truncate font-medium">
+                      PocketBase Notes
+                    </span>
                     <span className="truncate text-xs">Private notebook</span>
                   </div>
                 </Link>

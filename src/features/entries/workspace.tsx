@@ -78,7 +78,7 @@ export function Workspace() {
                         to="/entries"
                         search={{ ...search, view: "all", page: 1 }}
                       >
-                        Notebook
+                        PocketBase Notes
                       </Link>
                     </BreadcrumbLink>
                   </BreadcrumbItem>

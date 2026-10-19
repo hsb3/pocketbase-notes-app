@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { test, api } = require("./fixtures.cjs");
+const { test, api, expect } = require("./fixtures.cjs");
 
 test("notes, journals, conflicts and responsive navigation", async ({
   page,
@@ -30,12 +30,9 @@ test("notes, journals, conflicts and responsive navigation", async ({
   );
 
   await page.getByRole("button", { name: "Enter full screen" }).click();
-  assert.equal(
-    await page
-      .getByRole("region", { name: "Entries", exact: true })
-      .isVisible(),
-    false,
-  );
+  await expect(
+    page.getByRole("region", { name: "Entries", exact: true }),
+  ).toBeHidden();
   assert.equal(
     await page.getByLabel("Entry title").inputValue(),
     "A slower start",

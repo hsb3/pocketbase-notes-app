@@ -1,4 +1,4 @@
-# Project handoff
+# PocketBase Notes handoff
 
 Updated: 2026-10-19. Integration branch: `main`.
 
@@ -18,7 +18,7 @@ them. `.env.example` documents every app/service/test environment setting.
 Local Mailpit and RustFS integration is implemented and verified. Use
 `make start-full` (or `make up-full` plus `make dev`) for the configured local stack.
 The running development session uses Vite on port 5173; backend host port comes
-from the ignored `.env`. No production deployment or remote push was performed.
+from the ignored `.env`. No production deployment was performed.
 
 ## Decisions and safety contracts
 
@@ -66,7 +66,8 @@ The normal smoke and complete API/browser suites passed.
 
 RustFS powers local object storage. `make smoke` and `make e2e` run live service
 and browser checks; setup and coverage are in `docs/VERIFICATION.md`.
-No pending approval; no remote is configured. The full editor adds a large lazy
+Repository: `https://github.com/hsb3/pocketbase-notes-app` (public source code).
+Notes and files remain private through PocketBase access rules. The full editor adds a large lazy
 bundle; Vite's chunk-size warning remains. Real-time collaboration and public
 sharing would require new product/backend work, not a configuration change.
 

@@ -84,9 +84,9 @@ await pb.settings.update({
   },
   meta: {
     ...settings.meta,
-    appName: "Notebook",
+    appName: "PocketBase Notes",
     appURL,
-    senderName: "Notebook",
+    senderName: "PocketBase Notes",
     senderAddress: "notebook@example.test",
   },
 });

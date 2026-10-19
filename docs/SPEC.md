@@ -1,4 +1,4 @@
-# Notes and journal
+# PocketBase Notes
 
 ## Platform
 
