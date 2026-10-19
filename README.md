@@ -5,12 +5,13 @@ shadcn/ui and ProseKit. Write a thought, save it, and return to it later.
 
 ![Notebook on desktop](docs/images/notebook-desktop.png)
 
-The interface at `/entries` uses shadcn’s `sidebar-09` and ProseKit’s toolbar
+The interface at `/entries` uses shadcn’s `sidebar-09` and ProseKit’s full
 editor block. See [component sources and adaptations](docs/design/prebuilt-ui.md).
 
 ## What works
 
-- Rich-text notes and dated journal entries, with headings, bold, italic and quotes.
+- Rich-text notes and journals with lists, tables, links, code, math and image uploads.
+- Private image/PDF/text attachments stored through PocketBase and MinIO, with protected downloads.
 - Title search, favorites, journal date filters and paginated lists. Filters stay in the URL.
 - Explicit Save, unsaved-change prompts and conflict detection when two tabs edit the same entry.
 - Private PocketBase records with server-side document validation and ownership rules.
@@ -35,6 +36,10 @@ Set the superuser credentials and matching `PB_PORT` / `VITE_PB_URL` in `.env`.
 The default development login is `user@example.com` / `user-changeme-123`;
 `SEED_USER_EMAIL` and `SEED_USER_PASSWORD` override it. Sample entries are added
 only when that account's notebook is empty.
+
+For email and S3-backed file storage, use `make start-full` instead. It configures
+Mailpit and MinIO automatically; `make check-services` verifies both. See the
+[full-stack setup](docs/DEVELOPMENT.md#full-stack-mailpit-smtp--minio-s3).
 
 ## Checks
 
@@ -63,8 +68,10 @@ account, exercise real UI/API behavior, capture screenshots and clean up the acc
 Entries are private through application access rules, not end-to-end encryption.
 Drafts are in memory until Save; browser crashes can lose unsaved work. Conflict
 recovery offers a plain-text copy and a confirmed reload, not automatic merging.
-There is no sharing, AI, attachment upload or offline synchronization.
-OAuth providers and outbound email still require PocketBase configuration.
+There is no sharing, AI or offline synchronization. See [attachments](docs/ATTACHMENTS.md)
+for file limits, private storage and cleanup behavior.
+OAuth providers and production email still require PocketBase configuration.
+Local email delivery is captured by Mailpit in full-stack mode.
 
 See [development setup](docs/DEVELOPMENT.md), [deployment](deploy/README.md),
 and [root configuration](docs/ROOT-FILES.md).

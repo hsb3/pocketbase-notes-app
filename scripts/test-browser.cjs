@@ -93,11 +93,20 @@ async function api(path, token, method = "GET", body) {
     );
     await editor.press("ControlOrMeta+b");
     await editor.press("ControlOrMeta+a");
-    await page.getByRole("button", { name: "Bold", exact: true }).click();
+    await page
+      .getByRole("toolbar", { name: "Formatting" })
+      .getByRole("button", { name: "Bold", exact: true })
+      .click();
     {
-      await page.getByRole("button", { name: "Undo", exact: true }).click();
+      await page
+        .getByRole("toolbar", { name: "Formatting" })
+        .getByRole("button", { name: "Undo", exact: true })
+        .click();
       assert.equal(await editor.locator("strong").count(), 0);
-      await page.getByRole("button", { name: "Redo", exact: true }).click();
+      await page
+        .getByRole("toolbar", { name: "Formatting" })
+        .getByRole("button", { name: "Redo", exact: true })
+        .click();
       assert.equal(await editor.locator("strong").count(), 1);
     }
     await page.getByRole("button", { name: "Save", exact: true }).click();

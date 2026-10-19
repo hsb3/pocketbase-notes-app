@@ -1,6 +1,6 @@
 # Notes and journal — design draft
 
-Status: implemented with the adopted prebuilt shadcn workspace and ProseKit toolbar editor. See [verification](../VERIFICATION.md).
+Status: implemented with the adopted prebuilt shadcn workspace and ProseKit full editor. See [verification](../VERIFICATION.md).
 
 [Early wireframes](notes-journal-wireframes.html) are historical layout sketches. The adopted implementation is documented in [component sources](prebuilt-ui.md). This design supersedes the [project tracker proposal](project-tracker.md).
 
@@ -8,7 +8,7 @@ Status: implemented with the adopted prebuilt shadcn workspace and ProseKit tool
 
 A private place to capture ideas and reflect on a day. Sign in, write a note or dated journal entry, save it, and find it again. Writing is the main screen; there is no metrics dashboard.
 
-First release: notes, dated journal entries, a basic rich-text editor, title search, date filtering for journals, favorites, editing and deletion with confirmation. Notes and journal entries share one collection and editor. Multiple journal entries may share a date; there is no daily uniqueness constraint or streak mechanic. No folders, tags, attachments, AI, collaboration, public sharing, offline mode or reminders in this release.
+First release: notes, dated journal entries, a full rich-text editor, title search, date filtering for journals, favorites, editing and deletion with confirmation. Notes and journal entries share one collection and editor. Multiple journal entries may share a date; there is no daily uniqueness constraint or streak mechanic. No folders, tags, AI, collaboration, public sharing, offline mode or reminders in this release.
 
 ## Layout and flows
 
@@ -24,7 +24,7 @@ With nothing selected, the writing area invites New note or New journal entry. T
 
 New entry offers Note or Journal, defaulting to the current Notes/Journal view (otherwise Note). The type can change before the first save; afterward it is fixed. New journals default to today's local date, which is editable independently of creation time. Use a date-only YYYY-MM-DD value, not a UTC timestamp conversion.
 
-The editor has a title field, kind/date metadata, favorite toggle, restrained formatting toolbar, writing surface, save status and explicit Save. First-release formatting: paragraphs, headings, bold, italic and blockquotes. No custom block editor or slash-command system. Empty title saves as “Untitled note” or “Journal — YYYY-MM-DD”; wholly empty body is rejected with a nearby message. A useful default title permits starting directly in the body.
+The editor has a title field, kind/date metadata, favorite toggle, restrained formatting toolbar, writing surface, save status and explicit Save. Formatting includes headings, marks, links, lists, tables, code, math and images. The full registry editor supplies slash commands, inline menus and block/table handles. Empty title saves as “Untitled note” or “Journal — YYYY-MM-DD”; a body with neither text/images nor attachments is rejected with a nearby message. A useful default title permits starting directly in the body.
 
 States: Unsaved changes → Saving… → Saved. Save writes title, body, date and favorite together. Disable editing and repeated submission during the short pending request. On failure keep the draft visible, show “Could not save” with Retry, and never claim success. Ctrl/Cmd+S triggers the same save action when the editor is active.
 
@@ -44,15 +44,15 @@ Show one region at a time: entry list or editor. Navigation opens in a Sheet. Ba
 | --- | --- | --- |
 | Navigation | shadcn Sidebar + Sheet | Four views and account menu, no custom navigation system |
 | Search and entry list | InputGroup, Item, Separator, Pagination | Title-only search; labeled, linked rows |
-| Writing | Community `@prosekit/react-example-minimal` and ProseKit extensions | Adapt the registry example into the feature editor with a restricted document schema |
-| Formatting | shadcn ToggleGroup with ProseKit commands | Expose only the agreed formatting, with accessible names |
+| Writing | Community `@prosekit/react-example-full` | Adapt the full registry editor with validated document content and private uploads |
+| Formatting | ProseKit toolbar and inline menu | Retain command-aware formatting, with accessible names |
 | Journal date | shadcn Calendar + Popover | Date-only value, Today and Clear controls |
 | Metadata and actions | Field/FieldGroup, Input, Badge, Toggle, DropdownMenu | Reuse existing Button/Input utilities where compatible |
 | Feedback | Empty, Skeleton, Alert, Spinner, Sonner, AlertDialog | Loading, failures, saves and destructive confirmation |
 
 The official shadcn CLI recognized the existing Vite/Tailwind/Radix setup. The component configuration now explicitly selects Tabler icons, matching the existing source. Keep the existing neutral semantic tokens and installed icon library. No preset or base-library migration is proposed.
 
-The ProseKit React registry example was installed, then adapted into `src/features/entries/rich-text.tsx`. Only the supported text, paragraph, heading, blockquote, bold, italic and hard-break extensions are enabled. Browser tests verify formatting and JSON persistence through PocketBase.
+The full ProseKit registry editor is adapted in `src/components/editor/examples/full/`. Private file uploads and validation are described in [attachments](../ATTACHMENTS.md).
 
 Sources: [shadcn skill](https://ui.shadcn.com/docs/skills), [component catalog](https://ui.shadcn.com/docs/components), [registry directory](https://ui.shadcn.com/docs/directory), [ProseKit React example](https://prosekit.dev/r/react-example-minimal.json).
 
@@ -80,4 +80,4 @@ Follow the existing schema/migration/type-generation workflow. Reuse the typed P
 
 ## Implementation order
 
-The editor, persistence, navigation and failure paths are implemented. Kata registration remains pending because the current server does not recognize this repository alias. Future work remains outside this release: offline drafts, attachments and sharing.
+The editor, persistence, navigation and failure paths are implemented. Kata registration remains pending because the current server does not recognize this repository alias. Future work remains outside this release: offline drafts and sharing.

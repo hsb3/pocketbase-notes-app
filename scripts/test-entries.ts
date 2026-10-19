@@ -90,7 +90,7 @@ try {
     alice.collection("entries").update(entry.id, {
       body: {
         type: "doc",
-        content: [{ type: "image", attrs: { src: "https://example.com" } }],
+        content: [{ type: "image", attrs: { src: "javascript:alert(1)" } }],
       },
       revision: 1,
     }),

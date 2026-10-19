@@ -1,7 +1,13 @@
 onRecordValidate((e) => {
   const validate = require(`${__hooks}/entry-validation.js`);
   try {
-    validate.body(JSON.parse(e.record.getString("body")));
+    const attachments = e.record.getStringSlice("attachments");
+    const images = validate.body(JSON.parse(e.record.getString("body")), attachments.length > 0);
+    if (images.some((id) => !attachments.includes(id))) throw new Error("An embedded image is missing its attachment.");
+    for (const id of attachments) {
+      const attachment = e.app.findRecordById("attachments", id);
+      if (attachment.getString("user") !== e.record.getString("user")) throw new Error("Attachment is unavailable.");
+    }
     validate.date(e.record.getString("kind"), e.record.getString("journal_date"));
   } catch (error) {
     throw new BadRequestError(String(error.message || error));
@@ -10,8 +16,11 @@ onRecordValidate((e) => {
 }, "entries");
 
 onRecordCreateRequest((e) => {
-  e.record.set("revision", 1);
-  e.next();
+  e.app.runInTransaction((tx) => {
+    e.app = tx;
+    e.record.set("revision", 1);
+    e.next();
+  });
 }, "entries");
 
 onRecordUpdateRequest((e) => {

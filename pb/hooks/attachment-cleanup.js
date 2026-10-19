@@ -1,0 +1,1 @@
+module.exports = "SELECT f.id FROM attachments f WHERE f.created < {:cutoff} AND NOT EXISTS (SELECT 1 FROM entries e, json_each(CASE WHEN json_valid(e.attachments) THEN e.attachments ELSE '[]' END) a WHERE a.value = f.id) LIMIT 100";

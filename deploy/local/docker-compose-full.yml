@@ -12,6 +12,16 @@ services:
     container_name: pocketbase
     restart: unless-stopped
     entrypoint: /development/start.sh
+    depends_on:
+      mailpit:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/api/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
     ports:
       - "${PB_PORT:-8080}:8080"
     environment:
@@ -30,8 +40,13 @@ services:
       - mailpit:/data
       - ./scripts:/development
     ports:
-      - 8025:8025
-      - 1025:1025
+      - 127.0.0.1:8025:8025
+      - 127.0.0.1:1025:1025
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
     environment:
       MP_MAX_MESSAGES: 5000
       MP_DATABASE: /data/mailpit.db
@@ -53,5 +68,26 @@ services:
     volumes:
       - minio:/data
     ports:
-      - 9000:9000
-      - 9001:9001
+      - 127.0.0.1:9000:9000
+      - 127.0.0.1:9001:9001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    image: minio/mc
+    profiles: ["setup"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-pocketbase}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-pocketbase}
+      MINIO_BUCKET: ${MINIO_BUCKET:-pocketbase}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null
+        mc mb --ignore-existing "local/$$MINIO_BUCKET"

@@ -10,7 +10,7 @@ Existing entries use the same schema and require no migration.
 | --- | --- | --- |
 | [shadcn sidebar-09](https://ui.shadcn.com/blocks/sidebar#sidebar-09) | Nested icon rail and list, collapsible sidebar, user dropdown, header composition | Selected; maps directly to library navigation and entries |
 | [shadcn sidebar-12](https://ui.shadcn.com/blocks/sidebar#sidebar-12) | Calendar-oriented sidebar | Registry discovery only; less directly suited to the main entry list |
-| [ProseKit toolbar example](https://prosekit.dev/r/react-example-toolbar.json) | Editor shell plus command-aware toolbar, buttons, tooltips, undo/redo, heading actions | Selected; keeps the installed editor engine and document format |
+| [ProseKit full example](https://prosekit.dev/r/react-example-full.json) | Full editor, inline/slash menus, formatting, code/math, tables and image handling | Selected; keeps the installed editor engine and document format |
 | [Plate basic editor](https://platejs.org/docs/installation/react) | Assembled React/Vite editor block | Viable alternative, but changes the editor engine and document format |
 | [BlockNote shadcn](https://www.blocknotejs.org/docs/getting-started/shadcn) | Turnkey block editor with menus and dragging | Broader feature set and different editor engine; core MPL-2.0, XL licensing differs |
 | [Tiptap Simple Editor](https://tiptap.dev/docs/ui-components/templates/simple-editor) | Full responsive editor template | Viable MIT template; unnecessary engine change for this experiment |
@@ -28,16 +28,16 @@ focused reuse comparison, not a benchmark of the other editors.
 - `src/features/entries/workspace.tsx`: the `sidebar-09` page composition, with the
   existing route outlet replacing placeholder rectangles. The breadcrumb header appears
   only in the library; an open entry uses one compact editor header to avoid duplicate controls.
-- `src/components/editor/examples/toolbar/` and `src/components/editor/ui/`: installed
-  from ProseKit's complete toolbar example, including its toolbar/button/tooltip behavior.
+- `src/components/editor/examples/full/` and `src/components/editor/ui/`: installed
+  from ProseKit's full example, including its toolbar/button/tooltip behavior.
   Added initial JSON, change callbacks and read-only state to connect to existing persistence.
   Responsive content padding and semantic surface colors adapt the example to this app.
-- The toolbar already checks available editor commands. The shared restricted schema naturally
-  hides unsupported features. No fake sample uploader or attachment controls are enabled.
+- The full schema is validated server-side. The real uploader uses protected PocketBase
+  attachments; demo content, people and tag datasets are omitted. See [attachment design](../ATTACHMENTS.md).
 
 Save, validation, authentication recovery, conflict and deletion logic remains
 in `EntryEditor`. These are application-specific behavior rather than registry features.
-No backend schema or access rules changed for the second UI.
+The later full-editor integration adds protected attachments and expands document validation.
 
 The ProseKit registry installs its icon CSS plugin and icon set; the shadcn block uses its
 upstream Lucide icons. Application controls retain Tabler. These extra dependencies

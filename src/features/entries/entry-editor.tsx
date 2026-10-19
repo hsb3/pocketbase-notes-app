@@ -1,7 +1,16 @@
-import { lazy, Suspense, useContext, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useContext,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link, useBlocker, useRouter } from "@tanstack/react-router";
 import {
   IconArrowLeft,
+  IconPaperclip,
   IconMaximize,
   IconMinimize,
   IconStar,
@@ -53,10 +62,17 @@ import {
   type Entry,
 } from "./data";
 import type { NodeJSON } from "prosekit/core";
+import type { Uploader } from "prosekit/extensions/file";
+import { AttachmentList } from "./attachment-list";
+import {
+  attachmentAccept,
+  uploadAttachment,
+  deleteUnusedAttachments,
+  withoutImage,
+  imageAttachmentIds,
+} from "./attachments";
 
-const Editor = lazy(
-  () => import("@/components/editor/examples/toolbar/editor"),
-);
+const Editor = lazy(() => import("@/components/editor/examples/full/editor"));
 
 type Draft = {
   title: string;
@@ -64,6 +80,7 @@ type Draft = {
   journal_date: string;
   body: NodeJSON;
   favorite: boolean;
+  attachments: string[];
 };
 function fromEntry(entry: Entry): Draft {
   return {
@@ -72,6 +89,7 @@ function fromEntry(entry: Entry): Draft {
     journal_date: entry.journal_date,
     body: entry.body || emptyBody,
     favorite: entry.favorite,
+    attachments: entry.attachments || [],
   };
 }
 export function EntryEditor({ entry }: { entry?: Entry }) {
@@ -89,12 +107,19 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
           journal_date: search.view === "journal" ? localDate() : "",
           body: emptyBody,
           favorite: false,
+          attachments: [],
         },
   );
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const [uploading, setUploading] = useState(0);
+  const uploadingRef = useRef(0);
+  const fileInput = useRef<HTMLInputElement>(null);
   const baseline = useRef(JSON.stringify(draft));
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [error, setError] = useState("");
+  const [fileError, setFileError] = useState("");
   const [conflict, setConflict] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
@@ -111,16 +136,78 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
   const bypass = useRef(false);
   const blocker = useBlocker({
     shouldBlockFn: () =>
-      !bypass.current && (dirtyRef.current || savingRef.current),
-    enableBeforeUnload: () => dirtyRef.current || savingRef.current,
+      !bypass.current &&
+      (dirtyRef.current || savingRef.current || uploadingRef.current > 0),
+    enableBeforeUnload: () =>
+      dirtyRef.current || savingRef.current || uploadingRef.current > 0,
     withResolver: true,
   });
+  const uploader: Uploader<string> = useCallback(
+    async ({ file, onProgress }) => {
+      if (
+        !pb.authStore.isValid ||
+        pb.authStore.record?.id !== accountId.current
+      ) {
+        setReauth(true);
+        throw new Error("Sign in again before uploading.");
+      }
+      if (draftRef.current.attachments.length + uploadingRef.current >= 20) {
+        setFileError("An entry can have up to 20 attachments.");
+        throw new Error("An entry can have up to 20 attachments.");
+      }
+      uploadingRef.current++;
+      setUploading(uploadingRef.current);
+      setFileError("");
+      try {
+        onProgress({ loaded: 0, total: file.size });
+        const asset = await uploadAttachment(file);
+        setDraft((current) => ({
+          ...current,
+          attachments: [...current.attachments, asset.id],
+        }));
+        onProgress({ loaded: file.size, total: file.size });
+        return `attachment:${asset.id}`;
+      } catch (error) {
+        setFileError(
+          error instanceof Error ? error.message : "Upload failed. Try again.",
+        );
+        throw error;
+      } finally {
+        uploadingRef.current--;
+        setUploading(uploadingRef.current);
+      }
+    },
+    [],
+  );
+  async function attachFiles(files: FileList | null) {
+    for (const file of Array.from(files || [])) {
+      try {
+        await uploader({ file, onProgress: () => undefined });
+      } catch {
+        break;
+      }
+    }
+    if (fileInput.current) fileInput.current.value = "";
+  }
+  function removeAttachment(id: string) {
+    setDraft((current) => ({
+      ...current,
+      attachments: current.attachments.filter((value) => value !== id),
+      body: withoutImage(current.body, id),
+    }));
+    setEditorKey((value) => value + 1);
+    if (!record?.attachments.includes(id)) void deleteUnusedAttachments([id]);
+  }
   async function save(continuing = false) {
-    if (savingRef.current) return false;
+    if (savingRef.current || uploadingRef.current) return false;
     setError("");
     setNotice("");
-    if (!bodyText(draft.body).trim()) {
-      setError("Write something before saving.");
+    if (
+      !bodyText(draft.body).trim() &&
+      !draft.attachments.length &&
+      !JSON.stringify(draft.body).includes('"type":"image"')
+    ) {
+      setError("Write something or attach a file before saving.");
       return false;
     }
     if (draft.kind === "journal" && !validDate(draft.journal_date)) {
@@ -147,6 +234,11 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
       const saved = record
         ? await pb.collection("entries").update<Entry>(record.id, data)
         : await pb.collection("entries").create<Entry>(data);
+      void deleteUnusedAttachments(
+        (record?.attachments || []).filter(
+          (id) => !saved.attachments.includes(id),
+        ),
+      );
       const next = fromEntry(saved);
       baseline.current = JSON.stringify(next);
       dirtyRef.current = false;
@@ -214,6 +306,7 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
     setSaving(true);
     try {
       await pb.collection("entries").delete(record.id);
+      void deleteUnusedAttachments(record.attachments || []);
       dirtyRef.current = false;
       bypass.current = true;
       await router.navigate({ to: "/entries", search });
@@ -291,16 +384,18 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
         </div>
         <div className="flex items-center gap-2">
           <span className="save-status" role="status">
-            {saving
-              ? "Saving…"
-              : dirty
-                ? "Unsaved changes"
-                : notice || (record ? "Saved" : "Not saved yet")}
+            {uploading
+              ? "Uploading…"
+              : saving
+                ? "Saving…"
+                : dirty
+                  ? "Unsaved changes"
+                  : notice || (record ? "Saved" : "Not saved yet")}
           </span>
           <Button
             size="sm"
             onClick={() => save()}
-            disabled={saving || (!dirty && !!record)}
+            disabled={saving || uploading > 0 || (!dirty && !!record)}
           >
             {saving ? <IconLoader2 className="animate-spin" /> : <IconCheck />}
             Save
@@ -407,6 +502,28 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
                 />
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                accept={attachmentAccept}
+                aria-label="Choose attachments"
+                className="sr-only"
+                disabled={saving || uploading > 0}
+                onChange={(event) => void attachFiles(event.target.files)}
+              />
+              <Button
+                title="Images, PDF or text · 10 MB per file"
+                variant="outline"
+                size="sm"
+                disabled={saving || uploading > 0}
+                onClick={() => fileInput.current?.click()}
+              >
+                <IconPaperclip />
+                Attach files
+              </Button>
+            </div>
           </div>
           {error && (
             <div className="entry-error" role="alert">
@@ -430,7 +547,7 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
                         }
                       }}
                     >
-                      Copy draft
+                      Copy text
                     </Button>
                     <Button
                       variant="outline"
@@ -453,6 +570,11 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
               </div>
             </div>
           )}
+          {fileError && (
+            <p role="alert" className="mb-2 text-sm">
+              {fileError}
+            </p>
+          )}
           <Suspense
             fallback={
               <Skeleton className="h-80 w-full" aria-label="Loading editor" />
@@ -462,9 +584,27 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
               key={editorKey}
               initialBody={draft.body}
               disabled={saving}
-              onChange={(body) => setDraft((current) => ({ ...current, body }))}
+              uploader={uploader}
+              onChange={(body) =>
+                setDraft((current) => ({
+                  ...current,
+                  body,
+                  attachments: [
+                    ...new Set([
+                      ...current.attachments,
+                      ...imageAttachmentIds(body),
+                    ]),
+                  ],
+                }))
+              }
             />
           </Suspense>
+          <AttachmentList
+            ids={draft.attachments}
+            disabled={saving || uploading > 0}
+            onRemove={removeAttachment}
+            onError={setFileError}
+          />
         </div>
       </div>
       <footer className="document-footer" aria-label="Entry information">
@@ -493,13 +633,20 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
             </AlertDialogCancel>
             <Button
               variant="outline"
-              disabled={saving}
-              onClick={() => blocker.proceed?.()}
+              disabled={saving || uploading > 0}
+              onClick={() => {
+                void deleteUnusedAttachments(
+                  draft.attachments.filter(
+                    (id) => !record?.attachments.includes(id),
+                  ),
+                );
+                blocker.proceed?.();
+              }}
             >
               Discard
             </Button>
             <Button
-              disabled={saving}
+              disabled={saving || uploading > 0}
               onClick={async () => {
                 if (await save(true)) blocker.proceed?.();
               }}

@@ -13,7 +13,9 @@ railway/railway.json           Railway config-as-code
 
 Compose files are driven through the Makefile from the repo root, which passes
 `--project-directory .` so `.env` and relative volume paths (`./pb/...`) resolve
-against the root as before.
+against the root as before. `make up-full` waits for healthy services, creates the
+MinIO bucket, and configures local SMTP/S3 settings. See [development setup](../docs/DEVELOPMENT.md)
+for `make start-full` and the live `make check-services` verification.
 
 ## Railway
 

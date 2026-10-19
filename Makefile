@@ -10,7 +10,7 @@ COMPOSE_FULL = docker compose --project-directory . -f deploy/local/docker-compo
 
 .DEFAULT_GOAL := help
 
-.PHONY: help start up up-full dev-cert down down-full logs health seed dev dev-solo install codegen lint build clean
+.PHONY: help start start-full check-services up up-full dev-cert down down-full logs health seed dev dev-solo install codegen lint build clean
 
 ##@ General
 
@@ -19,6 +19,10 @@ help: ## show available commands
 		awk 'BEGIN {FS = ":.*?## "} /^##@/ {printf "\n\033[1m%s\033[0m\n", substr($$0, 5); next} {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
 
 start: up seed dev ## backend + seed + frontend
+
+start-full: up-full ## Mailpit + MinIO + configured backend + frontend
+	$(MAKE) seed
+	$(MAKE) dev
 
 ##@ Backend (PocketBase)
 
@@ -42,8 +46,13 @@ codegen: ## regenerate PocketBase record types
 
 ##@ Full stack (Mailpit + MinIO)
 
-up-full: dev-cert ## start PocketBase + Mailpit + MinIO
-	$(COMPOSE_FULL) up --build -d
+up-full: dev-cert ## start and configure PocketBase + Mailpit + MinIO
+	$(COMPOSE_FULL) up --build -d --wait --wait-timeout 90
+	$(COMPOSE_FULL) run --rm minio-init
+	bun run scripts/configure-services.ts
+
+check-services: ## verify email delivery and MinIO uploads against the local stack
+	bun run scripts/test-services.ts
 
 down-full: ## stop the full stack
 	$(COMPOSE_FULL) down

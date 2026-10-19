@@ -11,6 +11,7 @@ export const Collections = {
 	Mfas: "_mfas",
 	Otps: "_otps",
 	Superusers: "_superusers",
+	Attachments: "attachments",
 	Entries: "entries",
 	Users: "users",
 } as const
@@ -94,12 +95,22 @@ export type SuperusersRecord = {
 	verified?: boolean
 }
 
+export type AttachmentsRecord = {
+	created: IsoAutoDateString
+	file: FileNameString
+	id: string
+	name: string
+	updated: IsoAutoDateString
+	user: RecordIdString
+}
+
 export const EntriesKindOptions = {
 	"note": "note",
 	"journal": "journal",
 } as const
 export type EntriesKindOptions = typeof EntriesKindOptions[keyof typeof EntriesKindOptions]
 export type EntriesRecord<Tbody = unknown> = {
+	attachments?: RecordIdString[]
 	body: null | Tbody
 	created: IsoAutoDateString
 	favorite?: boolean
@@ -131,6 +142,7 @@ export type ExternalauthsResponse<Texpand = unknown> = Required<ExternalauthsRec
 export type MfasResponse<Texpand = unknown> = Required<MfasRecord> & BaseSystemFields<Texpand>
 export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemFields<Texpand>
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
+export type AttachmentsResponse<Texpand = unknown> = Required<AttachmentsRecord> & BaseSystemFields<Texpand>
 export type EntriesResponse<Tbody = unknown, Texpand = unknown> = Required<EntriesRecord<Tbody>> & BaseSystemFields<Texpand>
 export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSystemFields<Texpand>
 
@@ -142,6 +154,7 @@ export type CollectionRecords = {
 	_mfas: MfasRecord
 	_otps: OtpsRecord
 	_superusers: SuperusersRecord
+	attachments: AttachmentsRecord
 	entries: EntriesRecord
 	users: UsersRecord
 }
@@ -152,6 +165,7 @@ export type CollectionResponses = {
 	_mfas: MfasResponse
 	_otps: OtpsResponse
 	_superusers: SuperusersResponse
+	attachments: AttachmentsResponse
 	entries: EntriesResponse
 	users: UsersResponse
 }

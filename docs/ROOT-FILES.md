@@ -42,7 +42,7 @@ Biome formatter + linter config (replaces ESLint/Prettier). Defines the rule set
 
 Aliases explicitly route UI components and hooks into the existing `src/` folders; `iconLibrary` selects Tabler. The `registries` map includes `@prosekit` for discovering ProseKit editor components through the shadcn CLI. Registering it does not install an editor or its dependencies.
 
-shadcn/ui CLI config. Tells `shadcn add <component>` where to put components (`@/components`), where the Tailwind CSS entry lives (`src/styles/globals.css`), and the base style. Only needed if you add/update shadcn components; harmless otherwise but the CLI won't work without it.
+shadcn/ui CLI config. Tells `shadcn add <component>` where to put components (`@/components`), where the Tailwind CSS entry lives (`src/styles/globals.css`), and the base style. Only needed when adding/updating shadcn components; harmless otherwise but the CLI won't work without it.
 
 ## Backend & Deployment
 
@@ -58,7 +58,7 @@ Standard local backend: builds the shared Dockerfile, mounts `pb/data`, `pb/hook
 
 ### `deploy/local/docker-compose-full.yml`
 
-Extended dev stack: PocketBase plus Mailpit (SMTP catcher for testing emails, UI on :8025) and MinIO (S3-compatible storage on :9000/:9001). Run with `make up-full` when developing email or file-storage features; otherwise the default compose file suffices.
+Extended dev stack: PocketBase plus Mailpit (SMTP catcher for testing emails, UI on :8025) and MinIO (S3-compatible storage on :9000/:9001). Run with `make up-full` when developing email or file-storage features; the default compose file suffices only while persisted PocketBase settings do not depend on these services.
 
 ### `deploy/railway/railway.json`
 
@@ -72,7 +72,9 @@ Keeps secrets (`.env`, `*.pem`, keys/certs), `node_modules`, `pb/data`, and buil
 
 ### `.env.example`
 
-Template for `.env`. Documents required (`PB_ENCRYPTION_KEY`) and dev-only variables (`VITE_PB_URL`, `PB_EMAIL`/`PB_PASSWORD` for codegen and seeding, `VITE_AUTH_BYPASS`). Committed so newcomers know what to set; the real `.env` is gitignored.
+Template for `.env`, including backend credentials, local URLs, seed users, MinIO settings and test overrides. Comments describe defaults and consumers. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
+
+`VITE_AUTH_BYPASS` is the only app feature flag and only skips the frontend guard in development. Sharing, collaboration, AI and offline sync are not implemented and have no enable switch. SMTP/S3 enablement lives in persisted PocketBase settings; `make up-full` configures local providers. Editor capabilities and attachment limits live in code/schema; see [attachment behavior](ATTACHMENTS.md).
 
 ### `Makefile`
 
@@ -91,3 +93,11 @@ Agent-skill examples under `.agents/skills/` are excluded from Biome because the
 The adopted prebuilt UI imports the ProseKit registry’s Tailwind icon plugin in
 `src/styles/globals.css`; its Lucide icon data and React icons are installed dependencies.
 Application controls retain their existing Tabler icons.
+
+## Full-stack development integration
+
+`deploy/local/docker-compose-full.yml` adds service health checks, loopback-bound
+Mailpit/MinIO ports and a one-shot `minio-init` setup profile. `make up-full` runs
+that initializer and `scripts/configure-services.ts`; `make start-full` also seeds
+and starts Vite. `make check-services` runs `scripts/test-services.ts` against real
+email and storage APIs. `.env.example` documents `MINIO_BUCKET` and `DEV_APP_URL`.

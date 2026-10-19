@@ -41,3 +41,16 @@ See [component sources](design/prebuilt-ui.md).
 
 The browser suite also rejects duplicate sidebar controls and checks that the writing
 area begins within 240px of the desktop viewport top and 260px on mobile.
+
+## Mailpit and MinIO
+
+`make check-services` verifies live SMTP delivery for verification and password-reset
+messages, checks the React action URLs, consumes both tokens, and proves an avatar
+upload exists in MinIO and downloads byte-for-byte through PocketBase. Its temporary
+account and captured messages are removed afterward. The check first failed against
+the previous SMTP-disabled configuration before the integration was added.
+
+## Full editor and attachments
+
+See [attachment checks](ATTACHMENTS.md#verification) for protected MinIO files, richer
+document validation, image reloads, file downloads and slash/table browser coverage.

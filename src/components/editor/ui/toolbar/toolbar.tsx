@@ -157,7 +157,11 @@ export default function Toolbar(props: { uploader?: Uploader<string> }) {
   const items = useEditorDerivedValue(getToolbarItems);
 
   return (
-    <div className="z-2 box-border flex flex-wrap items-center gap-1 border-gray-200 border-t-0 border-r-0 border-b border-l-0 border-solid p-2 dark:border-gray-800">
+    <div
+      role="toolbar"
+      aria-label="Formatting"
+      className="z-2 box-border flex flex-nowrap items-center gap-1 overflow-x-auto border-gray-200 border-t-0 border-r-0 border-b border-l-0 border-solid p-2 sm:flex-wrap dark:border-gray-800"
+    >
       {items.undo && (
         <Button
           pressed={items.undo.isActive}

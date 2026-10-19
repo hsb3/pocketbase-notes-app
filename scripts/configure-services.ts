@@ -1,0 +1,118 @@
+import assert from "node:assert/strict";
+import { readdir } from "node:fs/promises";
+import PocketBase from "pocketbase";
+
+const url = process.env.VITE_PB_URL;
+assert(
+  url && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname),
+  "Configure only a local development backend.",
+);
+const { PB_EMAIL, PB_PASSWORD } = process.env;
+assert(PB_EMAIL && PB_PASSWORD, "Set PB_EMAIL and PB_PASSWORD in .env");
+const pb = new PocketBase(url);
+try {
+  await pb.collection("_superusers").authWithPassword(PB_EMAIL, PB_PASSWORD);
+} catch {
+  // Create on a fresh database, never reset an existing superuser's credentials.
+  const create = Bun.spawnSync(
+    [
+      "docker",
+      "exec",
+      "pocketbase",
+      "/pb/pocketbase",
+      "superuser",
+      "create",
+      PB_EMAIL,
+      PB_PASSWORD,
+      "--encryptionEnv=PB_ENCRYPTION_KEY",
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+  assert.equal(
+    create.exitCode,
+    0,
+    "Cannot authenticate or create the superuser. Check .env credentials.",
+  );
+  await pb.collection("_superusers").authWithPassword(PB_EMAIL, PB_PASSWORD);
+}
+const settings = await pb.settings.getAll();
+assert(
+  !settings.smtp.enabled || settings.smtp.host === "mailpit",
+  "A different SMTP server is configured; refusing to overwrite it.",
+);
+assert(
+  !settings.s3.enabled || settings.s3.endpoint === "http://minio:9000",
+  "A different S3 endpoint is configured; refusing to overwrite it.",
+);
+const bucket = process.env.MINIO_BUCKET || "pocketbase";
+assert(
+  !settings.s3.enabled || settings.s3.bucket === bucket,
+  "A different bucket is configured; migrate uploads before switching buckets.",
+);
+if (!settings.s3.enabled) {
+  const files = await readdir("pb/data/storage", {
+    recursive: true,
+    withFileTypes: true,
+  }).catch((error) => {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  });
+  assert(
+    !files.some((file) => file.isFile()),
+    "Local uploads exist. Migrate them before enabling MinIO.",
+  );
+}
+const appURL = process.env.DEV_APP_URL || "http://127.0.0.1:5173";
+await pb.settings.update({
+  smtp: {
+    enabled: true,
+    host: "mailpit",
+    port: 1025,
+    username: "mailpit",
+    password: "mailpit",
+    authMethod: "PLAIN",
+    tls: false,
+  },
+  s3: {
+    enabled: true,
+    endpoint: "http://minio:9000",
+    bucket,
+    region: "us-east-1",
+    accessKey: process.env.MINIO_ROOT_USER || "pocketbase",
+    secret: process.env.MINIO_ROOT_PASSWORD || "pocketbase",
+    forcePathStyle: true,
+  },
+  meta: {
+    ...settings.meta,
+    appName: "Notebook",
+    appURL,
+    senderName: "Notebook",
+    senderAddress: "notebook@example.test",
+  },
+});
+const users = await pb.collections.getOne("users");
+const templates = {
+  verificationTemplate: {
+    ...users.verificationTemplate,
+    body: users.verificationTemplate.body.replace(
+      "{APP_URL}/_/#/auth/confirm-verification/{TOKEN}",
+      "{APP_URL}/auth/email-verification-confirm?token={TOKEN}",
+    ),
+  },
+  resetPasswordTemplate: {
+    ...users.resetPasswordTemplate,
+    body: users.resetPasswordTemplate.body.replace(
+      "{APP_URL}/_/#/auth/confirm-password-reset/{TOKEN}",
+      "{APP_URL}/auth/password-reset-confirm?token={TOKEN}",
+    ),
+  },
+};
+if (
+  templates.verificationTemplate.body !== users.verificationTemplate.body ||
+  templates.resetPasswordTemplate.body !== users.resetPasswordTemplate.body
+)
+  await pb.collections.update(users.id, templates);
+await pb.settings.testS3("storage");
+console.log(
+  "Configured local Mailpit SMTP, MinIO file storage, and application email links.",
+);
