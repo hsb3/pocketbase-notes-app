@@ -57,7 +57,8 @@ and screenshots stay in ignored test-output directories. No global Playwright
 installation or manually started frontend is required.
 
 Run `bun run lint` and `bun run build` for static checks, or `bun run test:report`
-to open the browser report. See [testing details](docs/VERIFICATION.md).
+to open the browser report. See [testing details](docs/VERIFICATION.md) and
+[CI and protected-branch policy](docs/CI.md).
 
 ## Boundaries
 

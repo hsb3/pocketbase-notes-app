@@ -107,3 +107,9 @@ email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_UR
 Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium execution,
 a managed Vite server and failure artifacts. `.env` supplies the local backend;
 `TEST_APP_URL` can select an existing local frontend. See [testing](VERIFICATION.md).
+
+### `.github/`
+
+`workflows/ci.yml` runs quality and native amd64/arm64 full-stack tests.
+`rulesets/*.json` and `repository.json` record the admin-applied GitHub protection
+and merge settings. See [CI and repository rules](CI.md).

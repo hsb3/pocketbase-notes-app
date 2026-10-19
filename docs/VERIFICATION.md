@@ -73,4 +73,4 @@ console errors from the full scenarios. Each new browser run replaces prior outp
 
 Chromium desktop and mobile viewport coverage is automated. Safari/Firefox,
 physical-phone keyboards, screen readers, OAuth and production deployment are not
-covered. These commands run locally; no remote CI is configured.
+covered. [GitHub Actions](CI.md) runs the same suite on Linux amd64 and arm64.

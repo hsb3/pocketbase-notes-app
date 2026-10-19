@@ -40,3 +40,5 @@ scripts/**.pem
 # Browser test artifacts
 test-results/
 playwright-report/
+
+ci-artifacts/
