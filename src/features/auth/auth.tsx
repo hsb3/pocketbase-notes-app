@@ -16,6 +16,8 @@ import {
   ClientResponseError,
 } from "pocketbase";
 
+const signupEnabled = import.meta.env.VITE_SIGNUP_ENABLED === "true";
+
 const SocialAuth = ({
   providers,
   redirect,
@@ -216,12 +218,14 @@ export const LoginForm = ({ redirect }: { redirect?: string }) => {
             <span>Login</span>
           </Button>
 
-          <div className="text-center text-sm">
-            <span>No Account Yet? </span>
-            <Link to="/auth/register" className="font-bold">
-              Register
-            </Link>
-          </div>
+          {signupEnabled && (
+            <div className="text-center text-sm">
+              <span>No Account Yet? </span>
+              <Link to="/auth/register" className="font-bold">
+                Register
+              </Link>
+            </div>
+          )}
         </>
       )}
 
@@ -302,6 +306,17 @@ export const RegisterForm = () => {
             );
         });
     });
+
+  if (!signupEnabled) {
+    return (
+      <div className="flex flex-col gap-3 p-2 text-center">
+        <p>Account creation is disabled.</p>
+        <Button asChild variant="outline">
+          <Link to="/auth/login">Back to login</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <form

@@ -1,0 +1,82 @@
+# Project overrides for the installed plugin inventory. Revisit when adding plugins.
+
+[plugins."atelier@dotfiles-agents"]
+enabled = false
+
+[plugins."browser@openai-bundled"]
+enabled = true
+
+[plugins."bun@dotfiles-agents"]
+enabled = true
+
+[plugins."carbon@dotfiles-agents"]
+enabled = false
+
+[plugins."chrome@openai-bundled"]
+enabled = true
+
+[plugins."code-desk@dotfiles-agents"]
+enabled = false
+
+[plugins."code-review@openai-bundled"]
+enabled = false
+
+[plugins."codex-app-tools@openai-bundled"]
+enabled = false
+
+[plugins."computer-history@openai-bundled"]
+enabled = false
+
+[plugins."computer-use@openai-bundled"]
+enabled = false
+
+[plugins."diagrams@dotfiles-agents"]
+enabled = false
+
+[plugins."documents@openai-primary-runtime"]
+enabled = false
+
+[plugins."frontend-design@claude-plugins-official"]
+enabled = true
+
+[plugins."kata-custody@kata-extras"]
+enabled = false
+
+[plugins."langchain-skills@langchain-skills"]
+enabled = false
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = false
+
+[plugins."plugin-feedback@dotfiles-agents"]
+enabled = false
+
+[plugins."pocketbase@dotfiles-agents"]
+enabled = true
+
+[plugins."ponytail@ponytail"]
+enabled = false
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = false
+
+[plugins."railway@claude-plugins-official"]
+enabled = true
+
+[plugins."solo-skills@dotfiles-agents"]
+enabled = false
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = false
+
+[plugins."template-creator@openai-primary-runtime"]
+enabled = false
+
+[plugins."typescript-lsp@claude-plugins-official"]
+enabled = true
+
+[plugins."unified-computer-use@openai-bundled"]
+enabled = true
+
+[plugins."visualize@openai-bundled"]
+enabled = false

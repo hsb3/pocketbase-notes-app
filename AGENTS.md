@@ -36,7 +36,7 @@ React 19 + TanStack Router frontend, PocketBase backend, built with Bun and Vite
 
 Shared agent context files live in `.agents/context/`:
 
-- **Task management**: kata is the system of record for tasks and intent —
-  conventions in `.agents/context/kata.md`.
-- **Adding a feature**: the staged procedure (kata issue → backend if PocketBase
+- **Task management**: This project does not use Kata. Keep task scope and
+  verification in the conversation and project handoff; do not invoke Kata hooks.
+- **Adding a feature**: the staged procedure (acceptance criteria → backend if PocketBase
   is touched → frontend → verify) is `.agents/context/feature-workflow.md`.

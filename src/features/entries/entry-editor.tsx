@@ -245,7 +245,6 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
       setDraft(next);
       setRecord(saved);
       setConflict(false);
-      setNotice("Saved");
       if (!record && !continuing) {
         bypass.current = true;
         await router.navigate({
@@ -256,7 +255,8 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
         });
         bypass.current = false;
       }
-      void router.invalidate();
+      await router.invalidate({ sync: true });
+      setNotice("Saved");
       return true;
     } catch (err) {
       const code = err instanceof ClientResponseError ? err.status : 0;

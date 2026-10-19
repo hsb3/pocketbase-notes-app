@@ -72,6 +72,11 @@ test("rich editor and protected attachments", async ({
   assert.equal(record.attachments.length, 2);
   assert.match(JSON.stringify(record.body), /attachment:/);
   assert(!JSON.stringify(record.body).includes("token="));
+  // Saving a new entry remounts its editor. Verify that saved image before reload.
+  await image.waitFor();
+  await page.waitForFunction(
+    () => document.querySelector('img[alt="Attached image"]')?.naturalWidth > 0,
+  );
   await page.reload();
   await image.waitFor();
   await page.waitForFunction(
