@@ -64,9 +64,9 @@ try {
       "--no-deps",
       "--entrypoint",
       "/bin/sh",
-      "minio-init",
+      "storage-init",
       "-ec",
-      'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc stat "local/$MINIO_BUCKET/$1" >/dev/null',
+      'rc alias set local http://rustfs:9000 "$RUSTFS_ACCESS_KEY" "$RUSTFS_SECRET_KEY" >/dev/null; rc object stat "local/$RUSTFS_BUCKET/$1" >/dev/null',
       "probe",
       `${asset.collectionId}/${asset.id}/${asset.file}`,
     ],
@@ -75,7 +75,7 @@ try {
   assert.equal(
     storageProbe.exitCode,
     0,
-    "Attachment object must exist in MinIO",
+    "Attachment object must exist in RustFS",
   );
   const baseURL = alice.files.getURL(asset, asset.file);
   assert.equal((await fetch(baseURL)).status, 404);

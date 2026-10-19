@@ -42,15 +42,25 @@ See [component sources](design/prebuilt-ui.md).
 The browser suite also rejects duplicate sidebar controls and checks that the writing
 area begins within 240px of the desktop viewport top and 260px on mobile.
 
-## Mailpit and MinIO
+## Mailpit and RustFS
 
 `make check-services` verifies live SMTP delivery for verification and password-reset
 messages, checks the React action URLs, consumes both tokens, and proves an avatar
-upload exists in MinIO and downloads byte-for-byte through PocketBase. Its temporary
+upload exists in RustFS and downloads byte-for-byte through PocketBase. Its temporary
 account and captured messages are removed afterward. The check first failed against
 the previous SMTP-disabled configuration before the integration was added.
 
 ## Full editor and attachments
 
-See [attachment checks](ATTACHMENTS.md#verification) for protected MinIO files, richer
+See [attachment checks](ATTACHMENTS.md#verification) for protected RustFS files, richer
 document validation, image reloads, file downloads and slash/table browser coverage.
+
+## RustFS replacement
+
+The local migration copied the existing bucket over S3 with application writes
+stopped, compared source/target object keys and downloaded bytes, and confirmed
+the existing protected attachment remained readable through PocketBase. A separate
+disposable instance passed PocketBase's S3 check and a protected 6 MiB file
+upload/download/delete round trip. The normal service, attachment and browser
+suites also run against RustFS. See [deployment](../deploy/README.md#storage-images-and-migration)
+for migration and rollback boundaries.

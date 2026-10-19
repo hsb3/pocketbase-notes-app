@@ -13,8 +13,8 @@ await admin
 const settings = await admin.settings.getAll();
 assert.equal(settings.smtp.enabled, true, "Mailpit SMTP must be enabled");
 assert.equal(settings.smtp.host, "mailpit");
-assert.equal(settings.s3.enabled, true, "MinIO S3 must be enabled");
-assert.equal(settings.s3.endpoint, "http://minio:9000");
+assert.equal(settings.s3.enabled, true, "RustFS S3 must be enabled");
+assert.equal(settings.s3.endpoint, "http://rustfs:9000");
 await admin.settings.testS3("storage");
 
 const mailpit = "http://127.0.0.1:8025";
@@ -99,9 +99,9 @@ try {
       "--no-deps",
       "--entrypoint",
       "/bin/sh",
-      "minio-init",
+      "storage-init",
       "-ec",
-      'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc stat "local/$MINIO_BUCKET/$1" >/dev/null',
+      'rc alias set local http://rustfs:9000 "$RUSTFS_ACCESS_KEY" "$RUSTFS_SECRET_KEY" >/dev/null; rc object stat "local/$RUSTFS_BUCKET/$1" >/dev/null',
       "probe",
       objectKey,
     ],
@@ -110,10 +110,10 @@ try {
   assert.equal(
     probe.exitCode,
     0,
-    "Uploaded object must exist in MinIO, not just local PocketBase storage",
+    "Uploaded object must exist in RustFS, not just local PocketBase storage",
   );
   console.log(
-    "PASS: verification and password-reset email round trips through Mailpit; avatar upload, MinIO object and download bytes verified",
+    "PASS: verification and password-reset email round trips through Mailpit; avatar upload, RustFS object and download bytes verified",
   );
 } finally {
   await admin.collection("users").delete(user.id);

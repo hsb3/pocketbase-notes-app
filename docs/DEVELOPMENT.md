@@ -19,24 +19,24 @@ run PocketBase alone; `make dev-solo` runs the frontend with
 `VITE_AUTH_BYPASS=true` so you can work on UI without a backend at all
 (dev builds only — dead code in production).
 
-## Full stack: Mailpit (SMTP) + MinIO (S3)
+## Full stack: Mailpit (SMTP) + RustFS (S3)
 
 ```sh
-make start-full       # configured backend + Mailpit + MinIO + seed + Vite
+make start-full       # configured backend + Mailpit + RustFS + seed + Vite
 # Or, when Vite is already running:
 make up-full
 make check-services
 ```
 
 `make up-full` generates the local SMTP certificate if absent, waits for all
-services to be healthy, creates the MinIO bucket idempotently, and configures
+services to be healthy, creates the RustFS bucket idempotently, and configures
 PocketBase through its authenticated settings API. It creates the superuser
 only on a fresh database; it does not reset an existing superuser password.
 Set `PB_EMAIL`, `PB_PASSWORD`, `PB_ENCRYPTION_KEY`, and matching
 `PB_PORT` / `VITE_PB_URL` in `.env` first.
 
 - Mailpit inbox: http://127.0.0.1:8025
-- MinIO console: http://127.0.0.1:9001
+- RustFS console: http://127.0.0.1:9001
 - PocketBase admin: the `VITE_PB_URL` address with `/_/` appended
 
 Mailpit captures messages locally; nothing is relayed to real recipients.
@@ -45,11 +45,11 @@ certificate installed by `scripts/start.sh`. Verification/reset email templates
 point to the React app. `DEV_APP_URL` defaults to `http://127.0.0.1:5173`; change it
 if the frontend runs elsewhere.
 
-MinIO stores PocketBase file fields, including user avatars. The bucket defaults
-to `pocketbase`, configurable with `MINIO_BUCKET`. Console/API credentials use
-`MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`, both defaulting to `pocketbase` for local
-development. The S3 endpoint inside Docker is `http://minio:9000`, region
-`us-east-1`, with path-style addressing. Mailpit and MinIO ports bind to loopback.
+RustFS stores PocketBase file fields, including user avatars. The bucket defaults
+to `pocketbase`, configurable with `RUSTFS_BUCKET`. Console/API credentials use
+`RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY`, both defaulting to `pocketbase` for local
+development. The S3 endpoint inside Docker is `http://rustfs:9000`, region
+`us-east-1`, with path-style addressing. Mailpit and RustFS ports bind to loopback.
 The full editor uses this storage for [private note attachments and images](ATTACHMENTS.md).
 
 The setup script refuses to overwrite another enabled SMTP/S3 provider or change
@@ -65,7 +65,7 @@ the Mailpit certificate. Do not switch to that mode while relying on these servi
 `make check-services` creates a disposable account, requests verification and
 password-reset emails, reads those messages through Mailpit's API, consumes both
 tokens, uploads an avatar through PocketBase, checks that its object exists in
-MinIO, and compares downloaded bytes. It deletes its account, file and test emails.
+RustFS, and compares downloaded bytes. It deletes its account, file and test emails.
 It uses no external email service or new application dependencies.
 
 These settings are development-only and are not embedded in the production image.

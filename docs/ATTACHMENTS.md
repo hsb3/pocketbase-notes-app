@@ -25,8 +25,8 @@ Rules restrict creation, reading, listing and deletion to the authenticated owne
 normal clients cannot replace file records. Entry validation rejects another user's
 attachment or an image reference missing from the entry's attachment list.
 
-With `make up-full`, files are stored in MinIO. The client uploads through PocketBase,
-never directly to MinIO. Private images serialize as `attachment:<record-id>`. The
+With `make up-full`, files are stored in RustFS. The client uploads through PocketBase,
+never directly to RustFS. Private images serialize as `attachment:<record-id>`. The
 image view obtains a short-lived file token and renders a fetched blob URL; neither
 that token nor the blob URL is saved in the document. Downloads use the same protected
 flow. External HTTP(S) image embeds remain external resources rather than attachments.
@@ -48,7 +48,7 @@ files; download unsaved files before discarding a conflicting draft.
 
 ## Verification
 
-- `bun run scripts/test-attachments.ts`: full JSON document round trip; real MinIO
+- `bun run scripts/test-attachments.ts`: full JSON document round trip; real RustFS
   object; protected download; cross-account and anonymous denial; invalid/oversized
   files; unsafe URLs; reference-protected deletion. The cleanup SQL is tested with
   old referenced, old unreferenced and recent fixture rows; the live job retains a

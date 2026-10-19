@@ -41,10 +41,10 @@ assert(
   "A different SMTP server is configured; refusing to overwrite it.",
 );
 assert(
-  !settings.s3.enabled || settings.s3.endpoint === "http://minio:9000",
+  !settings.s3.enabled || settings.s3.endpoint === "http://rustfs:9000",
   "A different S3 endpoint is configured; refusing to overwrite it.",
 );
-const bucket = process.env.MINIO_BUCKET || "pocketbase";
+const bucket = process.env.RUSTFS_BUCKET || "pocketbase";
 assert(
   !settings.s3.enabled || settings.s3.bucket === bucket,
   "A different bucket is configured; migrate uploads before switching buckets.",
@@ -59,7 +59,7 @@ if (!settings.s3.enabled) {
   });
   assert(
     !files.some((file) => file.isFile()),
-    "Local uploads exist. Migrate them before enabling MinIO.",
+    "Local uploads exist. Migrate them before enabling RustFS.",
   );
 }
 const appURL = process.env.DEV_APP_URL || "http://127.0.0.1:5173";
@@ -75,11 +75,11 @@ await pb.settings.update({
   },
   s3: {
     enabled: true,
-    endpoint: "http://minio:9000",
+    endpoint: "http://rustfs:9000",
     bucket,
     region: "us-east-1",
-    accessKey: process.env.MINIO_ROOT_USER || "pocketbase",
-    secret: process.env.MINIO_ROOT_PASSWORD || "pocketbase",
+    accessKey: process.env.RUSTFS_ACCESS_KEY || "pocketbase",
+    secret: process.env.RUSTFS_SECRET_KEY || "pocketbase",
     forcePathStyle: true,
   },
   meta: {
@@ -114,5 +114,5 @@ if (
   await pb.collections.update(users.id, templates);
 await pb.settings.testS3("storage");
 console.log(
-  "Configured local Mailpit SMTP, MinIO file storage, and application email links.",
+  "Configured local Mailpit SMTP, RustFS file storage, and application email links.",
 );

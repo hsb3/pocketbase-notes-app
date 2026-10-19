@@ -15,4 +15,4 @@ cp "$certificate" /usr/local/share/ca-certificates/mailpit.crt
 update-ca-certificates
 
 # Start PocketBase
-/pb/pocketbase --dev serve --http=0.0.0.0:8080 --encryptionEnv=PB_ENCRYPTION_KEY
+exec /pb/pocketbase --dev serve --http=0.0.0.0:8080 --encryptionEnv=PB_ENCRYPTION_KEY

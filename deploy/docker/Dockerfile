@@ -10,7 +10,8 @@ COPY package.json bun.lock bunfig.toml ./
 
 RUN --mount=type=cache,id=bun,target=/root/.bun/install/cache bun install --frozen-lockfile
 
-COPY . .
+COPY index.html tsconfig.json tsconfig.node.json vite.config.ts ./
+COPY src ./src
 
 RUN bun run build
 
@@ -48,7 +49,12 @@ COPY ./pb/migrations /pb/pb_migrations
 
 COPY --from=frontend-build /app/dist /pb/pb_public
 
+WORKDIR /pb
+
 EXPOSE 8080
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1:8080/api/health || exit 1
 
 # start PocketBase
 CMD ["/pb/pocketbase", "serve", "--http=0.0.0.0:8080", "--encryptionEnv=PB_ENCRYPTION_KEY"]

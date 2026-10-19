@@ -50,15 +50,15 @@ Deployment files live under `deploy/`, organized by target — see [`deploy/READ
 
 ### `deploy/docker/Dockerfile`
 
-Two-stage build: (1) Bun image builds the frontend to `dist/`; (2) Alpine image downloads a pinned, SHA256-verified PocketBase binary (per-arch checksums, native amd64/arm64 via `TARGETARCH`) and serves the built frontend from `pb_public` alongside hooks and migrations. Produces the single production image — PocketBase serves both API and static frontend on port 8080. The PocketBase server version (0.40.x) is version-coupled to the `pocketbase` JS SDK (^0.28) in `package.json` — bump them together.
+Two-stage build: (1) Bun image builds the frontend to `dist/`; (2) Alpine image downloads a pinned, SHA256-verified PocketBase binary (per-arch checksums, native amd64/arm64 via `TARGETARCH`) and serves the built frontend from `pb_public` alongside hooks and migrations. Copies only frontend build inputs and produces the single production image. PocketBase serves both API and static frontend on port 8080 with `/pb` as its working directory and an API healthcheck. The PocketBase server version (0.40.x) is version-coupled to the `pocketbase` JS SDK (^0.28) in `package.json` — bump them together.
 
 ### `deploy/local/docker-compose.yml`
 
-Standard local backend: builds the shared Dockerfile, mounts `pb/data`, `pb/hooks`, `pb/migrations` for persistence and live hook/migration editing, and requires `PB_ENCRYPTION_KEY` from `.env` (settings encryption). This is what `make up` runs (from the repo root, via `--project-directory .`).
+Standard local backend: builds the shared Dockerfile, mounts `pb/data`, `pb/hooks`, `pb/migrations` for persistence and live hook/migration editing, binds the published port to loopback, and requires `PB_ENCRYPTION_KEY` from `.env` (settings encryption). This is what `make up` runs (from the repo root, via `--project-directory .`).
 
 ### `deploy/local/docker-compose-full.yml`
 
-Extended dev stack: PocketBase plus Mailpit (SMTP catcher for testing emails, UI on :8025) and MinIO (S3-compatible storage on :9000/:9001). Run with `make up-full` when developing email or file-storage features; the default compose file suffices only while persisted PocketBase settings do not depend on these services.
+Extended dev stack: PocketBase plus Mailpit (SMTP catcher for testing emails, UI on :8025) and RustFS (S3-compatible storage on :9000/:9001). Run with `make up-full` when developing email or file-storage features; the default compose file suffices only while persisted PocketBase settings do not depend on these services.
 
 ### `deploy/railway/railway.json`
 
@@ -72,7 +72,7 @@ Keeps secrets (`.env`, `*.pem`, keys/certs), `node_modules`, `pb/data`, and buil
 
 ### `.env.example`
 
-Template for `.env`, including backend credentials, local URLs, seed users, MinIO settings and test overrides. Comments describe defaults and consumers. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
+Template for `.env`, including backend credentials, local URLs, seed users, RustFS settings and test overrides. Comments describe defaults and consumers. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
 
 `VITE_AUTH_BYPASS` is the only app feature flag and only skips the frontend guard in development. Sharing, collaboration, AI and offline sync are not implemented and have no enable switch. SMTP/S3 enablement lives in persisted PocketBase settings; `make up-full` configures local providers. Editor capabilities and attachment limits live in code/schema; see [attachment behavior](ATTACHMENTS.md).
 
@@ -97,7 +97,7 @@ Application controls retain their existing Tabler icons.
 ## Full-stack development integration
 
 `deploy/local/docker-compose-full.yml` adds service health checks, loopback-bound
-Mailpit/MinIO ports and a one-shot `minio-init` setup profile. `make up-full` runs
+Mailpit/RustFS ports and a one-shot `storage-init` setup profile. `make up-full` runs
 that initializer and `scripts/configure-services.ts`; `make start-full` also seeds
 and starts Vite. `make check-services` runs `scripts/test-services.ts` against real
-email and storage APIs. `.env.example` documents `MINIO_BUCKET` and `DEV_APP_URL`.
+email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_URL`.

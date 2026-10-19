@@ -11,7 +11,7 @@ editor block. See [component sources and adaptations](docs/design/prebuilt-ui.md
 ## What works
 
 - Rich-text notes and journals with lists, tables, links, code, math and image uploads.
-- Private image/PDF/text attachments stored through PocketBase and MinIO, with protected downloads.
+- Private image/PDF/text attachments stored through PocketBase and RustFS, with protected downloads.
 - Title search, favorites, journal date filters and paginated lists. Filters stay in the URL.
 - Explicit Save, unsaved-change prompts and conflict detection when two tabs edit the same entry.
 - Private PocketBase records with server-side document validation and ownership rules.
@@ -38,8 +38,8 @@ The default development login is `user@example.com` / `user-changeme-123`;
 only when that account's notebook is empty.
 
 For email and S3-backed file storage, use `make start-full` instead. It configures
-Mailpit and MinIO automatically; `make check-services` verifies both. See the
-[full-stack setup](docs/DEVELOPMENT.md#full-stack-mailpit-smtp--minio-s3).
+Mailpit and RustFS automatically; `make check-services` verifies both. See the
+[full-stack setup](docs/DEVELOPMENT.md#full-stack-mailpit-smtp--rustfs-s3).
 
 ## Checks
 

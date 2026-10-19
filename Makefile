@@ -20,7 +20,7 @@ help: ## show available commands
 
 start: up seed dev ## backend + seed + frontend
 
-start-full: up-full ## Mailpit + MinIO + configured backend + frontend
+start-full: up-full ## Mailpit + RustFS + configured backend + frontend
 	$(MAKE) seed
 	$(MAKE) dev
 
@@ -44,14 +44,14 @@ seed: ## seed admin + regular user (verified) and check both logins
 codegen: ## regenerate PocketBase record types
 	bun run pb:codegen
 
-##@ Full stack (Mailpit + MinIO)
+##@ Full stack (Mailpit + RustFS)
 
-up-full: dev-cert ## start and configure PocketBase + Mailpit + MinIO
+up-full: dev-cert ## start and configure PocketBase + Mailpit + RustFS
 	$(COMPOSE_FULL) up --build -d --wait --wait-timeout 90
-	$(COMPOSE_FULL) run --rm minio-init
+	$(COMPOSE_FULL) run --rm storage-init
 	bun run scripts/configure-services.ts
 
-check-services: ## verify email delivery and MinIO uploads against the local stack
+check-services: ## verify email delivery and RustFS uploads against the local stack
 	bun run scripts/test-services.ts
 
 down-full: ## stop the full stack

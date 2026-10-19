@@ -1,6 +1,6 @@
 # Project handoff
 
-Updated: 2026-10-19. Branch: `feat/notebook-prebuilt-ui`.
+Updated: 2026-10-19. Integration branch: `main`.
 
 ## Current state
 
@@ -15,17 +15,26 @@ are connected to saved entries. Explicit Save and unsaved-navigation guards rema
 Sharing, collaboration, AI and offline sync are not implemented; no env flags enable
 them. `.env.example` documents every app/service/test environment setting.
 
-Local Mailpit and MinIO integration is implemented and verified. Use
+Local Mailpit and RustFS integration is implemented and verified. Use
 `make start-full` (or `make up-full` plus `make dev`) for the configured local stack.
 The running development session uses Vite on port 5173; backend host port comes
 from the ignored `.env`. No production deployment or remote push was performed.
+
+RustFS replaced MinIO locally on 2026-10-19. The old bucket was copied over S3
+with application writes stopped; object keys and downloaded bytes matched before
+switching PocketBase. The original protected attachment was readable afterward and its bytes survived
+a RustFS restart. Re-running `make up-full` is idempotent.
+PocketBase backup: `pb/data/backups/before-rustfs-20261019.zip`. The stopped `minio`
+container has restart disabled; `react-pocketbase_minio` remains intact for rollback.
+Do not prune that volume. New storage uses `react-pocketbase_rustfs`. Compose may
+report the retained MinIO container as an orphan; it is intentionally preserved.
 
 ## Decisions and safety contracts
 
 - Prefer upstream prebuilt blocks; the full editor comes from
   `@prosekit/react-example-full`. Demo documents and fake people/tag suggestions
   are not loaded. Source notices are in `docs/design/prebuilt-ui.md`.
-- Attachments upload through PocketBase into protected records; MinIO credentials
+- Attachments upload through PocketBase into protected records; RustFS credentials
   never reach the browser. Persist stable `attachment:<id>` image references,
   never signed URLs or blob URLs. See `docs/ATTACHMENTS.md` for the contract.
 - Entry create/update transactions validate attachment ownership and references.
@@ -45,7 +54,7 @@ Passed against the local backend during this session:
 
 - `bun run lint`, `bun run build`, `bunx tsc -p scripts/tsconfig.json`.
 - `make check-services`: verification/reset email delivery and token use through
-  Mailpit, plus real MinIO file storage and retrieval.
+  Mailpit, plus real RustFS file storage and retrieval.
 - `bun run scripts/test-entries.ts`: persistence, validation, account isolation,
   revision conflicts and concurrent updates.
 - `bun run scripts/test-attachments.ts`: rich document round trip, protected
@@ -60,7 +69,8 @@ Passed against the local backend during this session:
 
 ## Known caveats and next session
 
-No pending implementation task or approval. The full editor adds a large lazy
+Deployment review and RustFS replacement are complete for local integration.
+No pending approval; no remote is configured. The full editor adds a large lazy
 bundle; Vite's chunk-size warning remains. Real-time collaboration and public
 sharing would require new product/backend work, not a configuration change.
 
