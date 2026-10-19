@@ -21,3 +21,5 @@ scripts/*.pem
 
 test-results
 playwright-report
+
+ci-artifacts/

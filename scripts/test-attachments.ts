@@ -29,8 +29,12 @@ const png = Buffer.from(
   "base64",
 );
 let denial = 0;
-async function denied(action: Promise<unknown>) {
-  await assert.rejects(action, `Access/validation rejection ${++denial}`);
+async function denied(action: Promise<unknown>, status = 400) {
+  await assert.rejects(
+    action,
+    { status },
+    `Access/validation rejection ${++denial}`,
+  );
 }
 try {
   for (let i = 0; i < 2; i++) {
@@ -95,8 +99,8 @@ try {
     (await bob.collection("attachments").getList(1, 20)).totalItems,
     0,
   );
-  await denied(bob.collection("attachments").getOne(asset.id));
-  await denied(bob.collection("attachments").delete(asset.id));
+  await denied(bob.collection("attachments").getOne(asset.id), 404);
+  await denied(bob.collection("attachments").delete(asset.id), 404);
   await denied(bob.collection("attachments").create(upload));
   const richBody = {
     type: "doc",

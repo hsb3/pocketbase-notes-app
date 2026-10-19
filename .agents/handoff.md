@@ -62,6 +62,10 @@ The smoke test was verified to fail against an isolated app copy that saved the
 wrong title. Failure artifacts were produced and its test user was cleaned up.
 The normal smoke and complete API/browser suites passed.
 
+CI is defined in `.github/workflows/ci.yml`; `docs/CI.md` describes the required
+quality and amd64/arm64 integration checks plus admin-enforced PR/force-push rules.
+GitHub ruleset definitions are tracked in `.github/rulesets/`.
+
 ## Known caveats and next session
 
 RustFS powers local object storage. `make smoke` and `make e2e` run live service
