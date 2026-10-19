@@ -9,6 +9,8 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile
+      args:
+        VITE_SIGNUP_ENABLED: ${VITE_SIGNUP_ENABLED:-false}
     container_name: pocketbase
     restart: unless-stopped
     entrypoint: /development/start.sh
@@ -25,6 +27,7 @@ services:
     ports:
       - "127.0.0.1:${PB_PORT:-8080}:8080"
     environment:
+      - VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED:-false}
       - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:?Set PB_ENCRYPTION_KEY to a securely generated value in .env}
     volumes:
       - ./pb/data:/pb/pb_data

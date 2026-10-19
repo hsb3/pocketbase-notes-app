@@ -1,5 +1,6 @@
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, LogOut } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { pb } from "@/services/pocketbase";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -73,6 +74,16 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <DropdownMenuItem asChild>
+                <a
+                  href={pb.buildURL("/_/")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink />
+                  PocketBase admin
+                </a>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/auth/logout">
                   <LogOut />

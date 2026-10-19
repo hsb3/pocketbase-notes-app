@@ -20,6 +20,10 @@ assert(
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  projects: ["chromium", "webkit"].map((name) => ({
+    name,
+    use: { browserName: name as "chromium" | "webkit" },
+  })),
   testMatch: "**/*.spec.cjs",
   timeout: 120_000,
   expect: { timeout: 10_000 },

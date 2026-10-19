@@ -8,12 +8,13 @@ WORKDIR /app
 
 COPY package.json bun.lock bunfig.toml ./
 
-RUN --mount=type=cache,id=bun,target=/root/.bun/install/cache bun install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
-COPY index.html tsconfig.json tsconfig.node.json vite.config.ts playwright.config.ts ./
+COPY index.html tsconfig.json tsconfig.node.json vite.config.ts playwright.config.ts playwright.performance.config.ts ./
 COPY src ./src
 
-RUN bun run build
+ARG VITE_SIGNUP_ENABLED=false
+RUN VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED} bun run build
 
 
 FROM alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
@@ -50,6 +51,9 @@ COPY ./pb/migrations /pb/pb_migrations
 COPY --from=frontend-build /app/dist /pb/pb_public
 
 WORKDIR /pb
+
+ARG VITE_SIGNUP_ENABLED=false
+ENV VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED}
 
 EXPOSE 8080
 

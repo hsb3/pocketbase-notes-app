@@ -10,11 +10,12 @@
     "lint:fix": "biome check --verbose --write .",
     "preview": "vite preview",
     "pb:codegen": "bun run scripts/codegen.ts",
-    "test:install": "playwright install chromium",
+    "test:install": "playwright install chromium webkit",
     "test:smoke": "bun run scripts/test-services.ts && playwright test --grep @smoke",
     "test:api": "bun run scripts/test-services.ts && bun run scripts/test-entries.ts && bun run scripts/test-attachments.ts",
     "test:e2e": "bun run test:api && playwright test",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report",
+    "test:performance": "playwright test --config playwright.performance.config.ts"
   },
   "trustedDependencies": [
     "@biomejs/biome",

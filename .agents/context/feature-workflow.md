@@ -6,11 +6,10 @@ touch PocketBase run the backend stage as well. The discriminator is not
 rules, hooks in `pb/hooks/`, or server settings). Backend-only changes (rules
 hardening, hooks) use the same procedure minus the frontend stage.
 
-## Stage 0 — Track it (always)
+## Stage 0 — Define the outcome (always)
 
-- Search kata for an existing issue; otherwise create one with independently
-  verifiable acceptance criteria. Full conventions: [kata.md](kata.md).
-- One feature = one kata issue (children for delegated slices).
+- Define independently verifiable acceptance criteria in the conversation or
+  project handoff. This project does not use Kata.
 
 ## Stage 1 — Backend (only if the change touches PocketBase)
 
@@ -57,7 +56,8 @@ instead of N+1 fetches.
 - Exercise the feature against a live stack (`make start`) — a type-checked
   build proves shapes, not behavior. If behavior can't be exercised, say so
   in the close message instead of implying it was.
-- Close the kata issue with evidence (`--test`, `--reviewed`) per kata.md.
+- Report the verification evidence and any remaining gaps in the conversation
+  or project handoff.
 
 ## Constraints that apply to every stage
 

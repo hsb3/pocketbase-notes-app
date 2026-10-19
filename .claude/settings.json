@@ -1,13 +1,43 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "enabledPlugins": {
-    "atelier@dotfiles-agents": true,
-    "solo-skills@dotfiles-agents": true,
-    "diagrams@dotfiles-agents": true,
-    "plugin-feedback@dotfiles-agents": true,
+    "atelier@dotfiles-agents": false,
+    "azure@azure-skills": false,
+    "azure@claude-plugins-official": false,
+    "board-desk@dotfiles-agents": false,
+    "building-with-decision-models@building-with-decision-models": false,
+    "bun@dotfiles-agents": true,
+    "carbon@dotfiles-agents": false,
+    "claude-api@anthropic-agent-skills": false,
+    "claude-code-setup@claude-plugins-official": false,
+    "code-desk@dotfiles-agents": false,
+    "code-simplifier@claude-plugins-official": false,
+    "commit-commands@claude-plugins-official": false,
+    "diagrams@dotfiles-agents": false,
+    "feature-status@plugin-labs-private": false,
+    "frontend-design@claude-plugins-official": false,
+    "groma-backlog-brownfield@groma-extras": false,
+    "groma-backlog-greenfield@groma-extras": false,
+    "i-have-adhd@i-have-adhd": false,
+    "kaneo@dotfiles-agents": false,
+    "kata-custody@kata-extras": false,
+    "langchain-skills@langchain-skills": false,
+    "mcp-server-dev@claude-plugins-official": false,
+    "microsoft-docs@claude-plugins-official": false,
     "obsidian-toolkit@dotfiles-agents": false,
-    "ponytail@ponytail": true,
-    "typescript-lsp@claude-plugins-official": true
+    "owner-signoff@dotfiles-agents": false,
+    "playwright@claude-plugins-official": false,
+    "plugin-dev@claude-plugins-official": false,
+    "plugin-feedback@dotfiles-agents": false,
+    "pocketbase@dotfiles-agents": true,
+    "ponytail@ponytail": false,
+    "railway@claude-plugins-official": false,
+    "session-report@claude-plugins-official": false,
+    "solo-skills@dotfiles-agents": false,
+    "terraform@claude-plugins-official": false,
+    "typescript-lsp@claude-plugins-official": true,
+    "wave-lanes@plugin-labs-private": false,
+    "worktree-root@dotfiles-agents": false
   },
   "extraKnownMarketplaces": {
     "dotfiles-agents": {
@@ -28,29 +58,5 @@
         "repo": "anthropics/claude-plugins-official"
       }
     }
-  },
-  "hooks": {
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "command": "kata attention-hook end --source kata-agent-hook-end",
-            "type": "command"
-          }
-        ],
-        "matcher": "logout|prompt_input_exit|bypass_permissions_disabled|other"
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "command": "kata attention-hook start --source kata-agent-hook-start",
-            "type": "command"
-          }
-        ],
-        "matcher": "startup|resume|clear"
-      }
-    ]
   }
 }

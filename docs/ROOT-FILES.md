@@ -30,7 +30,7 @@ TypeScript config for the app source (`src/`). Strict mode, bundler-style module
 
 ### `tsconfig.node.json`
 
-Separate TS project for Node/Bun-context files — `vite.config.ts` and `playwright.config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`).
+Separate TS project for Node/Bun-context files — `vite.config.ts`, `playwright.config.ts` and `playwright.performance.config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`).
 
 ## Code Quality
 
@@ -113,3 +113,41 @@ a managed Vite server and failure artifacts. `.env` supplies the local backend;
 `workflows/ci.yml` runs quality and native amd64/arm64 full-stack tests.
 `rulesets/*.json` and `repository.json` record the admin-applied GitHub protection
 and merge settings. See [CI and repository rules](CI.md).
+
+### `.claude/settings.json` and `.codex/config.toml`
+
+Project-scoped plugin overrides disable unrelated installed add-ons without changing
+user-wide settings or uninstalling anything. Claude Code retains the already-enabled
+Bun, PocketBase and TypeScript LSP plugins. Codex retains Bun, PocketBase, Railway,
+TypeScript LSP, frontend design and browser tooling. Kata custody is disabled in
+both clients, and the standalone Claude Kata session hooks are removed. The repository's
+shadcn skill remains available. Previously disabled plugins are not enabled.
+
+These are explicit overrides for the installed inventory, not a wildcard deny rule;
+review them when installing another plugin. Claude's `.claude/settings.local.json`
+has higher precedence. Codex requires a trusted project to load `.codex/config.toml`.
+Restart existing sessions after changing plugin settings.
+
+Codex workspace-managed plugins ignore these project overrides. ElevenLabs, Pages,
+Sites and Work Pets therefore remain enabled at workspace scope; Product Design and
+Impeccable also remain available and are relevant to the frontend. Turning workspace
+plugins off requires a separate workspace-wide change. See the
+[Codex plugin scope documentation](https://developers.openai.com/plugins/build/plugins)
+and [Claude settings precedence](https://code.claude.com/docs/en/settings).
+
+### `playwright.performance.config.ts`
+
+Runs the Chromium-only editor baseline against the local Docker production image,
+without starting Vite. Reuses loopback safety checks and credentials from the main
+Playwright config, but writes a separate performance report. `test:performance`
+measures production loading; the main browser matrix covers Chromium and WebKit behavior (Firefox is deferred). See [verification](VERIFICATION.md).
+
+### Deployment env and signup flag
+
+`deploy/railway/.env` is ignored and contains test-deployment credentials; nested
+env files are also excluded from the Docker context. `VITE_SIGNUP_ENABLED` defaults
+to false and must match at frontend build and PocketBase runtime. Docker accepts
+it as a build argument; local Compose passes it as both argument and runtime env.
+The public value controls the registration UI and `pb/hooks/signup.pb.js` enforces
+it on registration requests. Existing users and superuser account creation remain
+available. Deployment setup/check scripts are colocated under `deploy/railway/`.
