@@ -43,9 +43,7 @@ import { entriesRoute, WritingFocus } from "./workspace";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { DatePicker } from "./date-picker";
 import { Skeleton } from "@/components/ui/skeleton";
-const RichText = lazy(() =>
-  import("./rich-text").then((module) => ({ default: module.RichText })),
-);
+
 import {
   bodyText,
   emptyBody,
@@ -55,6 +53,10 @@ import {
   type Entry,
 } from "./data";
 import type { NodeJSON } from "prosekit/core";
+
+const Editor = lazy(
+  () => import("@/components/editor/examples/toolbar/editor"),
+);
 
 type Draft = {
   title: string;
@@ -312,41 +314,25 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
               Not in this filtered list. Change filters to find it again.
             </p>
           )}
-          <div className="document-meta">
-            <div className="flex flex-wrap items-center gap-3">
-              {record ? (
-                <span className="entry-kind">
-                  {draft.kind === "journal" ? "Journal" : "Note"}
-                </span>
-              ) : (
-                <ToggleGroup
-                  type="single"
-                  value={draft.kind}
-                  disabled={saving}
-                  aria-label="Entry type"
-                  onValueChange={(kind) => {
-                    if (kind === "note" || kind === "journal")
-                      setDraft({
-                        ...draft,
-                        kind,
-                        journal_date: kind === "journal" ? localDate() : "",
-                      });
-                  }}
-                >
-                  <ToggleGroupItem value="note">Note</ToggleGroupItem>
-                  <ToggleGroupItem value="journal">Journal</ToggleGroupItem>
-                </ToggleGroup>
-              )}
-              {draft.kind === "journal" && (
-                <DatePicker
-                  value={draft.journal_date}
-                  onChange={(date) =>
-                    setDraft({ ...draft, journal_date: date })
-                  }
-                  disabled={saving}
-                />
-              )}
-            </div>
+          <div className="document-heading">
+            <label className="sr-only" htmlFor="entry-title">
+              Entry title
+            </label>
+            <input
+              id="entry-title"
+              className="entry-title-input"
+              placeholder={
+                draft.kind === "journal"
+                  ? "Give today a title…"
+                  : "Untitled note"
+              }
+              value={draft.title}
+              maxLength={160}
+              disabled={saving}
+              onChange={(event) =>
+                setDraft({ ...draft, title: event.target.value })
+              }
+            />
             <div className="flex gap-1">
               <Button
                 variant="ghost"
@@ -386,22 +372,42 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
               )}
             </div>
           </div>
-          <label className="sr-only" htmlFor="entry-title">
-            Entry title
-          </label>
-          <input
-            id="entry-title"
-            className="entry-title-input"
-            placeholder={
-              draft.kind === "journal" ? "Give today a title…" : "Untitled note"
-            }
-            value={draft.title}
-            maxLength={160}
-            disabled={saving}
-            onChange={(event) =>
-              setDraft({ ...draft, title: event.target.value })
-            }
-          />
+          <div className="document-meta">
+            <div className="flex flex-wrap items-center gap-3">
+              {record ? (
+                <span className="entry-kind">
+                  {draft.kind === "journal" ? "Journal" : "Note"}
+                </span>
+              ) : (
+                <ToggleGroup
+                  type="single"
+                  value={draft.kind}
+                  disabled={saving}
+                  aria-label="Entry type"
+                  onValueChange={(kind) => {
+                    if (kind === "note" || kind === "journal")
+                      setDraft({
+                        ...draft,
+                        kind,
+                        journal_date: kind === "journal" ? localDate() : "",
+                      });
+                  }}
+                >
+                  <ToggleGroupItem value="note">Note</ToggleGroupItem>
+                  <ToggleGroupItem value="journal">Journal</ToggleGroupItem>
+                </ToggleGroup>
+              )}
+              {draft.kind === "journal" && (
+                <DatePicker
+                  value={draft.journal_date}
+                  onChange={(date) =>
+                    setDraft({ ...draft, journal_date: date })
+                  }
+                  disabled={saving}
+                />
+              )}
+            </div>
+          </div>
           {error && (
             <div className="entry-error" role="alert">
               <p>{error}</p>
@@ -452,19 +458,22 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
               <Skeleton className="h-80 w-full" aria-label="Loading editor" />
             }
           >
-            <RichText
+            <Editor
               key={editorKey}
               initialBody={draft.body}
               disabled={saving}
               onChange={(body) => setDraft((current) => ({ ...current, body }))}
             />
           </Suspense>
-          <div className="document-footer">
-            {bodyText(draft.body).trim().split(/\s+/).filter(Boolean).length}{" "}
-            words<span>Private · Only you</span>
-          </div>
         </div>
       </div>
+      <footer className="document-footer" aria-label="Entry information">
+        <span>
+          {bodyText(draft.body).trim().split(/\s+/).filter(Boolean).length}{" "}
+          words
+        </span>
+        <span>Private · Only you</span>
+      </footer>
       <AlertDialog
         open={blocker.status === "blocked"}
         onOpenChange={(open) => {

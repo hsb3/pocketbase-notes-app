@@ -1,8 +1,8 @@
 # Notes and journal — design draft
 
-Status: implemented with ProseKit following the build request. See [verification](../VERIFICATION.md).
+Status: implemented with the adopted prebuilt shadcn workspace and ProseKit toolbar editor. See [verification](../VERIFICATION.md).
 
-[Open the wireframes](notes-journal-wireframes.html). Static diagrams describe one coherent flow, not working screens. This design supersedes the [project tracker proposal](project-tracker.md).
+[Early wireframes](notes-journal-wireframes.html) are historical layout sketches. The adopted implementation is documented in [component sources](prebuilt-ui.md). This design supersedes the [project tracker proposal](project-tracker.md).
 
 ## Product and scope
 

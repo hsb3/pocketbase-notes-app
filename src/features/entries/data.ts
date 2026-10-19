@@ -4,7 +4,12 @@ import type { NodeJSON } from "prosekit/core";
 
 export type Entry = EntriesResponse<NodeJSON>;
 export type View = "all" | "note" | "journal" | "favorites";
-export type EntrySearch = { view: View; q: string; date: string; page: number };
+export type EntrySearch = {
+  view: View;
+  q: string;
+  date: string;
+  page: number;
+};
 export const emptyBody: NodeJSON = {
   type: "doc",
   content: [{ type: "paragraph" }],

@@ -5,6 +5,9 @@ shadcn/ui and ProseKit. Write a thought, save it, and return to it later.
 
 ![Notebook on desktop](docs/images/notebook-desktop.png)
 
+The interface at `/entries` uses shadcn’s `sidebar-09` and ProseKit’s toolbar
+editor block. See [component sources and adaptations](docs/design/prebuilt-ui.md).
+
 ## What works
 
 - Rich-text notes and dated journal entries, with headings, bold, italic and quotes.

@@ -29,5 +29,15 @@ for that negative check.
 
 Automated browser coverage does not substitute for a screen-reader audit or a physical-phone
 keyboard test. OAuth and email delivery were not exercised. Kata could not register the work
-because the current server did not recognize this repository alias. No deployment or commit
-was performed as part of the build.
+because the current server did not recognize this repository alias. The original app is checkpointed in commit `7c91b47`; the prebuilt UI experiment is on
+`feat/notebook-prebuilt-ui`. No deployment was performed.
+
+## Adopted UI
+
+The browser suite runs against the prebuilt interface at the default `/entries`
+route. It verifies toolbar undo/redo and the complete note/journal flow. The former
+layout and editor have been removed; the earlier checkpoint remains in Git history.
+See [component sources](design/prebuilt-ui.md).
+
+The browser suite also rejects duplicate sidebar controls and checks that the writing
+area begins within 240px of the desktop viewport top and 260px on mobile.

@@ -87,3 +87,7 @@ Excludes build output, `node_modules`, secrets (`.env`, `*.pem`), PocketBase dat
 Product purpose, boundaries and links to the notes/journal design.
 
 Agent-skill examples under `.agents/skills/` are excluded from Biome because they are vendored references, not application source. CLI scripts may report status through the console; application console warnings remain enabled.
+
+The adopted prebuilt UI imports the ProseKit registry’s Tailwind icon plugin in
+`src/styles/globals.css`; its Lucide icon data and React icons are installed dependencies.
+Application controls retain their existing Tabler icons.

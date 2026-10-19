@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
 const { mkdirSync } = require("node:fs");
 const url = process.env.VITE_PB_URL;
+const screenshotPrefix = "notebook";
 const appUrl = process.env.TEST_APP_URL || "http://127.0.0.1:5173";
 async function api(path, token, method = "GET", body) {
   const response = await fetch(`${url}/api/${path}`, {
@@ -34,7 +35,14 @@ async function api(path, token, method = "GET", body) {
     viewport: { width: 1440, height: 1000 },
   });
   const page = await context.newPage();
+  const nav = (name) => page.getByRole("button", { name, exact: true });
+  const row = (title) =>
+    page.locator('a[href*="/entries/"]').filter({ hasText: title });
   const errors = [];
+  page.on("console", (message) => {
+    if (process.env.DEBUG_BROWSER && message.type() === "error")
+      process.stderr.write(message.text() + "\n");
+  });
   page.on("pageerror", (error) => errors.push(error.message));
   try {
     await page.goto(appUrl);
@@ -44,6 +52,12 @@ async function api(path, token, method = "GET", body) {
     await page.waitForURL("**/entries**");
     await page.getByRole("link", { name: "New note", exact: true }).click();
     await page.getByLabel("Entry title").fill("A slower start");
+    assert.equal(
+      await page.getByRole("button", { name: "Toggle Sidebar" }).count(),
+      1,
+      "Only one sidebar control belongs in the entry header",
+    );
+
     await page.getByRole("button", { name: "Enter full screen" }).click();
     assert.equal(
       await page
@@ -80,6 +94,12 @@ async function api(path, token, method = "GET", body) {
     await editor.press("ControlOrMeta+b");
     await editor.press("ControlOrMeta+a");
     await page.getByRole("button", { name: "Bold", exact: true }).click();
+    {
+      await page.getByRole("button", { name: "Undo", exact: true }).click();
+      assert.equal(await editor.locator("strong").count(), 0);
+      await page.getByRole("button", { name: "Redo", exact: true }).click();
+      assert.equal(await editor.locator("strong").count(), 1);
+    }
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.waitForURL(/\/entries\/[a-z0-9]{15}/);
     const firstUrl = page.url();
@@ -91,7 +111,7 @@ async function api(path, token, method = "GET", body) {
     );
     assert.match(await editor.innerText(), /walk before opening/);
     await page.screenshot({
-      path: "docs/images/notebook-focus.png",
+      path: `docs/images/${screenshotPrefix}-focus.png`,
       fullPage: true,
     });
     await page.getByRole("button", { name: "Exit full screen" }).click();
@@ -107,14 +127,14 @@ async function api(path, token, method = "GET", body) {
       .filter({ hasText: /^Saved$/ })
       .waitFor();
     await page.getByLabel("Entry title").fill("Unsaved title");
-    await page.getByRole("link", { name: "Journal", exact: true }).click();
+    await nav("Journal").click();
     await page.getByRole("alertdialog").waitFor();
     await page.getByRole("button", { name: "Keep editing" }).click();
     assert.equal(
       await page.getByLabel("Entry title").inputValue(),
       "Unsaved title",
     );
-    await page.getByRole("link", { name: "Journal", exact: true }).click();
+    await nav("Journal").click();
     await page.getByRole("button", { name: "Discard", exact: true }).click();
     await page
       .getByRole("link", { name: "New journal entry", exact: true })
@@ -133,26 +153,17 @@ async function api(path, token, method = "GET", body) {
     );
     const journalUrl = page.url();
     await page.getByLabel("Entry title").fill("A saved revision");
-    await page.getByRole("link", { name: "All entries", exact: true }).click();
+    await nav("All entries").click();
     await page
       .getByRole("button", { name: "Save and continue", exact: true })
       .click();
-    await page
-      .getByRole("heading", { name: "A saved revision", exact: true })
-      .waitFor();
+    await row("A saved revision").waitFor();
     await page.getByLabel("Search titles").fill("slower");
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await page.waitForURL(/q=slower/);
     await page.reload();
-    await page
-      .getByRole("heading", { name: "A slower start", exact: true })
-      .waitFor();
-    assert.equal(
-      await page
-        .getByRole("heading", { name: "A saved revision", exact: true })
-        .count(),
-      0,
-    );
+    await row("A slower start").waitFor();
+    assert.equal(await row("A saved revision").count(), 0);
     await page.goto(journalUrl);
     await page.getByLabel("Entry title").fill("Things worth keeping");
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -165,25 +176,45 @@ async function api(path, token, method = "GET", body) {
       .last()
       .click();
     await page.getByRole("button", { name: "Today", exact: true }).click();
-    await page.getByRole("link", { name: "Journal", exact: true }).click();
+    await nav("Journal").click();
     await page.getByRole("button", { name: "Choose journal date" }).click();
     await page.getByRole("button", { name: "Today", exact: true }).click();
     await page.waitForURL(/date=/);
     await page.reload();
-    await page
-      .getByRole("heading", { name: "Things worth keeping", exact: true })
-      .waitFor();
+    await row("Things worth keeping").waitFor();
 
-    await page.getByRole("link", { name: "Favorites", exact: true }).click();
-    await page
-      .getByRole("heading", { name: "A slower start", exact: true })
-      .waitFor();
+    const journalFilter = page.getByRole("button", {
+      name: "Choose journal date",
+    });
+    const selectedDateLabel = await journalFilter.innerText();
+    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+    assert.equal(
+      await journalFilter.isVisible(),
+      false,
+      "Collapsed sidebar must hide the journal calendar trigger",
+    );
+    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+    assert.equal(
+      await journalFilter.innerText(),
+      selectedDateLabel,
+      "Reopening preserves the journal filter",
+    );
+    await journalFilter.click();
+    await page.getByRole("button", { name: "Today", exact: true }).waitFor();
+    await page.keyboard.press("ControlOrMeta+b");
     assert.equal(
       await page
-        .getByRole("heading", { name: "Things worth keeping", exact: true })
-        .count(),
-      0,
+        .getByRole("button", { name: "Today", exact: true })
+        .isVisible(),
+      false,
+      "Collapsing must dismiss the calendar portal too",
     );
+    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+    await row("Things worth keeping").waitFor();
+
+    await nav("Favorites").click();
+    await row("A slower start").waitFor();
+    assert.equal(await row("Things worth keeping").count(), 0);
     await page.goto(firstUrl);
     await editor.waitFor();
     const other = await context.newPage();
@@ -252,9 +283,23 @@ async function api(path, token, method = "GET", body) {
       .getByRole("status")
       .filter({ hasText: /^Saved$/ })
       .waitFor();
+    assert.equal(
+      await page.getByRole("button", { name: "Toggle Sidebar" }).count(),
+      1,
+    );
+    assert.ok(
+      (await editor.boundingBox()).y < 240,
+      "Writing area must start within 240px of the viewport top",
+    );
+    const footer = page.locator(".document-footer");
+    const desktopFooter = await footer.boundingBox();
+    assert.ok(
+      Math.abs(desktopFooter.y + desktopFooter.height - 1000) <= 1,
+      "Entry information stays on the bottom rail",
+    );
     mkdirSync("docs/images", { recursive: true });
     await page.screenshot({
-      path: "docs/images/notebook-desktop.png",
+      path: `docs/images/${screenshotPrefix}-desktop.png`,
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
@@ -265,16 +310,23 @@ async function api(path, token, method = "GET", body) {
       true,
       "Mobile must not overflow horizontally",
     );
+    assert.ok(
+      (await editor.boundingBox()).y < 260,
+      "Mobile writing area must start within 260px of the viewport top",
+    );
+    const mobileFooter = await footer.boundingBox();
+    assert.ok(
+      Math.abs(mobileFooter.y + mobileFooter.height - 844) <= 1,
+      "Mobile information stays on the bottom rail",
+    );
     await page.screenshot({
-      path: "docs/images/notebook-mobile.png",
+      path: `docs/images/${screenshotPrefix}-mobile.png`,
       fullPage: true,
     });
     await page.getByRole("link", { name: "Entries", exact: true }).click();
-    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
-    await page.getByRole("link", { name: "Journal", exact: true }).click();
-    await page
-      .getByRole("heading", { name: "Things worth keeping", exact: true })
-      .waitFor();
+    await page.getByRole("button", { name: "Toggle Sidebar" }).first().click();
+    await nav("Journal").click();
+    await row("Things worth keeping").waitFor();
     await page.goto(journalUrl);
     await page.getByRole("button", { name: "Entry actions" }).click();
     await page.getByRole("menuitem", { name: "Delete entry" }).click();
