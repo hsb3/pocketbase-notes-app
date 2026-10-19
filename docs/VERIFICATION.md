@@ -1,0 +1,33 @@
+# Notebook verification
+
+## Reproducible checks
+
+- `bun run lint`: repository formatting and lint checks. Vendored agent-skill examples are excluded; application code remains checked.
+- `bun run build`: both TypeScript configurations and the production frontend build.
+- `bun run scripts/test-entries.ts`: live API checks for rich-text persistence, account isolation, owner/type spoofing, invalid documents/dates, conflicting concurrent saves, date/favorite filtering and deletion. Temporary accounts are cleaned up through the superuser API.
+- `node --env-file=.env scripts/test-browser.cjs`: Playwright checks against the running Vite app. Requires Playwright/Chromium; a global installation can be resolved using `NODE_PATH`.
+
+The browser check covers actual password login, bold text round trip, journal creation,
+favorites, title search and date-filter persistence, unsaved-change decisions, concurrent
+editing, failed saves retaining drafts, mobile navigation, confirmed deletion, sidebar collapse/expand and full-screen writing for both new and saved entries. The bold shortcut is verified not to toggle navigation.
+The session-recovery check revokes an active token and verifies that reauthentication
+preserves the draft. Screenshots
+are captured at desktop and mobile sizes; test data is synthetic.
+
+## Implementation evidence
+
+The entries collection was created through the authenticated collection API with explicit
+approval to use it instead of the admin UI. PocketBase generated the checked-in migration;
+record types were regenerated through `make codegen`.
+
+A disposable PocketBase container with document/date validation removed caused the API
+suite to fail with “Missing expected rejection.” The working backend passed the same suite.
+The disposable container was removed afterward; the application database was not mutated
+for that negative check.
+
+## Limits
+
+Automated browser coverage does not substitute for a screen-reader audit or a physical-phone
+keyboard test. OAuth and email delivery were not exercised. Kata could not register the work
+because the current server did not recognize this repository alias. No deployment or commit
+was performed as part of the build.

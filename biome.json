@@ -1,6 +1,12 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.9/schema.json",
-  "assist": { "actions": { "source": { "organizeImports": "off" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "off"
+      }
+    }
+  },
   "files": {
     "ignoreUnknown": true,
     "includes": [
@@ -11,7 +17,8 @@
       "!**/pb/**",
       "!src/route-tree.gen.ts",
       "!src/services/pocketbase-types.ts",
-      "!src/styles/globals.css"
+      "!src/styles/globals.css",
+      "!**/.agents/skills/**"
     ]
   },
   "formatter": {
@@ -106,6 +113,10 @@
     }
   },
   "overrides": [
+    {
+      "includes": ["scripts/**"],
+      "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+    },
     {
       "includes": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
       "linter": {

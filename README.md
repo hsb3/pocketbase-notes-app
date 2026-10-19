@@ -1,83 +1,67 @@
-# React + PocketBase
+# Notebook
 
-A React SPA starter wired to PocketBase, with the auth screens, session-aware
-routing, and Docker/Railway deploy already built — so a new project starts
-from a working app instead of a blank one.
+A private notes and journaling app built with React, TanStack Router, PocketBase,
+shadcn/ui and ProseKit. Write a thought, save it, and return to it later.
 
-## Why this exists
+![Notebook on desktop](docs/images/notebook-desktop.png)
 
-Every React + PocketBase project re-derives the same boilerplate: login and
-register forms, password reset and email verification flows, a route guard
-that redirects unauthenticated users, typed access to PocketBase collections,
-and a Docker image that ships both the frontend and the backend. This project
-does that once so you don't.
+## What works
 
-## What you get today
+- Rich-text notes and dated journal entries, with headings, bold, italic and quotes.
+- Title search, favorites, journal date filters and paginated lists. Filters stay in the URL.
+- Explicit Save, unsaved-change prompts and conflict detection when two tabs edit the same entry.
+- Private PocketBase records with server-side document validation and ownership rules.
+- Collapsible navigation and full-screen writing for new and saved entries.
+- Mobile list/editor navigation, keyboard formatting and Ctrl/Cmd+S.
+- Existing login, registration, verification and password-reset screens.
 
-- **Custom auth pages** on top of PocketBase's API (not its default admin-style
-  UI): login (password + GitHub OAuth2), register, password reset
-  request/confirm, email verification request/confirm. Proof below.
+[Mobile screenshot](docs/images/notebook-mobile.png) ·
+[Design and scope](docs/design/notes-journal.md) ·
+[Verification](docs/VERIFICATION.md)
 
-- **Session-aware routing** via TanStack Router — the root route resolves
-  `isAuthenticated` from PocketBase's local auth store before first render;
-  an `_authenticated` layout route redirects anyone unauthenticated to
-  `/auth/login`.
-
-- **Typed PocketBase client** — `make codegen` runs `pocketbase-typegen`
-  against your running instance, so collection records are typed without
-  hand-maintained interfaces.
-
-- **One Docker image** serving both the built frontend and PocketBase, with a
-  pinned, checksum-verified PocketBase binary per architecture (native
-  arm64/amd64 builds), plus a Railway config-as-code file.
-
-- **A local dev stack** with optional Mailpit (SMTP capture) and MinIO (S3)
-  so email and file-upload flows are testable without real credentials.
-
-**What it is not (yet)**
-
-- No real application past auth — `/dashboard` is a literal placeholder
-  (`<div>Dashboard</div>`), not a built screen.
-- No automated tests. Verified so far by hand: login, register, logout, and
-  routing guards against a live seeded PocketBase instance (see proof below).
-- The GitHub OAuth2 button is wired to PocketBase's OAuth2 flow but needs a
-  GitHub OAuth app and a matching PocketBase provider config to complete a
-  real login.
-- One `users` collection, no role/permission model beyond PocketBase's
-  defaults.
-
-## Proof
-
-Captured from the actual running app — Vite dev server in front of a real,
-freshly seeded PocketBase 0.40 instance, zero browser console errors.
-
-| Logged out                                           | Login                           |
-| ---------------------------------------------------- | ------------------------------- |
-| ![Home, logged out](docs/images/home-logged-out.png) | ![Login](docs/images/login.png) |
-
-| Register                              | Password reset request                            |
-| ------------------------------------- | ------------------------------------------------- |
-| ![Register](docs/images/register.png) | ![Password reset](docs/images/password-reset.png) |
-
-Logging in as the seeded test user (`user@example.com`) against the live
-PocketBase backend actually flips the app's auth state — this isn't mocked:
-
-![Home, logged in](docs/images/home-logged-in.png)
-
-## Roadmap
-
-- Build a real screen behind `/dashboard`.
-- Add automated coverage (unit + Playwright e2e) for the auth flows.
-- Document a working GitHub OAuth2 app setup end to end.
-
-## Getting started
+## Run locally
 
 ```sh
 cp .env.example .env
-openssl rand -base64 24   # paste into PB_ENCRYPTION_KEY in .env
-make start                # PocketBase + seed data + vite dev server
+openssl rand -base64 24  # set PB_ENCRYPTION_KEY in .env
+make start
 ```
 
-See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for the full local dev setup
-(Mailpit/MinIO, all Makefile targets) and [`deploy/README.md`](deploy/README.md)
-for Docker/Railway deployment.
+Set the superuser credentials and matching `PB_PORT` / `VITE_PB_URL` in `.env`.
+`make start` starts PocketBase, seeds the development account, and runs Vite.
+The default development login is `user@example.com` / `user-changeme-123`;
+`SEED_USER_EMAIL` and `SEED_USER_PASSWORD` override it. Sample entries are added
+only when that account's notebook is empty.
+
+## Checks
+
+```sh
+bun run lint
+bun run build
+bun run scripts/test-entries.ts
+```
+
+The API test requires the running backend and superuser credentials in `.env`.
+It creates temporary accounts, tests access boundaries and concurrent saves,
+and deletes those accounts afterward. Use a development instance.
+
+Browser checks require an available Playwright installation and Chromium:
+
+```sh
+node --env-file=.env scripts/test-browser.cjs
+```
+
+For a global Playwright installation, set `NODE_PATH` to its module directory.
+`TEST_APP_URL` defaults to the local Vite server. Browser checks create their own
+account, exercise real UI/API behavior, capture screenshots and clean up the account.
+
+## Boundaries
+
+Entries are private through application access rules, not end-to-end encryption.
+Drafts are in memory until Save; browser crashes can lose unsaved work. Conflict
+recovery offers a plain-text copy and a confirmed reload, not automatic merging.
+There is no sharing, AI, attachment upload or offline synchronization.
+OAuth providers and outbound email still require PocketBase configuration.
+
+See [development setup](docs/DEVELOPMENT.md), [deployment](deploy/README.md),
+and [root configuration](docs/ROOT-FILES.md).

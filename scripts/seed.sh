@@ -41,11 +41,14 @@ fi
 curl -sf "$PB_URL/api/collections/_superusers/auth-with-password" \
 	-H 'Content-Type: application/json' \
 	-d "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" >/dev/null \
-	&& echo "admin login OK:  $ADMIN_EMAIL / $ADMIN_PASSWORD" \
+	&& echo "admin login OK" \
 	|| { echo "ERROR: admin login failed" >&2; exit 1; }
 
 curl -sf "$PB_URL/api/collections/users/auth-with-password" \
 	-H 'Content-Type: application/json' \
 	-d "{\"identity\":\"$USER_EMAIL\",\"password\":\"$USER_PASSWORD\"}" >/dev/null \
-	&& echo "user login OK:   $USER_EMAIL / $USER_PASSWORD" \
+	&& echo "user login OK" \
 	|| { echo "ERROR: user login failed" >&2; exit 1; }
+
+# Add sample entries only to an empty notebook.
+bun run scripts/seed-entries.ts

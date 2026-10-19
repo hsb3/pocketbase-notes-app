@@ -12,6 +12,13 @@
   },
   "aliases": {
     "components": "@/components",
-    "utils": "@/utils/classnames"
-  }
+    "utils": "@/utils/classnames",
+    "ui": "@/components/ui",
+    "hooks": "@/hooks",
+    "lib": "@/utils"
+  },
+  "registries": {
+    "@prosekit": "https://prosekit.dev/r/{name}.json"
+  },
+  "iconLibrary": "tabler"
 }

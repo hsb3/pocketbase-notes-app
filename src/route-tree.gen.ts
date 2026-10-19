@@ -12,12 +12,17 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedEntriesRouteImport } from './routes/_authenticated/entries'
 import { Route as AuthEmailVerificationRouteImport } from './routes/auth/email-verification'
 import { Route as AuthEmailVerificationConfirmRouteImport } from './routes/auth/email-verification-confirm'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
+import { Route as AuthLogoutRouteImport } from './routes/auth/logout'
 import { Route as AuthPasswordResetRouteImport } from './routes/auth/password-reset'
 import { Route as AuthPasswordResetConfirmRouteImport } from './routes/auth/password-reset-confirm'
 import { Route as AuthRegisterRouteImport } from './routes/auth/register'
+import { Route as AuthenticatedEntriesIndexRouteImport } from './routes/_authenticated/entries.index'
+import { Route as AuthenticatedEntriesEntryIdRouteImport } from './routes/_authenticated/entries.$entryId'
+import { Route as AuthenticatedEntriesNewRouteImport } from './routes/_authenticated/entries.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -31,6 +36,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedEntriesRoute = AuthenticatedEntriesRouteImport.update({
+  id: '/entries',
+  path: '/entries',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthEmailVerificationRoute = AuthEmailVerificationRouteImport.update({
@@ -49,6 +59,11 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/auth/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthLogoutRoute = AuthLogoutRouteImport.update({
+  id: '/auth/logout',
+  path: '/auth/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthPasswordResetRoute = AuthPasswordResetRouteImport.update({
   id: '/auth/password-reset',
   path: '/auth/password-reset',
@@ -65,16 +80,38 @@ const AuthRegisterRoute = AuthRegisterRouteImport.update({
   path: '/auth/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedEntriesIndexRoute =
+  AuthenticatedEntriesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedEntriesRoute,
+  } as any)
+const AuthenticatedEntriesEntryIdRoute =
+  AuthenticatedEntriesEntryIdRouteImport.update({
+    id: '/$entryId',
+    path: '/$entryId',
+    getParentRoute: () => AuthenticatedEntriesRoute,
+  } as any)
+const AuthenticatedEntriesNewRoute = AuthenticatedEntriesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AuthenticatedEntriesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/entries': typeof AuthenticatedEntriesRouteWithChildren
   '/auth/email-verification': typeof AuthEmailVerificationRoute
   '/auth/email-verification-confirm': typeof AuthEmailVerificationConfirmRoute
   '/auth/login': typeof AuthLoginRoute
+  '/auth/logout': typeof AuthLogoutRoute
   '/auth/password-reset': typeof AuthPasswordResetRoute
   '/auth/password-reset-confirm': typeof AuthPasswordResetConfirmRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/entries/$entryId': typeof AuthenticatedEntriesEntryIdRoute
+  '/entries/new': typeof AuthenticatedEntriesNewRoute
+  '/entries/': typeof AuthenticatedEntriesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,33 +119,47 @@ export interface FileRoutesByTo {
   '/auth/email-verification': typeof AuthEmailVerificationRoute
   '/auth/email-verification-confirm': typeof AuthEmailVerificationConfirmRoute
   '/auth/login': typeof AuthLoginRoute
+  '/auth/logout': typeof AuthLogoutRoute
   '/auth/password-reset': typeof AuthPasswordResetRoute
   '/auth/password-reset-confirm': typeof AuthPasswordResetConfirmRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/entries/$entryId': typeof AuthenticatedEntriesEntryIdRoute
+  '/entries/new': typeof AuthenticatedEntriesNewRoute
+  '/entries': typeof AuthenticatedEntriesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/entries': typeof AuthenticatedEntriesRouteWithChildren
   '/auth/email-verification': typeof AuthEmailVerificationRoute
   '/auth/email-verification-confirm': typeof AuthEmailVerificationConfirmRoute
   '/auth/login': typeof AuthLoginRoute
+  '/auth/logout': typeof AuthLogoutRoute
   '/auth/password-reset': typeof AuthPasswordResetRoute
   '/auth/password-reset-confirm': typeof AuthPasswordResetConfirmRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/_authenticated/entries/$entryId': typeof AuthenticatedEntriesEntryIdRoute
+  '/_authenticated/entries/new': typeof AuthenticatedEntriesNewRoute
+  '/_authenticated/entries/': typeof AuthenticatedEntriesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/entries'
     | '/auth/email-verification'
     | '/auth/email-verification-confirm'
     | '/auth/login'
+    | '/auth/logout'
     | '/auth/password-reset'
     | '/auth/password-reset-confirm'
     | '/auth/register'
+    | '/entries/$entryId'
+    | '/entries/new'
+    | '/entries/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -116,20 +167,29 @@ export interface FileRouteTypes {
     | '/auth/email-verification'
     | '/auth/email-verification-confirm'
     | '/auth/login'
+    | '/auth/logout'
     | '/auth/password-reset'
     | '/auth/password-reset-confirm'
     | '/auth/register'
+    | '/entries/$entryId'
+    | '/entries/new'
+    | '/entries'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/_authenticated/dashboard'
+    | '/_authenticated/entries'
     | '/auth/email-verification'
     | '/auth/email-verification-confirm'
     | '/auth/login'
+    | '/auth/logout'
     | '/auth/password-reset'
     | '/auth/password-reset-confirm'
     | '/auth/register'
+    | '/_authenticated/entries/$entryId'
+    | '/_authenticated/entries/new'
+    | '/_authenticated/entries/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -138,6 +198,7 @@ export interface RootRouteChildren {
   AuthEmailVerificationRoute: typeof AuthEmailVerificationRoute
   AuthEmailVerificationConfirmRoute: typeof AuthEmailVerificationConfirmRoute
   AuthLoginRoute: typeof AuthLoginRoute
+  AuthLogoutRoute: typeof AuthLogoutRoute
   AuthPasswordResetRoute: typeof AuthPasswordResetRoute
   AuthPasswordResetConfirmRoute: typeof AuthPasswordResetConfirmRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
@@ -166,6 +227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/entries': {
+      id: '/_authenticated/entries'
+      path: '/entries'
+      fullPath: '/entries'
+      preLoaderRoute: typeof AuthenticatedEntriesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/auth/email-verification': {
       id: '/auth/email-verification'
       path: '/auth/email-verification'
@@ -185,6 +253,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/login'
       fullPath: '/auth/login'
       preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/logout': {
+      id: '/auth/logout'
+      path: '/auth/logout'
+      fullPath: '/auth/logout'
+      preLoaderRoute: typeof AuthLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/password-reset': {
@@ -208,15 +283,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/entries/': {
+      id: '/_authenticated/entries/'
+      path: '/'
+      fullPath: '/entries/'
+      preLoaderRoute: typeof AuthenticatedEntriesIndexRouteImport
+      parentRoute: typeof AuthenticatedEntriesRoute
+    }
+    '/_authenticated/entries/$entryId': {
+      id: '/_authenticated/entries/$entryId'
+      path: '/$entryId'
+      fullPath: '/entries/$entryId'
+      preLoaderRoute: typeof AuthenticatedEntriesEntryIdRouteImport
+      parentRoute: typeof AuthenticatedEntriesRoute
+    }
+    '/_authenticated/entries/new': {
+      id: '/_authenticated/entries/new'
+      path: '/new'
+      fullPath: '/entries/new'
+      preLoaderRoute: typeof AuthenticatedEntriesNewRouteImport
+      parentRoute: typeof AuthenticatedEntriesRoute
+    }
   }
 }
 
+interface AuthenticatedEntriesRouteChildren {
+  AuthenticatedEntriesEntryIdRoute: typeof AuthenticatedEntriesEntryIdRoute
+  AuthenticatedEntriesNewRoute: typeof AuthenticatedEntriesNewRoute
+  AuthenticatedEntriesIndexRoute: typeof AuthenticatedEntriesIndexRoute
+}
+
+const AuthenticatedEntriesRouteChildren: AuthenticatedEntriesRouteChildren = {
+  AuthenticatedEntriesEntryIdRoute: AuthenticatedEntriesEntryIdRoute,
+  AuthenticatedEntriesNewRoute: AuthenticatedEntriesNewRoute,
+  AuthenticatedEntriesIndexRoute: AuthenticatedEntriesIndexRoute,
+}
+
+const AuthenticatedEntriesRouteWithChildren =
+  AuthenticatedEntriesRoute._addFileChildren(AuthenticatedEntriesRouteChildren)
+
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedEntriesRoute: typeof AuthenticatedEntriesRouteWithChildren
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedEntriesRoute: AuthenticatedEntriesRouteWithChildren,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -229,6 +342,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthEmailVerificationRoute: AuthEmailVerificationRoute,
   AuthEmailVerificationConfirmRoute: AuthEmailVerificationConfirmRoute,
   AuthLoginRoute: AuthLoginRoute,
+  AuthLogoutRoute: AuthLogoutRoute,
   AuthPasswordResetRoute: AuthPasswordResetRoute,
   AuthPasswordResetConfirmRoute: AuthPasswordResetConfirmRoute,
   AuthRegisterRoute: AuthRegisterRoute,

@@ -40,6 +40,8 @@ Biome formatter + linter config (replaces ESLint/Prettier). Defines the rule set
 
 ### `components.json`
 
+Aliases explicitly route UI components and hooks into the existing `src/` folders; `iconLibrary` selects Tabler. The `registries` map includes `@prosekit` for discovering ProseKit editor components through the shadcn CLI. Registering it does not install an editor or its dependencies.
+
 shadcn/ui CLI config. Tells `shadcn add <component>` where to put components (`@/components`), where the Tailwind CSS entry lives (`src/styles/globals.css`), and the base style. Only needed if you add/update shadcn components; harmless otherwise but the CLI won't work without it.
 
 ## Backend & Deployment
@@ -79,3 +81,9 @@ Task runner tying everything together: `make start` = backend up + seed + dev se
 ### `.gitignore`
 
 Excludes build output, `node_modules`, secrets (`.env`, `*.pem`), PocketBase data (`pb/data`), and local agent/editor state from version control.
+
+### `PRODUCT.md`
+
+Product purpose, boundaries and links to the notes/journal design.
+
+Agent-skill examples under `.agents/skills/` are excluded from Biome because they are vendored references, not application source. CLI scripts may report status through the console; application console warnings remain enabled.

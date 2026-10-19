@@ -24,7 +24,10 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "pocketbase": "^0.28.0",
+    "prosekit": "^0.22.2",
+    "radix-ui": "^1.8.0",
     "react": "^19.2.8",
+    "react-day-picker": "^10.0.2",
     "react-dom": "^19.2.8",
     "tailwind-merge": "^3.6.0"
   },
