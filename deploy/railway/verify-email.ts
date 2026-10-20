@@ -98,7 +98,7 @@ try {
     .authWithPassword(env.PB_USER_EMAIL!, env.PB_USER_PASSWORD!);
   assert(login.record.verified);
   await Bun.write(
-    "/private/tmp/agents/react-pocketbase/codex-deploy/email-checks.json",
+    "/private/tmp/agents/pocketbase-notes-app/codex-deploy/email-checks.json",
     JSON.stringify(evidence, null, 2),
   );
 } catch (error) {

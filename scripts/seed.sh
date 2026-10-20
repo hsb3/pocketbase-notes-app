@@ -1,7 +1,7 @@
 #!/bin/sh
 # Seed a PocketBase admin (superuser) and a verified regular user for local dev,
 # then prove both can actually log in.
-# Requires the compose "pocketbase" container to be running.
+# Requires the PocketBase container ($PB_CONTAINER, default "pocketbase") to be running.
 set -eu
 
 PB_URL=${PB_URL:-http://localhost:${PB_PORT:-8090}}
@@ -14,7 +14,7 @@ json_field() { sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p"; }
 
 # Superuser (PB 0.23+ replaced "admins" with the _superusers collection):
 # upsert creates it or resets the password if it already exists.
-docker exec pocketbase /pb/pocketbase superuser upsert "$ADMIN_EMAIL" "$ADMIN_PASSWORD" \
+docker exec "${PB_CONTAINER:-pocketbase}" /pb/pocketbase superuser upsert "$ADMIN_EMAIL" "$ADMIN_PASSWORD" \
 	--encryptionEnv=PB_ENCRYPTION_KEY >/dev/null
 
 token=$(curl -sf "$PB_URL/api/collections/_superusers/auth-with-password" \

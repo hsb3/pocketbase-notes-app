@@ -1,0 +1,103 @@
+# Self-contained stack: nothing is mounted from the checkout. Run from the repo root:
+# make stack-up STACK=<name>  (see deploy/README.md#self-contained-stacks)
+volumes:
+  pb_data:
+  certs:
+  rustfs:
+  mailpit:
+
+services:
+  pocketbase:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        VITE_SIGNUP_ENABLED: ${VITE_SIGNUP_ENABLED:-false}
+    restart: unless-stopped
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    # PocketBase refuses SMTP auth without TLS, so it mints Mailpit's STARTTLS
+    # certificate into the stack's own volume (Mailpit waits for this) and trusts it.
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        [ -s /certs/cert.pem ] || openssl req -x509 -newkey rsa:2048 -nodes \
+          -keyout /certs/key.pem -out /certs/cert.pem -sha256 -days 3650 \
+          -subj "/CN=mailpit" -addext "subjectAltName = DNS:mailpit" 2>/dev/null
+        cp /certs/cert.pem /usr/local/share/ca-certificates/mailpit.crt
+        update-ca-certificates
+        exec /pb/pocketbase serve --http=0.0.0.0:8080 --encryptionEnv=PB_ENCRYPTION_KEY
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/api/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:${STACK_PORT:-8100}:8080"
+    environment:
+      - VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED:-false}
+      - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:?Set PB_ENCRYPTION_KEY to a securely generated value in .env}
+    volumes:
+      - pb_data:/pb/pb_data
+      - certs:/certs
+
+  mailpit:
+    image: axllent/mailpit@sha256:c96991d9bef73594c246d89ca81411d4e916f03e76a7d2d72fa2ab5dd3c9ce24
+    restart: unless-stopped
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    volumes:
+      - mailpit:/data
+      - certs:/certs:ro
+    ports:
+      - "127.0.0.1:${STACK_MAILPIT_PORT:-8125}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: true
+      MP_SMTP_AUTH_ALLOW_INSECURE: true
+      MP_SMTP_TLS_KEY: /certs/key.pem
+      MP_SMTP_TLS_CERT: /certs/cert.pem
+
+  rustfs:
+    image: rustfs/rustfs@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b
+    restart: unless-stopped
+    command: /data
+    environment:
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY:-pocketbase}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY:-pocketbase}
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_ADDRESS=:9000
+      - RUSTFS_CONSOLE_ADDRESS=:9001
+    volumes:
+      - rustfs:/data
+    ports:
+      - "127.0.0.1:${STACK_RUSTFS_CONSOLE_PORT:-9101}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health/ready"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  storage-init:
+    image: rustfs/rc@sha256:ab024bfebee49a750ce886b4c70963ccd9ddaa03f491704a90710641d7a26699
+    profiles: ["setup"]
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-pocketbase}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-pocketbase}
+      RUSTFS_BUCKET: ${RUSTFS_BUCKET:-pocketbase}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        rc alias set local http://rustfs:9000 "$$RUSTFS_ACCESS_KEY" "$$RUSTFS_SECRET_KEY" >/dev/null
+        rc bucket create --ignore-existing "local/$$RUSTFS_BUCKET"

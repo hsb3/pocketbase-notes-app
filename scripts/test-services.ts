@@ -17,7 +17,7 @@ assert.equal(settings.s3.enabled, true, "RustFS S3 must be enabled");
 assert.equal(settings.s3.endpoint, "http://rustfs:9000");
 await admin.settings.testS3("storage");
 
-const mailpit = "http://127.0.0.1:8025";
+const mailpit = process.env.MAILPIT_URL || "http://127.0.0.1:8025";
 const email = `services-${crypto.randomUUID()}@example.com`;
 const password = crypto.randomUUID();
 const user = await admin
@@ -93,7 +93,7 @@ try {
       "--project-directory",
       ".",
       "-f",
-      "deploy/local/docker-compose-full.yml",
+      process.env.COMPOSE_FILE || "deploy/local/docker-compose-full.yml",
       "run",
       "--rm",
       "--no-deps",

@@ -19,6 +19,10 @@ run PocketBase alone; `make dev-solo` runs the frontend with
 `VITE_AUTH_BYPASS=true` so you can work on UI without a backend at all
 (dev builds only — dead code in production).
 
+For a stack that keeps running independently of this checkout, use
+`make stack-up STACK=<name>` — see
+[self-contained stacks](../deploy/README.md#self-contained-stacks).
+
 ## Full stack: Mailpit (SMTP) + RustFS (S3)
 
 ```sh
