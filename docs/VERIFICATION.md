@@ -155,7 +155,7 @@ at most 1 second; simulated-mobile editor readiness at most 6 seconds cold and
 3 seconds warm under this exact profile. Image completion needs its own budget.
 
 Evidence (local, preserved outside disposable Playwright output):
-`~/.local/share/agent-artifacts/react-pocketbase/2026-10-19-editor-baseline/`
+`~/.local/share/agent-artifacts/pocketbase-notes-app/2026-10-19-editor-baseline/`
 contains `baseline.json`, `performance-report/index.html` and
 `browser-report/index.html`. Raw JSON includes every run, fixture sizes, resources,
 long tasks, commit and working-tree state. It contains synthetic test data only.

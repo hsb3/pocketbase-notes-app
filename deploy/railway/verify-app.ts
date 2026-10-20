@@ -90,7 +90,7 @@ try {
     await admin.collection("users").delete(other.id);
   }
   await Bun.write(
-    "/private/tmp/agents/react-pocketbase/codex-deploy/fixture.json",
+    "/private/tmp/agents/pocketbase-notes-app/codex-deploy/fixture.json",
     JSON.stringify({
       entryId: id,
       attachmentId: attachment.id,
@@ -99,7 +99,7 @@ try {
     }),
   );
   await page.screenshot({
-    path: "/private/tmp/agents/react-pocketbase/codex-deploy/deployed-editor.png",
+    path: "/private/tmp/agents/pocketbase-notes-app/codex-deploy/deployed-editor.png",
     fullPage: true,
   });
   process.stdout.write(

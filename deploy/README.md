@@ -8,6 +8,7 @@ repository root; Docker's build context must remain the root, not `deploy/`.
 | `docker/Dockerfile` | Native arm64/amd64 build; serves frontend and API |
 | `local/docker-compose.yml` | PocketBase only: `make up` |
 | `local/docker-compose-full.yml` | PocketBase, Mailpit and RustFS: `make up-full` |
+| `local/docker-compose-stack.yml` | Self-contained named stack, no checkout mounts: `make stack-up STACK=<name>` |
 | `railway/railway.json` | Railway build path, readiness check and restart policy |
 
 ## Local development
@@ -32,6 +33,26 @@ and [attachment storage](../docs/ATTACHMENTS.md).
 
 Stop with `make down` or `make down-full`; do not use `docker compose down -v`
 unless deleting the Mailpit/RustFS data is intended.
+
+### Self-contained stacks
+
+The dev stacks above bind-mount the checkout, so moving, renaming or switching
+the repo changes what a running container sees. `make stack-up STACK=<name>`
+instead builds an image with the frontend, hooks and migrations baked in and keeps
+PocketBase data, Mailpit messages, RustFS files and the Mailpit certificate in
+`<name>_*` volumes. It serves the built app and API together on `STACK_PORT`.
+
+```sh
+make stack-up STACK=demo                      # build, start, configure
+make stack-seed STACK=demo                    # optional development accounts and entries
+make stack-check STACK=demo                   # email + storage round trip
+make stack-down STACK=demo                    # stop; volumes are kept
+```
+
+Defaults: `STACK=pocketbase-notes`, `STACK_PORT=8100`, `STACK_MAILPIT_PORT=8125`,
+`STACK_RUSTFS_CONSOLE_PORT=9101`. Give concurrent stacks distinct ports. Rebuild
+with `make stack-up` to pick up code changes. Secrets still come from `.env` at
+start time. `docker compose -p <name> down -v` deletes that stack's data.
 
 ### RustFS storage
 
@@ -111,6 +132,7 @@ Dockerfile; keep the JS SDK compatible and regenerate record types with
 ```sh
 docker compose --project-directory . -f deploy/local/docker-compose.yml config --quiet
 docker compose --project-directory . -f deploy/local/docker-compose-full.yml config --quiet
+docker compose --project-directory . -p check -f deploy/local/docker-compose-stack.yml config --quiet
 make check-services
 ```
 
@@ -271,7 +293,7 @@ restore container/network were removed. The small-fixture drill proves restorati
 it is not a timed large-data RTO guarantee or a native Railway snapshot restore.
 
 Evidence is preserved locally in
-`~/.local/share/agent-artifacts/react-pocketbase/2026-10-19-railway-test/`.
+`~/.local/share/agent-artifacts/pocketbase-notes-app/2026-10-19-railway-test/`.
 `restore-proof.zip` is the tested checkpoint; JSON files record mail delivery,
 access checks and restoration. Keep backups and `PB_ENCRYPTION_KEY` separately.
 The deployed main JS response was observed using gzip, unlike the local baseline;

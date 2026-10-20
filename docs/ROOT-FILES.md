@@ -60,6 +60,10 @@ Standard local backend: builds the shared Dockerfile, mounts `pb/data`, `pb/hook
 
 Extended dev stack: PocketBase plus Mailpit (SMTP catcher for testing emails, UI on :8025) and RustFS (S3-compatible storage on :9000/:9001). Run with `make up-full` when developing email or file-storage features; the default compose file suffices only while persisted PocketBase settings do not depend on these services.
 
+### `deploy/local/docker-compose-stack.yml`
+
+Self-contained variant of the full stack for long-running or parallel local instances: no bind mounts from the checkout (hooks, migrations and frontend are baked into the image; data, Mailpit certificate and files live in per-stack named volumes) and no fixed container names. Run with `make stack-up STACK=<name>`; see [`deploy/README.md`](../deploy/README.md#self-contained-stacks).
+
 ### `deploy/railway/railway.json`
 
 Railway config-as-code: Dockerfile builder pointing at `deploy/docker/Dockerfile`, healthcheck on `/api/health`, restart policy. Point the Railway service's config-as-code path at this file; the service also needs `PB_ENCRYPTION_KEY` and a volume at `/pb/pb_data`.

@@ -25,11 +25,11 @@ const token = await pb.files.getToken();
 const response = await fetch(pb.backups.getDownloadURL(token, name));
 assert(response.ok, `Backup download failed: ${response.status}`);
 const path =
-  "/private/tmp/agents/react-pocketbase/codex-deploy/restore-proof.zip";
+  "/private/tmp/agents/pocketbase-notes-app/codex-deploy/restore-proof.zip";
 await Bun.write(path, await response.arrayBuffer());
 await chmod(path, 0o600);
 await Bun.write(
-  "/private/tmp/agents/react-pocketbase/codex-deploy/backup-check.json",
+  "/private/tmp/agents/pocketbase-notes-app/codex-deploy/backup-check.json",
   JSON.stringify({
     key: name,
     size: backup.size,

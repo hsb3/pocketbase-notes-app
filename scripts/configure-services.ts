@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readdir } from "node:fs/promises";
 import PocketBase from "pocketbase";
 
 const url = process.env.VITE_PB_URL;
@@ -10,6 +9,7 @@ assert(
 const { PB_EMAIL, PB_PASSWORD } = process.env;
 assert(PB_EMAIL && PB_PASSWORD, "Set PB_EMAIL and PB_PASSWORD in .env");
 const pb = new PocketBase(url);
+const container = process.env.PB_CONTAINER || "pocketbase";
 try {
   await pb.collection("_superusers").authWithPassword(PB_EMAIL, PB_PASSWORD);
 } catch {
@@ -18,7 +18,7 @@ try {
     [
       "docker",
       "exec",
-      "pocketbase",
+      container,
       "/pb/pocketbase",
       "superuser",
       "create",
@@ -50,15 +50,21 @@ assert(
   "A different bucket is configured; migrate uploads before switching buckets.",
 );
 if (!settings.s3.enabled) {
-  const files = await readdir("pb/data/storage", {
-    recursive: true,
-    withFileTypes: true,
-  }).catch((error) => {
-    if (error.code === "ENOENT") return [];
-    throw error;
-  });
+  // Read inside the container: self-contained stacks keep pb_data in a volume.
+  const files = Bun.spawnSync(
+    [
+      "docker",
+      "exec",
+      container,
+      "sh",
+      "-c",
+      "find /pb/pb_data/storage -type f 2>/dev/null | head -n 1",
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+  assert.equal(files.exitCode, 0, `Cannot inspect storage in ${container}.`);
   assert(
-    !files.some((file) => file.isFile()),
+    !files.stdout.toString().trim(),
     "Local uploads exist. Migrate them before enabling RustFS.",
   );
 }
