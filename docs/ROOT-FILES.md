@@ -66,7 +66,7 @@ Self-contained variant of the full stack for long-running or parallel local inst
 
 ### `deploy/railway/railway.json`
 
-Railway config-as-code: Dockerfile builder pointing at `deploy/docker/Dockerfile`, healthcheck on `/api/health`, restart policy. Point the Railway service's config-as-code path at this file; the service also needs `PB_ENCRYPTION_KEY` and a volume at `/pb/pb_data`.
+Railway config-as-code: Dockerfile builder pointing at `deploy/docker/Dockerfile`, healthcheck on `/api/health`, restart policy. The staging service readback on 2026-11-15 uses settings applied directly in Railway; this JSON is reference material, not its effective configuration. New services must verify that the platform accepts the config path or apply/read back equivalent settings. The service needs `PB_ENCRYPTION_KEY` and a volume at `/pb/pb_data`.
 
 ### `.dockerignore`
 
@@ -78,7 +78,7 @@ Keeps secrets (`.env`, `*.pem`, keys/certs), `node_modules`, `pb/data`, and buil
 
 Template for `.env`, including backend credentials, local URLs, seed users, RustFS settings and test overrides. Comments describe defaults and consumers. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
 
-`VITE_AUTH_BYPASS` is the only app feature flag and only skips the frontend guard in development. Sharing, collaboration, AI and offline sync are not implemented and have no enable switch. SMTP/S3 enablement lives in persisted PocketBase settings; `make up-full` configures local providers. Editor capabilities and attachment limits live in code/schema; see [attachment behavior](ATTACHMENTS.md).
+`VITE_AUTH_BYPASS` skips the frontend guard only in development. `VITE_SIGNUP_ENABLED` controls the registration UI at build time and public account creation in the backend at runtime; only the exact value `true` enables it. Sharing, collaboration, AI and offline sync are not implemented and have no enable switch. SMTP/S3 enablement lives in persisted PocketBase settings; `make up-full` configures local providers. Editor capabilities and attachment limits live in code/schema; see [attachment behavior](ATTACHMENTS.md).
 
 ### `Makefile`
 
@@ -108,7 +108,7 @@ email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_UR
 
 ### `playwright.config.ts`
 
-Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium execution,
+Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium and WebKit execution,
 a managed Vite server and failure artifacts. `.env` supplies the local backend;
 `TEST_APP_URL` can select an existing local frontend. See [testing](VERIFICATION.md).
 
@@ -155,3 +155,10 @@ it as a build argument; local Compose passes it as both argument and runtime env
 The public value controls the registration UI and `pb/hooks/signup.pb.js` enforces
 it on registration requests. Existing users and superuser account creation remain
 available. Deployment setup/check scripts are colocated under `deploy/railway/`.
+
+
+### `scripts/tsconfig.json`
+
+Type-checks operational and test scripts, including `deploy/railway/`. CI invokes
+this separately from the frontend build. Deployment evidence output is selected
+through `DEPLOY_EVIDENCE_DIR`; see the [backup runbook](../deploy/README.md#backup-health-and-credential-rotation).

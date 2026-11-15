@@ -17,7 +17,12 @@ assert.deepEqual(
 );
 fixture.close();
 
-const admin = new PocketBase(process.env.VITE_PB_URL);
+const url = process.env.VITE_PB_URL;
+assert(
+  url && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname),
+  "Run only against a local development backend.",
+);
+const admin = new PocketBase(url);
 await admin
   .collection("_superusers")
   .authWithPassword(process.env.PB_EMAIL!, process.env.PB_PASSWORD!);
@@ -62,7 +67,7 @@ try {
       "--project-directory",
       ".",
       "-f",
-      "deploy/local/docker-compose-full.yml",
+      process.env.COMPOSE_FILE || "deploy/local/docker-compose-full.yml",
       "run",
       "--rm",
       "--no-deps",

@@ -24,8 +24,8 @@ The backend stays running; tests never seed or reset existing development accoun
 | Command | Coverage |
 | --- | --- |
 | `make smoke` / `bun run test:smoke` | Mailpit verification/reset emails and token use; real RustFS upload/download bytes; browser login, private note save and reload |
-| `make e2e` / `bun run test:e2e` | All API checks and browser scenarios, including smoke |
-| `bun run test:api` | Services, entry validation, account isolation, concurrent saves, protected files and attachment cleanup |
+| `make e2e` / `bun run test:e2e` | All API checks and default-disabled browser scenarios, including smoke |
+| `bun run test:api` | Services, entry validation, account isolation, concurrent saves, protected files, attachment cleanup, admin capabilities and automatic-backup health |
 | `bunx playwright test` | Browser scenarios only |
 | `bun run lint` | Formatting and lint |
 | `bun run build` | Application/config TypeScript checks and production frontend build |
@@ -155,14 +155,13 @@ at most 1 second; simulated-mobile editor readiness at most 6 seconds cold and
 3 seconds warm under this exact profile. Image completion needs its own budget.
 
 Evidence (local, preserved outside disposable Playwright output):
-`~/.local/share/agent-artifacts/pocketbase-notes-app/2026-10-19-editor-baseline/`
-contains `baseline.json`, `performance-report/index.html` and
+The archived editor-baseline evidence bundle contains `baseline.json`, `performance-report/index.html` and
 `browser-report/index.html`. Raw JSON includes every run, fixture sizes, resources,
 long tasks, commit and working-tree state. It contains synthetic test data only.
 
 Validation: lint, build, the service/API suite, all six Chromium/WebKit browser
 scenarios and the complete performance benchmark passed. Firefox is deferred by
-owner request and excluded from installation and the local/CI matrix. Playwright
+project scope and excluded from installation and the local/CI matrix. Playwright
 downloaded its own Firefox build; it failed at profile launch, with no evidence
 of a licensing failure. The revised CI matrix has not been run remotely. Actual Safari, physical keyboards, accessibility
 and OAuth remain separate open verification items.
@@ -178,10 +177,19 @@ Registration now defaults off via `VITE_SIGNUP_ENABLED=false`. The local regress
 runs on Chromium and WebKit, and the live deployment separately proved anonymous
 and authenticated non-admin signup return 403, superuser creation still succeeds,
 the form is absent and existing login works. Positive test accounts were deleted.
-The owner's two accounts and their test note/attachment were preserved. The opt-in
-true mode and live OAuth login remain unverified.
+The existing accounts and their test note/attachment were preserved. Deployed
+opt-in mode and live OAuth login remain unverified. The local opt-in registration
+and verification retry flow passed both browser projects during the
+[repository review](reviews/2026-11-15.md).
 
 The account-menu admin shortcut is covered in Chromium and WebKit: it resolves
 against the configured PocketBase URL (including a separate local backend port),
 opens a separate tab showing the admin password field, and leaves the app tab open.
 The link is navigation only; it does not confer superuser access or share credentials.
+
+
+The explicit signup-enabled check is a separate phase; both the backend runtime
+and Vite frontend must use `VITE_SIGNUP_ENABLED=true` before running
+`bunx playwright test tests/e2e/registration-enabled.spec.cjs`. The normal suite
+skips that scenario. CI configures both flags on its disposable stack, runs the
+extra phase and keeps a separate report; see [CI configuration](CI.md).

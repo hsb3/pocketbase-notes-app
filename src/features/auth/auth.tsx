@@ -28,9 +28,11 @@ const SocialAuth = ({
   const router = useRouter();
 
   const [loading, setLoading] = useState<string>();
+  const [error, setError] = useState("");
 
   const login = async (provider: string) => {
     setLoading(provider);
+    setError("");
 
     const openWindow = window.open();
 
@@ -68,11 +70,15 @@ const SocialAuth = ({
 
         return router.navigate({ to: "/" });
       })
+      .catch(() =>
+        setError("Could not sign in with this provider. Please try again."),
+      )
       .finally(() => setLoading(undefined));
   };
 
   return (
     <div className="flex flex-col gap-2">
+      {error && <p role="alert">{error}</p>}
       {providers.map((provider) => (
         <Button
           type="button"
@@ -130,7 +136,8 @@ export const LoginForm = ({ redirect }: { redirect?: string }) => {
 
   const loginWithPassword = () =>
     form.submit(async (data) => {
-      pb.collection("users")
+      return pb
+        .collection("users")
         .authWithPassword(data.identity, data.password)
         .then(() =>
           redirect
@@ -172,6 +179,7 @@ export const LoginForm = ({ redirect }: { redirect?: string }) => {
               Email
             </FormLabel>
             <Input
+              id="identity"
               name="identity"
               value={form.data.identity}
               disabled={form.isSubmitting}
@@ -190,6 +198,7 @@ export const LoginForm = ({ redirect }: { redirect?: string }) => {
               Password
             </FormLabel>
             <Input
+              id="password"
               name="password"
               type="password"
               value={form.data.password}
@@ -247,6 +256,8 @@ export const LoginForm = ({ redirect }: { redirect?: string }) => {
  */
 export const RegisterForm = () => {
   const router = useRouter();
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [verificationError, setVerificationError] = useState("");
 
   const form = useFormState({
     defaultValue: {
@@ -281,30 +292,41 @@ export const RegisterForm = () => {
 
   const register = () =>
     form.submit(async (data) => {
-      pb.collection("users")
-        .create(data)
-        .then(() => {
-          pb.collection("users")
-            .requestVerification(data.email)
-            .then(() => {
-              return router.navigate({
-                to: "/auth/email-verification",
-                search: { email: data.email },
-              });
-            });
-        })
-        .catch((err) => {
-          if (!(err instanceof ClientResponseError))
-            return form.setError("name", (err as Error).message);
-
-          if (!err.data.data) return form.setError("name", err.message);
-
-          for (const key in err.data.data)
+      setVerificationError("");
+      let created = !!registeredEmail;
+      const email = registeredEmail || data.email;
+      try {
+        if (!created) {
+          await pb.collection("users").create(data);
+          created = true;
+          setRegisteredEmail(email);
+        }
+        await pb.collection("users").requestVerification(email);
+        await router.navigate({
+          to: "/auth/email-verification",
+          search: { email },
+        });
+      } catch (err) {
+        if (created) {
+          setVerificationError(
+            "Account created, but the verification email could not be sent.",
+          );
+        } else if (
+          err instanceof ClientResponseError &&
+          Object.keys(err.response.data || {}).length
+        ) {
+          for (const key in err.response.data)
             form.setError(
               key as keyof typeof form.data,
-              err.data.data[key].message,
+              err.response.data[key].message,
             );
-        });
+        } else {
+          form.setError(
+            "name",
+            err instanceof Error ? err.message : "Could not create account.",
+          );
+        }
+      }
     });
 
   if (!signupEnabled) {
@@ -328,9 +350,10 @@ export const RegisterForm = () => {
           Name
         </FormLabel>
         <Input
+          id="name"
           name="name"
           value={form.data.name}
-          disabled={form.isSubmitting}
+          disabled={form.isSubmitting || !!registeredEmail}
           onChange={(e) => form.setValue("name", e.target.value)}
           className={cn(
             !!form.errors?.name &&
@@ -345,10 +368,11 @@ export const RegisterForm = () => {
           Email
         </FormLabel>
         <Input
+          id="email"
           name="email"
           type="email"
           value={form.data.email}
-          disabled={form.isSubmitting}
+          disabled={form.isSubmitting || !!registeredEmail}
           placeholder="email@example.com"
           onChange={(e) => form.setValue("email", e.target.value)}
           className={cn(
@@ -364,10 +388,11 @@ export const RegisterForm = () => {
           Password
         </FormLabel>
         <Input
+          id="password"
           name="password"
           type="password"
           value={form.data.password}
-          disabled={form.isSubmitting}
+          disabled={form.isSubmitting || !!registeredEmail}
           onChange={(e) => form.setValue("password", e.target.value)}
           className={cn(
             !!form.errors?.password &&
@@ -386,9 +411,10 @@ export const RegisterForm = () => {
         </FormLabel>
         <Input
           type="password"
+          id="passwordConfirm"
           name="passwordConfirm"
           value={form.data.passwordConfirm}
-          disabled={form.isSubmitting}
+          disabled={form.isSubmitting || !!registeredEmail}
           onChange={(e) => form.setValue("passwordConfirm", e.target.value)}
           className={cn(
             !!form.errors?.passwordConfirm &&
@@ -398,9 +424,14 @@ export const RegisterForm = () => {
         <FormError>{form.errors?.passwordConfirm}</FormError>
       </FormField>
 
+      {verificationError && (
+        <p role="alert" className="text-destructive text-sm">
+          {verificationError}
+        </p>
+      )}
       <Button type="submit" className="space-x-2" disabled={form.isSubmitting}>
         {form.isSubmitting && <IconLoader2 className="size-4 animate-spin" />}
-        <span>Register</span>
+        <span>{registeredEmail ? "Retry verification" : "Register"}</span>
       </Button>
 
       <Separator />

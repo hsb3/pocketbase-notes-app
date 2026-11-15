@@ -1,3 +1,4 @@
+import { evidenceDirectory } from "./evidence";
 import assert from "node:assert/strict";
 import { loadEnvFile } from "node:process";
 import { chromium, expect } from "@playwright/test";
@@ -90,7 +91,7 @@ try {
     await admin.collection("users").delete(other.id);
   }
   await Bun.write(
-    "/private/tmp/agents/pocketbase-notes-app/codex-deploy/fixture.json",
+    `${evidenceDirectory}/fixture.json`,
     JSON.stringify({
       entryId: id,
       attachmentId: attachment.id,
@@ -99,7 +100,7 @@ try {
     }),
   );
   await page.screenshot({
-    path: "/private/tmp/agents/pocketbase-notes-app/codex-deploy/deployed-editor.png",
+    path: `${evidenceDirectory}/deployed-editor.png`,
     fullPage: true,
   });
   process.stdout.write(

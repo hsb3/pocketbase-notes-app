@@ -3,6 +3,10 @@ import PocketBase from "pocketbase";
 
 const url = process.env.TEST_PB_URL || process.env.VITE_PB_URL;
 assert(
+  url && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname),
+  "Run only against a local development backend.",
+);
+assert(
   url && process.env.PB_EMAIL && process.env.PB_PASSWORD,
   "Configure the backend and superuser credentials.",
 );

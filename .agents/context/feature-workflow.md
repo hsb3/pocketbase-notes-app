@@ -23,8 +23,9 @@ Do this **before** frontend work — the frontend types are generated from the s
 2. **Set API rules at collection creation, never later.** Start locked, open
    selectively. Trap: a rule left **empty-string is PUBLIC**; only `null`
    (unset) means superuser-only. Every new collection ships with all five rules
-   deliberately decided. Denials return 200-empty or 404, never 403 — so an
-   accidentally-public rule looks fine in the happy path.
+   deliberately decided. List-rule denials return an empty list; view/update/delete-rule denials return
+   404, create-rule denials return 400, and locked rules return 403. Verify
+   denied requests as well as the happy path.
 3. **Custom routes in `pb/hooks/` bypass collection rules entirely.** Any custom
    endpoint does its own auth check.
 4. **Regenerate types**: `make codegen` (backend must be up and seeded). Commit
@@ -32,7 +33,7 @@ Do this **before** frontend work — the frontend types are generated from the s
 5. If the feature needs data to be exercisable locally, extend `scripts/seed.sh`.
 
 Deeper backend design questions (field types, relations, indexes, filter
-injection): the `pocketbase-best-practices` skill, if your harness has it.
+injection): the `pocketbase-best-practices` skill, when available.
 Minimum to know without it: use relation fields not ID strings, use
 `pb.filter()` binding for any user-supplied filter value, expand relations
 instead of N+1 fetches.

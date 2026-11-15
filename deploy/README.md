@@ -159,7 +159,7 @@ service or replacement database is needed.
   Selected provider: Resend over SMTP (`smtp.resend.com`, port 465 with TLS,
   username `resend`, API key stored as the SMTP password). A Google Workspace
   mailbox is not required for these automatic outbound messages.
-  The owner has `functionform.ai` on Cloudflare and supplied a sending-only
+  `functionform.ai` is managed in Cloudflare; the deployment uses a sending-only
   Resend key scoped to `send.functionform.ai`. Use sender `PocketBase Notes
   <noreply@send.functionform.ai>`. Retrieve the key at configuration time with
   `secret get PBNOTES_RESEND_API_KEY`; never commit its value or put it in frontend
@@ -195,7 +195,7 @@ service or replacement database is needed.
 1. Create the service with repository root as build context and
    `deploy/railway/railway.json` as the config path. Attach `/pb/pb_data`, set
    `PORT=8080` and a stable random 32-character `PB_ENCRYPTION_KEY`. Retain the key
-   separately in the owner's secret store. Run one instance; plan for restart
+   separately in the secret store. Run one instance; plan for restart
    downtime with this volume-backed SQLite service.
 2. Deploy an identified commit with passing CI. Record its deployment ID and
    immutable image identity. Observe deployment success, then check health and
@@ -262,8 +262,7 @@ Sources checked for this plan:
   for the PocketBase dashboard at `/_/`. Open it using the account menu →
   **PocketBase admin**; the link opens a new tab and does not pass credentials.
   API keys never enter the frontend.
-- The owner subsequently created `hsburden3@outlook.com` and test content; those
-  were preserved. Only the deployment verification fixture was removed.
+- The later `hsburden3@outlook.com` test account and its content were preserved. Only the deployment verification fixture was removed.
 - `VITE_SIGNUP_ENABLED=false` is explicit in Railway and defaults to false in
   both Docker stages. It hides the registration UI and the PocketBase hooks reject
   public user creation and new OAuth accounts. Existing logins and superuser
@@ -279,7 +278,7 @@ reference material, not the effective configuration for this deployment.
 
 ### Evidence
 
-Live checks proved owner login, note save/reload, private attachment bytes,
+Live checks proved account login, note save/reload, private attachment bytes,
 anonymous and cross-account denial, and persistence after a logged server restart.
 Resend reported both verification and password-reset messages delivered; their
 links pointed to the deployed app and both tokens were accepted. Those test links
@@ -292,8 +291,7 @@ file bytes and anonymous denials passed against the restored data. The disposabl
 restore container/network were removed. The small-fixture drill proves restoration;
 it is not a timed large-data RTO guarantee or a native Railway snapshot restore.
 
-Evidence is preserved locally in
-`~/.local/share/agent-artifacts/pocketbase-notes-app/2026-10-19-railway-test/`.
+Evidence is preserved in the archived Railway test evidence bundle.
 `restore-proof.zip` is the tested checkpoint; JSON files record mail delivery,
 access checks and restoration. Keep backups and `PB_ENCRYPTION_KEY` separately.
 The deployed main JS response was observed using gzip, unlike the local baseline;
@@ -325,13 +323,72 @@ a full deployed performance benchmark is still outstanding.
    ignored mode-0600 env file. Set PORT=8080 and VITE_SIGNUP_ENABLED=false.
 3. Configure Dockerfile `deploy/docker/Dockerfile`, health `/api/health`, region
    and instance limits directly on the service; upload the source and verify SUCCESS.
-4. For an empty install, create the owner superuser with PocketBase's CLI inside
+4. For an empty install, create the required superuser with PocketBase's CLI inside
    the service, passing `--encryptionEnv=PB_ENCRYPTION_KEY`. Do not seed default users.
 5. Review the exact target guard in `deploy/railway/configure.ts` for the new URL;
    run it only for initial setup. It deliberately refuses unexpected existing
-   users. It configures SMTP, templates, local files, backup storage and the owner.
+   users. It configures SMTP, templates, local files, backup storage and the app account.
 6. Enable/read back volume backup schedules. Run the email and app checks only on
    the intended test environment; they send real emails/create temporary fixtures.
    Restore a downloaded backup into a separate instance with outgoing mail disabled.
 7. Verify all results and remove only the fixtures created by the checks. Recreating
    a second new cloud project from this runbook has not itself been exercised.
+
+## Backup health and credential rotation
+
+App health does not verify backups. Run the read-only freshness check from the
+repository root with the deployment credentials loaded:
+
+```sh
+bun --env-file=deploy/railway/.env run scripts/check-backups.ts
+```
+
+The check requires `PB_URL`, `PB_ADMIN_EMAIL` and `PB_ADMIN_PASSWORD`. It fails
+if automatic/off-volume backups are disabled, storage cannot be listed, or the
+latest nonempty automatic backup exceeds `BACKUP_MAX_AGE_HOURS` (default 26).
+Manual deployment-check archives do not satisfy this check. It inspects listing
+metadata only; it does not download, validate or restore archive contents. Output
+contains backup names, timestamps and sizes, so monitor logs are operational data. Run it from an
+external monitor with protected credentials and alert on nonzero exit; the
+repository does not provision that monitor. CI exercises the check against a real
+local scheduled backup, stale data and invalid storage credentials.
+
+For a bucket credential rotation:
+
+1. Read back the Railway project, environment and bucket before resetting its
+   credentials. A reset invalidates the old credentials immediately.
+2. Save the returned access key and secret into the ignored deployment environment
+   file with mode `0600`. Do not rotate `PB_ENCRYPTION_KEY` for a bucket-secret fix.
+3. Update PocketBase **Settings → Backups → S3** with the new credentials and
+   matching endpoint, region, bucket and addressing style. These persisted settings
+   apply without a redeploy; changing a local environment file alone has no effect.
+4. Create/download a manual backup to verify access. After the next scheduled run,
+   require the freshness check to pass. A downloaded archive is not restoration proof.
+
+Deployment verification scripts write to the explicit `DEPLOY_EVIDENCE_DIR`
+absolute directory, created privately if absent. Choose a fresh directory for each
+run; an existing directory must already have private permissions. The `verify-app`, `verify-email`, `verify-signup` and `verify-restore` scripts
+are setup/recovery drills with documented fixture assumptions; some write data or
+send real mail. They are not health monitors. `backup.ts` creates a remote archive
+and downloads `restore-proof.zip` into that directory.
+
+## Relink a moved checkout
+
+Railway CLI linkage is local directory state. Moving a checkout does not move or
+restart the deployed service. From the new repository directory, run:
+
+```sh
+railway link --project e768e428-d9a4-424c-9bd3-445945507c01 --environment staging --service notes
+railway status --json
+```
+
+Confirm the returned project/environment/service before the next upload. The
+target verified on 2026-11-15 is the staging deployment described above; linking is not deploying.
+
+## Administrator shortcut
+
+The account menu requests `/api/notes/capabilities` using the app session. The
+server shows the shortcut only when the app account has a verified email matching
+a PocketBase superuser. The endpoint returns a boolean, never superuser records or
+tokens. Loading, lookup failures and account changes hide the shortcut. The
+PocketBase dashboard retains its independent authentication.

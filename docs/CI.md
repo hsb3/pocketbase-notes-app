@@ -7,8 +7,8 @@ GitHub Actions runs `.github/workflows/ci.yml` on every pull request targeting
 
 | Check | Work |
 | --- | --- |
-| `Quality` | Frozen dependency install, Biome, setup/test-script type checks, frontend/config type checks and production build |
-| `E2E (amd64)` | Native Ubuntu Docker build, fresh PocketBase + Mailpit + RustFS, live API tests and Chromium browser scenarios |
+| `Quality` | Frozen dependency install, dependency audit, local-target safety tests, Biome, setup/test-script type checks, frontend/config type checks and production build |
+| `E2E (amd64)` | Native Ubuntu Docker build, fresh PocketBase + Mailpit + RustFS, live API tests and Chromium and WebKit browser scenarios |
 | `E2E (arm64)` | The same full-stack checks on native ARM Linux |
 
 E2E jobs run only after Quality passes. Both architectures must pass. The complete
@@ -19,7 +19,10 @@ There are no path exclusions or automatic test retries.
 Each hosted runner creates a fresh `.env` with random development credentials,
 initializes its own database and bucket, and destroys its services afterward.
 No repository secrets, production data or deployed backend are used. Playwright
-starts its own Vite server with auth bypass disabled. The Docker image is built as
+starts its own Vite server with auth bypass disabled. After the default-disabled
+suite, CI explicitly enables signup on the disposable backend and runs the
+registration retry scenario with the matching frontend flag; its report is
+written under `playwright-report/signup-enabled`. The Docker image is built as
 part of full-stack startup, including fresh migrations and S3 configuration.
 
 Actions are pinned by commit SHA; Node and Bun versions are explicit. The token has

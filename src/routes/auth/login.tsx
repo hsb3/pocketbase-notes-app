@@ -4,7 +4,13 @@ import { LoginForm } from "@/features/auth/auth";
 export const Route = createFileRoute("/auth/login")({
   component: LoginPage,
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
-    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+    redirect:
+      typeof search.redirect === "string" &&
+      /^\/(?!\/)/.test(search.redirect) &&
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: Reject URL parser whitespace/control normalization.
+      !/[\\\u0000-\u0020\u007f]/.test(search.redirect)
+        ? search.redirect
+        : undefined,
   }),
   beforeLoad: ({ context, search }) => {
     if (context.isAuthenticated)

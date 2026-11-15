@@ -1,3 +1,4 @@
+import { evidenceDirectory } from "./evidence";
 import assert from "node:assert/strict";
 import { chmod } from "node:fs/promises";
 import { loadEnvFile } from "node:process";
@@ -24,12 +25,11 @@ assert(backup?.size, "Backup did not finish");
 const token = await pb.files.getToken();
 const response = await fetch(pb.backups.getDownloadURL(token, name));
 assert(response.ok, `Backup download failed: ${response.status}`);
-const path =
-  "/private/tmp/agents/pocketbase-notes-app/codex-deploy/restore-proof.zip";
+const path = `${evidenceDirectory}/restore-proof.zip`;
 await Bun.write(path, await response.arrayBuffer());
 await chmod(path, 0o600);
 await Bun.write(
-  "/private/tmp/agents/pocketbase-notes-app/codex-deploy/backup-check.json",
+  `${evidenceDirectory}/backup-check.json`,
   JSON.stringify({
     key: name,
     size: backup.size,

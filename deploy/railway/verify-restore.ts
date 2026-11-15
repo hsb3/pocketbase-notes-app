@@ -1,9 +1,10 @@
+import { evidenceDirectory } from "./evidence";
 import assert from "node:assert/strict";
 import { loadEnvFile } from "node:process";
 import PocketBase from "pocketbase";
 
 loadEnvFile("deploy/railway/.env");
-const root = "/private/tmp/agents/pocketbase-notes-app/codex-deploy";
+const root = evidenceDirectory;
 const fixture = await Bun.file(`${root}/fixture.json`).json();
 const restore = await Bun.file(`${root}/restore-state.json`).json();
 assert.equal(process.env.PB_URL, "https://notes-staging.up.railway.app");

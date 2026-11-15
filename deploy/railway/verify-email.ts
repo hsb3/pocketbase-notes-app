@@ -1,8 +1,9 @@
+import { evidenceDirectory } from "./evidence";
 import assert from "node:assert/strict";
 import { loadEnvFile } from "node:process";
 import PocketBase from "pocketbase";
 
-// Sends verification and reset emails to the owner, then consumes their tokens.
+// Sends verification and reset emails to the configured account, then consumes their tokens.
 loadEnvFile("deploy/railway/.env");
 const env = process.env;
 assert.equal(env.PB_URL, "https://notes-staging.up.railway.app");
@@ -31,7 +32,7 @@ async function resend<T>(path: string): Promise<T> {
     return resend<T>(path);
   }
   assert(response.ok, `Resend read failed: ${response.status}`);
-  return response.json();
+  return response.json() as Promise<T>;
 }
 const evidence = [];
 try {
@@ -98,7 +99,7 @@ try {
     .authWithPassword(env.PB_USER_EMAIL!, env.PB_USER_PASSWORD!);
   assert(login.record.verified);
   await Bun.write(
-    "/private/tmp/agents/pocketbase-notes-app/codex-deploy/email-checks.json",
+    `${evidenceDirectory}/email-checks.json`,
     JSON.stringify(evidence, null, 2),
   );
 } catch (error) {

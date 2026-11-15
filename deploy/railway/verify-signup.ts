@@ -1,3 +1,4 @@
+import { evidenceDirectory } from "./evidence";
 import assert from "node:assert/strict";
 import { loadEnvFile } from "node:process";
 import { chromium, expect } from "@playwright/test";
@@ -54,7 +55,7 @@ try {
     page.getByRole("button", { name: "Register", exact: true }),
   ).toHaveCount(0);
   await page.screenshot({
-    path: "/private/tmp/agents/pocketbase-notes-app/codex-deploy/signup-disabled.png",
+    path: `${evidenceDirectory}/signup-disabled.png`,
     fullPage: true,
   });
   await page.getByRole("link", { name: "Back to login", exact: true }).click();
@@ -65,7 +66,7 @@ try {
   await page.getByRole("button", { name: "Login", exact: true }).click();
   await page.waitForURL("**/entries**");
   await page.screenshot({
-    path: "/private/tmp/agents/pocketbase-notes-app/codex-deploy/final-app.png",
+    path: `${evidenceDirectory}/final-app.png`,
     fullPage: true,
   });
   const users = await admin.collection("users").getFullList();
@@ -90,7 +91,7 @@ try {
       .totalItems,
   };
   await Bun.write(
-    "/private/tmp/agents/pocketbase-notes-app/codex-deploy/signup-check.json",
+    `${evidenceDirectory}/signup-check.json`,
     JSON.stringify(result),
   );
   process.stdout.write(
