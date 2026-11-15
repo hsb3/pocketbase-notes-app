@@ -1,6 +1,7 @@
 import { ChevronsUpDown, ExternalLink, LogOut } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { pb } from "@/services/pocketbase";
+import { useAdminCapability } from "@/hooks/use-admin-capability";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -29,6 +30,7 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
+  const isAdmin = useAdminCapability();
 
   return (
     <SidebarMenu>
@@ -74,16 +76,18 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <a
-                  href={pb.buildURL("/_/")}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink />
-                  PocketBase admin
-                </a>
-              </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem asChild>
+                  <a
+                    href={pb.buildURL("/_/")}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink />
+                    PocketBase admin
+                  </a>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem asChild>
                 <Link to="/auth/logout">
                   <LogOut />

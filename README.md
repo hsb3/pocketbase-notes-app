@@ -45,7 +45,7 @@ Mailpit and RustFS automatically; `make check-services` verifies both. See the
 
 ```sh
 bun install
-bun run test:install  # install the pinned Playwright Chromium browser
+bun run test:install  # install the browsers configured by the test suite
 make up-full         # configure PocketBase, Mailpit and RustFS
 make smoke           # service checks + login/save/reload smoke test
 make e2e             # full API and desktop/mobile browser coverage

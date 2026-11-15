@@ -8,6 +8,8 @@ import { IconCircleCheck, IconExclamationCircle } from "@tabler/icons-react";
 
 const VerificationRequest: FC<{ email: string }> = ({ email }) => {
   const [canRequestLink, setCanRequestLink] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
 
   const { seconds, start, reset } = useCountDown(60, () => {
     setCanRequestLink(true);
@@ -15,14 +17,18 @@ const VerificationRequest: FC<{ email: string }> = ({ email }) => {
     reset();
   });
 
-  const resendVerificationLink = () => {
-    pb.collection("users")
-      .requestVerification(email!)
-      .then(() => {
-        setCanRequestLink(false);
-
-        start();
-      });
+  const resendVerificationLink = async () => {
+    setSending(true);
+    setError("");
+    try {
+      await pb.collection("users").requestVerification(email);
+      setCanRequestLink(false);
+      start();
+    } catch {
+      setError("Could not send the verification email. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   useEffect(() => {
@@ -36,7 +42,11 @@ const VerificationRequest: FC<{ email: string }> = ({ email }) => {
         new one below.
       </p>
 
-      <Button onClick={resendVerificationLink} disabled={!canRequestLink}>
+      {error && <p role="alert">{error}</p>}
+      <Button
+        onClick={resendVerificationLink}
+        disabled={!canRequestLink || sending}
+      >
         {canRequestLink ? "Resend verification link" : seconds}
       </Button>
     </div>

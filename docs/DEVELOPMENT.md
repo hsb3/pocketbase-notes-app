@@ -16,7 +16,7 @@ unreadable.
 
 Other Makefile targets: `make up` / `make down` / `make logs` / `make health`
 run PocketBase alone; `make dev-solo` runs the frontend with
-`VITE_AUTH_BYPASS=true` so you can work on UI without a backend at all
+`VITE_AUTH_BYPASS=true` for UI work without a backend
 (dev builds only — dead code in production).
 
 For a stack that keeps running independently of this checkout, use

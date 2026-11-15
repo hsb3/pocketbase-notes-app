@@ -30,6 +30,8 @@ jobs:
         with:
           bun-version: '1.4.3'
       - run: bun install --frozen-lockfile
+      - run: bun audit
+      - run: bun test scripts/local-target.test.ts
       - run: bun run lint
       - run: bunx tsc -p scripts/tsconfig.json
       - run: bun run build
@@ -85,6 +87,10 @@ jobs:
         run: make up-full
       - name: Run API and browser tests
         run: bun run test:e2e
+      - name: Verify explicitly enabled registration
+        run: |
+          VITE_SIGNUP_ENABLED=true docker compose --project-directory . -f deploy/local/docker-compose-full.yml up -d --no-deps --wait pocketbase
+          VITE_SIGNUP_ENABLED=true PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/signup-enabled bunx playwright test tests/e2e/registration-enabled.spec.cjs --output=test-results/signup-enabled
       - name: Collect service logs
         if: always()
         run: |

@@ -31,7 +31,8 @@ export const PasswordResetRequest = () => {
 
   const requestResetPassword = () =>
     form.submit(async (data) => {
-      pb.collection("users")
+      return pb
+        .collection("users")
         .requestPasswordReset(data.email)
         .then(() => setRequestSend(true))
         .catch((err) => form.setError("email", (err as Error).message));
@@ -54,6 +55,7 @@ export const PasswordResetRequest = () => {
               Email
             </FormLabel>
             <Input
+              id="email"
               name="email"
               type="email"
               value={form.data.email}
@@ -123,7 +125,8 @@ export const PasswordResetAttempt: FC<{ token?: string }> = ({ token }) => {
   const changePassword = () =>
     form.submit(async (data) => {
       if (token)
-        pb.collection("users")
+        return pb
+          .collection("users")
           .confirmPasswordReset(token, data.password, data.passwordConfirm)
           .then(() => setPasswordReseted(true))
           .catch((err) => form.setError("password", (err as Error).message));
@@ -141,6 +144,7 @@ export const PasswordResetAttempt: FC<{ token?: string }> = ({ token }) => {
               Password
             </FormLabel>
             <Input
+              id="password"
               name="password"
               type="password"
               value={form.data.password}
@@ -163,6 +167,7 @@ export const PasswordResetAttempt: FC<{ token?: string }> = ({ token }) => {
             </FormLabel>
             <Input
               type="password"
+              id="passwordConfirm"
               name="passwordConfirm"
               value={form.data.passwordConfirm}
               disabled={form.isSubmitting}
