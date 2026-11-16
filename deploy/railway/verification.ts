@@ -20,12 +20,36 @@ assert(
   "Unexpected deployment target: set DEPLOY_CONFIRM to the PB_URL hostname of the HTTPS deployment; local drills require DEPLOY_ALLOW_LOCAL=true.",
 );
 
+// Rate limits count per client address and these scripts sign in several times
+// in a row, so a 429 means "wait", not "failed".
+function patient(client: PocketBase) {
+  const send = client.send.bind(client);
+  client.send = async <T>(
+    ...args: Parameters<PocketBase["send"]>
+  ): Promise<T> => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await send<T>(...args);
+      } catch (error) {
+        if (
+          !(error instanceof ClientResponseError) ||
+          error.status !== 429 ||
+          attempt >= 3
+        )
+          throw error;
+        await new Promise((resolve) => setTimeout(resolve, 3500));
+      }
+    }
+  };
+  return client;
+}
+
 export async function deploymentAdmin(url = deploymentURL!) {
   assert(
     process.env.PB_ADMIN_EMAIL && process.env.PB_ADMIN_PASSWORD,
     "Set deployment superuser credentials.",
   );
-  const admin = new PocketBase(url);
+  const admin = patient(new PocketBase(url));
   admin.autoCancellation(false);
   await admin
     .collection("_superusers")
@@ -75,7 +99,7 @@ export async function createVerificationUser(
     throw error;
   }
   const cleanup = () => admin.collection("users").delete(record.id);
-  const client = new PocketBase(admin.baseURL);
+  const client = patient(new PocketBase(admin.baseURL));
   client.autoCancellation(false);
   try {
     if (options.verified !== false)
