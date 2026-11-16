@@ -28,6 +28,12 @@ async function main() {
       error instanceof ClientResponseError && error.status === 400,
       "Cannot reach/authenticate the local backend; no CLI write attempted.",
     );
+    // The stack's setup container has no Docker CLI; its PocketBase service
+    // already created the superuser, so a failed login means bad credentials.
+    assert(
+      Bun.which("docker"),
+      "Superuser credentials do not match. Check PB_EMAIL and PB_PASSWORD in .env.",
+    );
     const container = process.env.PB_CONTAINER || "pocketbase";
     const inspect = Bun.spawnSync(
       [

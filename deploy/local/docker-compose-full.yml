@@ -1,17 +1,29 @@
+# PocketBase + Mailpit + RustFS, with hooks, migrations and scripts mounted from
+# the checkout. Run from the repo root: make up-full
+# (docker compose --project-directory . -f deploy/local/docker-compose-full.yml up)
 volumes:
   rustfs:
   mailpit:
 
-# Run from the repo root: make up-full
-# (docker compose --project-directory . -f deploy/local/docker-compose-full.yml up)
+# Every service is capped; adjust here, never remove.
+x-app-limits: &app-limits
+  cpus: 2
+  mem_limit: 1g
+  pids_limit: 256
+x-helper-limits: &helper-limits
+  cpus: 1
+  mem_limit: 512m
+  pids_limit: 128
+
 services:
   pocketbase:
+    <<: *app-limits
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile
       args:
         VITE_SIGNUP_ENABLED: ${VITE_SIGNUP_ENABLED:-false}
-    container_name: pocketbase
+    container_name: ${PB_CONTAINER:-pocketbase}
     restart: unless-stopped
     entrypoint: /development/start.sh
     depends_on:
@@ -28,7 +40,7 @@ services:
       - "127.0.0.1:${PB_PORT:-8080}:8080"
     environment:
       - VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED:-false}
-      - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:?Set PB_ENCRYPTION_KEY to a securely generated value in .env}
+      - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:?Set PB_ENCRYPTION_KEY in .env (make env generates it)}
     volumes:
       - ./pb/data:/pb/pb_data
       - ./pb/hooks:/pb/pb_hooks
@@ -36,15 +48,16 @@ services:
       - ./scripts:/development:ro
 
   mailpit:
+    <<: *helper-limits
     image: axllent/mailpit@sha256:c96991d9bef73594c246d89ca81411d4e916f03e76a7d2d72fa2ab5dd3c9ce24
-    container_name: mailpit
+    container_name: ${MAILPIT_CONTAINER:-mailpit}
     restart: unless-stopped
     volumes:
       - mailpit:/data
       - ./scripts:/development:ro
     ports:
-      - 127.0.0.1:8025:8025
-      - 127.0.0.1:1025:1025
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
     healthcheck:
       test: ["CMD", "/mailpit", "readyz"]
       interval: 3s
@@ -60,8 +73,9 @@ services:
 
   # Local S3 storage; production providers are configured in PocketBase settings.
   rustfs:
+    <<: *app-limits
     image: rustfs/rustfs@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b
-    container_name: rustfs
+    container_name: ${RUSTFS_CONTAINER:-rustfs}
     restart: unless-stopped
     command: /data
     environment:
@@ -73,8 +87,8 @@ services:
     volumes:
       - rustfs:/data
     ports:
-      - 127.0.0.1:9000:9000
-      - 127.0.0.1:9001:9001
+      - "127.0.0.1:${RUSTFS_PORT:-9000}:9000"
+      - "127.0.0.1:${RUSTFS_CONSOLE_PORT:-9001}:9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/health/ready"]
       interval: 3s
@@ -82,6 +96,7 @@ services:
       retries: 20
 
   storage-init:
+    <<: *helper-limits
     image: rustfs/rc@sha256:ab024bfebee49a750ce886b4c70963ccd9ddaa03f491704a90710641d7a26699
     profiles: ["setup"]
     depends_on:
