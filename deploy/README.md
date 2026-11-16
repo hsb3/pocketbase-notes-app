@@ -14,6 +14,9 @@ context, so run all commands from the repository root.
 
 `make help` lists every command, grouped the same way.
 
+The project runs no public demo instance: every deployment is someone's own
+private notebook. Try it locally with `make app`.
+
 ## Files
 
 | File | Purpose |

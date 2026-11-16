@@ -80,4 +80,4 @@ Follow the existing schema/migration/type-generation workflow. Reuse the typed P
 
 ## Implementation order
 
-The editor, persistence, navigation and failure paths are implemented. Kata registration remains pending because the current server does not recognize this repository alias. Future work remains outside this release: offline drafts and sharing.
+The editor, persistence, navigation and failure paths are implemented. Future work remains outside this release: offline drafts and sharing.

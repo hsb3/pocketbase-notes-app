@@ -6,7 +6,7 @@ What each file at the repo root does and why it exists.
 
 ### `package.json`
 
-Declares dependencies (React 19, TanStack Router, PocketBase SDK, Tailwind) and scripts (`dev`, `build`, `lint`, `pb:codegen`). Its `trustedDependencies` field whitelists which packages may run postinstall scripts under Bun (`@biomejs/biome`, `esbuild`) — everything else is blocked. Necessary: it is the package manifest; nothing installs or builds without it.
+Declares dependencies (React 19, TanStack Router, PocketBase SDK, Tailwind) and scripts (`dev`, `build`, `lint`, `knip`, `docs:dev`/`docs:build`, `pb:codegen`, `test:*`). It also carries the app version (`0.1.0`, checked by the release workflow) and the MIT `license` field. Its `trustedDependencies` field whitelists which packages may run postinstall scripts under Bun (`@biomejs/biome`, `esbuild`) — everything else is blocked. Necessary: it is the package manifest; nothing installs or builds without it.
 
 ### `bun.lock`
 
@@ -36,13 +36,17 @@ Separate TS project for Node/Bun-context files — `vite.config.ts`, `playwright
 
 ### `biome.json`
 
-Biome formatter + linter config (replaces ESLint/Prettier). Defines the rule set, formatting style (2-space, 80-col, LF), Tailwind class sorting via `useSortedClasses`, and excludes generated files (`src/route-tree.gen.ts`, `src/services/pocketbase-types.ts`, `pb/`). Backs the `lint`/`lint:fix` scripts.
+Biome formatter + linter config (replaces ESLint/Prettier). Defines the rule set, formatting style (2-space, 80-col, LF), Tailwind class sorting via `nursery/useTailwindSortedClasses` (Biome 2.6; its options live under the top-level `tailwind` key), Markdown and YAML formatting turned off, and excludes generated files (`src/route-tree.gen.ts`, `src/services/pocketbase-types.ts`, `pb/`). Backs the `lint`/`lint:fix` scripts.
+
+### `knip.json`
+
+knip config for `bun run knip`: reports unused files, exports and dependencies. Entry points are the file routes, the vendored editor barrels, `scripts/`, `deploy/railway/` and the test specs. Unused-export reports are off for the vendored `src/components/ui/**` and `src/components/editor/**`; `@iconify-json/lucide` is ignored because only the Tailwind icon plugin uses it; the Playwright plugin is off because loading `playwright.config.ts` needs `.env`. Runs in CI's Quality job.
 
 ### `components.json`
 
-Aliases explicitly route UI components and hooks into the existing `src/` folders; `iconLibrary` selects Tabler. The `registries` map includes `@prosekit` for discovering ProseKit editor components through the shadcn CLI. Registering it does not install an editor or its dependencies.
-
 shadcn/ui CLI config. Tells `shadcn add <component>` where to put components (`@/components`), where the Tailwind CSS entry lives (`src/styles/globals.css`), and the base style. Only needed when adding/updating shadcn components; harmless otherwise but the CLI won't work without it.
+
+Aliases explicitly route UI components and hooks into the existing `src/` folders; `iconLibrary` selects Tabler. The `registries` map includes `@prosekit` for discovering ProseKit editor components through the shadcn CLI. Registering it does not install an editor or its dependencies.
 
 ## Backend & Deployment
 
@@ -82,7 +86,7 @@ Template for `.env`, including backend credentials, local URLs, seed users, Rust
 
 ### `Makefile`
 
-Task runner tying everything together. `make help` opens with which entry point to use: `make app` (whole app in Docker, seeded, no Bun), `make start` (backend up + seed + dev server) or `make start-full` (adds Mailpit and RustFS). Also `up`/`up-full`/`down`/`logs`/`health`/`seed`/`codegen`/`dev-solo`, the `stack-*` targets, and `railway-*` operator targets split into read-only checks and mutating ones that refuse to run without `CONFIRM=<deployment hostname>`. Loads `.env` automatically and runs the compose files in `deploy/local/` with the repo root as project directory.
+Task runner tying everything together. `make help` opens with which entry point to use: `make app` (whole app in Docker, seeded, no Bun), `make start` (backend up + seed + dev server) or `make start-full` (adds Mailpit and RustFS). Also `up`/`up-full`/`down`/`logs`/`health`/`seed`/`codegen`/`dev-solo`, `smoke`/`e2e`/`load-test`, the `stack-*` targets, and `railway-*` operator targets split into read-only checks and mutating ones that refuse to run without `CONFIRM=<deployment hostname>`. Loads `.env` automatically and runs the compose files in `deploy/local/` with the repo root as project directory.
 
 ### `.gitignore`
 
@@ -118,9 +122,20 @@ a managed Vite server and failure artifacts. `.env` supplies the local backend;
 
 ### `.github/`
 
-`workflows/ci.yml` runs quality and native amd64/arm64 full-stack tests.
-`rulesets/*.json` and `repository.json` record the admin-applied GitHub protection
-and merge settings. See [CI and repository rules](../ci/checks-and-rules.md).
+Workflows: `ci.yml` (Quality, Docs links, Workflow lint, native amd64/arm64 E2E),
+`codeql.yml` (code scanning), `docs.yml` (builds the docs site; deploys it to Pages
+from `main`), `performance.yml` (manual editor baseline) and `release.yml` (publishes a
+GitHub release from a `v*` tag, using `.github/scripts/release-notes.sh`). `dependabot.yml`
+proposes weekly grouped action and Bun updates. `ISSUE_TEMPLATE/` and
+`pull_request_template.md` shape issues and PRs. `rulesets/*.json` and
+`repository.json` record the admin-applied GitHub protection and merge settings. See
+[CI and repository rules](../ci/checks-and-rules.md) and [releasing](../ci/releasing.md).
+
+### `LICENSE`, `CHANGELOG.md`, `CONTRIBUTING.md` and `SECURITY.md`
+
+MIT license; the release history in Keep a Changelog form (the release workflow takes
+its notes from the matching section); how to set up, check and propose a change; and
+how to report a vulnerability privately.
 
 ### `.claude/settings.json` and `.codex/config.toml`
 
@@ -178,6 +193,20 @@ a read-only restore comparison; see [accounts](../../deploy/OPERATIONS.md#accoun
 The scripts act on the `PB_URL` in the private copy and require its hostname to
 be repeated (`CONFIRM` through `make`, `DEPLOY_CONFIRM` directly);
 `deploy/railway/run.sh` is the wrapper the `make railway-*` targets call.
+
+### `scripts/init-env.sh`
+
+Creates `.env` from `.env.example` when it is missing and fills an empty
+`PB_ENCRYPTION_KEY` and `PB_PASSWORD` with generated values. It never changes a value
+that is set. The Makefile runs it before `env`, `app`, `start`, `start-full`, `up`,
+`up-full` and `stack-up`.
+
+### `scripts/capture-screenshots.sh`
+
+Refreshes the README images in `docs/images/` from a running stack: drives
+`tests/screenshots/capture.cjs` in a resource-limited Playwright container and uses
+ffmpeg on the host for the GIF and the phone strip. Use a fresh stack: each run adds
+one sample note.
 
 ### `scripts/seed.sh` and `scripts/seed.ts`
 

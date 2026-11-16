@@ -22,7 +22,8 @@ There is deliberately no public demo: run it locally (below) to try it.
   checklists, tables, links, code blocks with highlighting, and KaTeX math.
 - **Open tasks**: every unchecked checklist item across your entries in one
   list. Tick one off there and it is saved into its entry, with the same
-  conflict check as the editor. Each entry shows its open count.
+  conflict check as the editor. Each entry shows its open count
+  ([how it works](docs/features/tasks.md)).
 - **Find things**: title search, favorites, note/journal filters and journal
   date filters; filters stay in the URL.
 - **Saving you can trust**: explicit Save (or Ctrl/Cmd+S), a prompt before
@@ -30,7 +31,8 @@ There is deliberately no public demo: run it locally (below) to try it.
 - **Attachments**: private images, PDFs and text files with protected downloads.
 - **Light, dark or system theme**, from the login page or the user menu.
 - **Opt-in two-step sign-in**: after the password, a one-time code sent by
-  email. Turned on per account from Account security.
+  email. Turned on per account from Account security
+  ([sign-in](docs/features/auth.md)).
 - **Phone-friendly** list and editor, and a full-screen writing mode.
 
 | Notebook, light | Notebook, dark |
@@ -82,7 +84,8 @@ make up-full && make e2e                        # API and browser tests, desktop
 
 Tests create and delete their own accounts on the local backend. CI runs the
 same suite on Linux amd64 and arm64 for every pull request. Details:
-[verification](docs/testing/verification.md) and
+[verification](docs/testing/verification.md),
+[load testing](docs/testing/load-testing.md) (`make load-test`) and
 [CI and repository rules](docs/ci/checks-and-rules.md).
 
 ## Deploy

@@ -76,7 +76,7 @@ Turning it on or off (`/account`, user menu → **Account security**):
 | Wrong code | `400`; the page says the code is wrong or expired. |
 | Expired code (after 5 min) | `400`, same message. **Send a new code** gets a fresh one. |
 | Used code | Codes work once; reuse is `400`. |
-| More than 5 code checks for one account within 3 minutes | `429` from PocketBase (built in, independent of the rate-limit setting). The page says to wait and send a new code. |
+| More than 5 code checks for one account within 3 minutes (successful sign-ins count too) | `429` from PocketBase (built in, independent of the rate-limit setting). The page says to wait and send a new code. |
 | Resend | The button unlocks 30 seconds after each send. Outside `--dev` mode PocketBase keeps at most 10 live codes per account and reuses the newest after that. |
 | Second step not finished within 10 minutes | `400` "Invalid or expired MFA session"; the page says to sign in again. |
 
