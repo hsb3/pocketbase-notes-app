@@ -31,10 +31,12 @@ export async function uploadAttachment(file: File) {
     .create<AttachmentRecord>(form, { requestKey: null });
 }
 export async function attachmentBlob(id: string) {
-  const record = await pb
-    .collection("attachments")
-    .getOne<AttachmentRecord>(id, { requestKey: null });
-  const token = await pb.files.getToken({ requestKey: null });
+  const [record, token] = await Promise.all([
+    pb
+      .collection("attachments")
+      .getOne<AttachmentRecord>(id, { requestKey: null }),
+    pb.files.getToken({ requestKey: null }),
+  ]);
   const response = await fetch(pb.files.getURL(record, record.file, { token }));
   if (!response.ok)
     throw new Error("File unavailable. Sign in again and retry.");

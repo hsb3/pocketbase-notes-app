@@ -319,3 +319,45 @@ test("notes, journals, conflicts and responsive navigation", async ({
     "PASS: login, rich-text round trip, favorites, draft guard, journals, stale saves, failed saves, mobile navigation and deletion",
   );
 });
+
+test("long titles wrap on a phone and stay one line on desktop", async ({
+  page,
+  session,
+}) => {
+  await page.goto("/");
+  await page.locator('input[name="identity"]').fill(session.email);
+  await page.locator('input[name="password"]').fill(session.password);
+  await page.getByRole("button", { name: "Login", exact: true }).click();
+  await page.waitForURL("**/entries**");
+  await page.getByRole("link", { name: "New note", exact: true }).click();
+  const title = page.getByLabel("Entry title");
+  const long = "Ideas for the reading nook and the garden shed this spring";
+  await title.fill(long);
+  await title.press("Enter");
+  assert.equal(await title.inputValue(), long, "Enter adds no line break");
+  const box = () =>
+    title.evaluate((el) => ({
+      height: el.clientHeight,
+      scrollHeight: el.scrollHeight,
+      scrollWidth: el.scrollWidth,
+      width: el.clientWidth,
+      lineHeight: Number.parseFloat(getComputedStyle(el).lineHeight),
+    }));
+  const desktop = await box();
+  assert.ok(desktop.height < desktop.lineHeight * 2, "One line on desktop");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(async () => (await box()).height)
+    .toBeGreaterThan(desktop.height);
+  const phone = await box();
+  assert.ok(phone.scrollHeight <= phone.height + 1, "No hidden title lines");
+  assert.ok(phone.scrollWidth <= phone.width + 1, "No hidden title text");
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    true,
+    "Mobile must not overflow horizontally",
+  );
+});

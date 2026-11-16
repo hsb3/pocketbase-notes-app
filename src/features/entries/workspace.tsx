@@ -1,4 +1,10 @@
-import { createContext, useEffect, useState, type CSSProperties } from "react";
+import {
+  createContext,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   Outlet,
   Link,
@@ -48,6 +54,10 @@ export function Workspace() {
   useEffect(() => {
     if (!hasEditor) setFocusMode(false);
   }, [hasEditor]);
+  const focusValue = useMemo(
+    () => ({ focused, toggle: () => setFocusMode((value) => !value) }),
+    [focused],
+  );
   const title = onTasks
     ? "Open tasks"
     : {
@@ -57,9 +67,7 @@ export function Workspace() {
         favorites: "Favorites",
       }[search.view];
   return (
-    <WritingFocus.Provider
-      value={{ focused, toggle: () => setFocusMode((value) => !value) }}
-    >
+    <WritingFocus.Provider value={focusValue}>
       <SidebarProvider
         open={focused ? false : open}
         onOpenChange={setOpen}
