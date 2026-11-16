@@ -5,7 +5,8 @@
     "src/components/editor/**/index.ts",
     "scripts/*.ts",
     "deploy/railway/*.ts",
-    "tests/**/*.cjs"
+    "tests/**/*.cjs",
+    "playwright*.config.ts"
   ],
   "project": [
     "src/**/*.{ts,tsx,css}",
@@ -19,5 +20,6 @@
     "src/components/ui/**": ["exports", "types"],
     "src/components/editor/**": ["exports", "types"]
   },
-  "ignoreDependencies": ["@iconify-json/lucide"]
+  "ignoreDependencies": ["@iconify-json/lucide"],
+  "playwright": false
 }
