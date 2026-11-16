@@ -1,6 +1,17 @@
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 export type Theme = "light" | "dark" | "system";
+
+export const themeOptions = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+] as const satisfies readonly {
+  value: Theme;
+  label: string;
+  icon: typeof Sun;
+}[];
 
 /**
  * localStorage key. The inline script in index.html reads the same key before
