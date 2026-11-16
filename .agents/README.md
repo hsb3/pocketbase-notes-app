@@ -19,7 +19,9 @@ root [`AGENTS.md`](../AGENTS.md) kernel; task detail lives in routed topics unde
 `context/ai-context.json` owns these topics; this table mirrors them for humans. After
 changing topics, run `python3 scripts/ai-context.py check`.
 
-`skills/` holds vendored skills (shadcn); they are adapters, not a source of rules.
+`skills/` holds vendored skills (shadcn) and the spec-kit `speckit-*` skills for Codex
+(Claude's copies are in `.claude/skills/`); they are adapters, not a source of rules.
+The spec-kit workflow is described in `context/feature-workflow.md`.
 
 ## History (milestone logs; read on demand)
 

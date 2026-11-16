@@ -7,6 +7,12 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ## [Unreleased]
 
+### Added
+
+- Spec Kit drives feature work: specs live under `specs/`, the `speckit-*` skills are
+  installed for Claude Code and Codex, and GitHub issues stay the inbox ([#33] is the
+  first backlog item).
+
 ### Changed
 
 - The restore test's temporary container runs with CPU, memory and process limits,
@@ -118,3 +124,4 @@ stacks and a Railway self-host guide.
 [#26]: https://github.com/hsb3/pocketbase-notes-app/pull/26
 [#27]: https://github.com/hsb3/pocketbase-notes-app/pull/27
 [#28]: https://github.com/hsb3/pocketbase-notes-app/pull/28
+[#33]: https://github.com/hsb3/pocketbase-notes-app/issues/33

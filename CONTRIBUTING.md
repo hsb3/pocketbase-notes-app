@@ -15,6 +15,25 @@ make start   # creates .env with generated secrets, PocketBase in Docker, seeded
 [docs/development/setup.md](docs/development/setup.md) covers the full stack (email and file
 storage) and [AGENTS.md](AGENTS.md) lists the project's conventions and gotchas.
 
+## How work flows
+
+- **Issues are the inbox.** Report bugs and request features with the issue forms.
+  Ideas waiting for a decision carry the `backlog` label.
+- **Specs drive features.** A new feature, a schema or access-rule change, or a
+  design change users would notice starts as a spec in `specs/NNN-short-name/`,
+  written with [Spec Kit](https://github.com/github/spec-kit): `spec.md` (what and
+  why), `plan.md` (how), `tasks.md` (steps). With Claude Code or Codex, run
+  `/speckit-specify`, `/speckit-plan`, `/speckit-tasks`, then `/speckit-implement`.
+  [specs/001-open-tasks](specs/001-open-tasks/spec.md) is a finished example.
+- **Small changes skip the spec.** Bug fixes, dependency bumps, docs and tooling go
+  straight to a pull request.
+- The pull request links the spec, carries the verification evidence and closes the
+  issue (`Closes #N`).
+
+The project's principles are summarised in
+[.specify/memory/constitution.md](.specify/memory/constitution.md); plans are checked
+against it.
+
 ## Check your change
 
 Run these before opening a pull request. CI's Quality job runs the same commands.

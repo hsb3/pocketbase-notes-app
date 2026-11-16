@@ -20,6 +20,7 @@
       "!src/styles/globals.css",
       "!**/.agents/skills/**",
       "!**/.claude/skills/**",
+      "!**/.specify/**",
       "!**/test-results/**",
       "!**/playwright-report/**"
     ]
