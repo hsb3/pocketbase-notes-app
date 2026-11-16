@@ -44,8 +44,8 @@ privileged credentials. No deployment or package publishing happens in CI.
 | Workflow | Runs | Work |
 | --- | --- | --- |
 | `codeql.yml` | Pull requests to `main`, pushes to `main`, Mondays 06:23 UTC | CodeQL analysis of JavaScript/TypeScript. Results appear under Security → Code scanning. Only this job holds `security-events: write` |
-| `release.yml` | Push of a `v*` tag | Checks the tag against `package.json` and `CHANGELOG.md`, then creates a GitHub Release. Only this job holds `contents: write`. See [releasing](RELEASING.md) |
-| `performance.yml` | Manual dispatch only | Runs the [editor benchmark](VERIFICATION.md#production-editor-performance) against the production image and uploads the report for 30 days. It is not part of pull request CI: it takes minutes, shared-runner timings are noisy, and no budget is enforced |
+| `release.yml` | Push of a `v*` tag | Checks the tag against `package.json` and `CHANGELOG.md`, then creates a GitHub Release. Only this job holds `contents: write`. See [releasing](releasing.md) |
+| `performance.yml` | Manual dispatch only | Runs the [editor benchmark](../testing/verification.md#production-editor-performance) against the production image and uploads the report for 30 days. It is not part of pull request CI: it takes minutes, shared-runner timings are noisy, and no budget is enforced |
 
 `.github/dependabot.yml` opens weekly grouped pull requests for GitHub Actions pins
 and for Bun dependencies. Bun updates wait eight days after a version is published,
@@ -112,7 +112,7 @@ Required check names must stay aligned with the workflow job names; checks are
 bound to the GitHub Actions integration rather than arbitrary commit statuses.
 
 For a failure, inspect the failed job first, then download its report/log artifact.
-Reproduce with the [local testing commands](VERIFICATION.md). When updating action
+Reproduce with the [local testing commands](../testing/verification.md). When updating action
 SHAs, runtimes or image digests, require a new green run on both architectures.
 Dependabot proposes action SHA updates; the actionlint image digest and the lychee
 version in `ci.yml` are bumped by hand.

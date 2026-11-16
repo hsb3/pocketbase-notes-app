@@ -28,7 +28,7 @@ with [Docker Compose](https://docs.docker.com/compose/install/), and
 
 `make app` runs the built app, Mailpit and RustFS in Docker with nothing
 mounted from the checkout, seeds it, and prints the address and login. See
-[local stacks](../deploy/LOCAL.md#self-contained-stacks).
+[local stacks](../../deploy/LOCAL.md#self-contained-stacks).
 
 Other Makefile targets: `make up` / `make down` / `make logs` / `make health`
 run PocketBase alone; `make dev-solo` runs the frontend with
@@ -67,7 +67,7 @@ development. The S3 endpoint inside Docker is `http://rustfs:9000`, region
 `us-east-1`, with path-style addressing. Mailpit and RustFS ports bind to loopback.
 To run two checkouts at once, give the second one its own ports and container
 names in `.env`; `.env.example` lists the variables.
-The full editor uses this storage for [private note attachments and images](ATTACHMENTS.md).
+The full editor uses this storage for [private note attachments and images](../features/attachments.md).
 
 The setup script refuses to overwrite another enabled SMTP/S3 provider or change
 an active S3 bucket. It also refuses to enable S3 over existing local uploads:

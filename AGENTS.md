@@ -12,7 +12,7 @@ React 19 + TanStack Router frontend, PocketBase backend, built with Bun and Vite
   (shared multi-arch image: frontend build + PocketBase), `deploy/local/` (compose files,
   driven via Makefile from the repo root), `deploy/railway/railway.json` (config-as-code;
   Railway needs `PB_ENCRYPTION_KEY` and a volume at `/pb/pb_data`).
-- **Config docs**: `docs/ROOT-FILES.md` explains every root config file; keep it in sync
+- **Config docs**: `docs/development/root-files.md` explains every root config file; keep it in sync
   when configs change.
 
 ## Commands
