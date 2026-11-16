@@ -320,7 +320,7 @@ test("notes, journals, conflicts and responsive navigation", async ({
   );
 });
 
-test("long titles wrap on a phone and stay one line on desktop", async ({
+test("long titles wrap on a phone; Ctrl/Cmd+S saves the latest draft", async ({
   page,
   session,
 }) => {
@@ -360,4 +360,19 @@ test("long titles wrap on a phone and stay one line on desktop", async ({
     true,
     "Mobile must not overflow horizontally",
   );
+
+  // The shortcut reads the save handler from a ref; it must see the newest draft.
+  await page
+    .getByRole("textbox", { name: "Entry body" })
+    .fill("Cushions, a lamp and the short-story shelf.");
+  await page.keyboard.press("ControlOrMeta+s");
+  await page.waitForURL(/\/entries\/[a-z0-9]{15}/);
+  await title.fill("Reading nook, revised");
+  await page.keyboard.press("ControlOrMeta+s");
+  await page
+    .getByRole("status")
+    .filter({ hasText: /^Saved$/ })
+    .waitFor();
+  await page.reload();
+  await expect(title).toHaveValue("Reading nook, revised");
 });

@@ -19,6 +19,11 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
   in place through the normal save-conflict check, with per-entry open counts.
   Counts are derived on the server and backfilled for existing entries.
 
+### Fixed
+
+- Long entry titles wrap on phones instead of being cut off; dependencies updated
+  (React 19.3, TanStack Router 1.170.46, Biome 2.6, Vite 8.3, Playwright 1.65).
+
 ## [0.1.0] - 2026-11-15
 
 First versioned state of the app: a private notes and journaling app on React,
