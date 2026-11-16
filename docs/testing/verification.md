@@ -76,7 +76,7 @@ console errors from the full scenarios. Each new browser run replaces prior outp
 Chromium and WebKit projects run the same desktop/mobile-viewport
 scenarios. A configured project is not a passing result; see the recorded run below.
 Actual Safari, physical-phone keyboards, screen readers, OAuth and production
-deployment still require separate verification. [GitHub Actions](CI.md) runs the same suite on Linux amd64 and arm64.
+deployment still require separate verification. [GitHub Actions](../ci/checks-and-rules.md) runs the same suite on Linux amd64 and arm64.
 
 ## Production editor performance
 
@@ -193,7 +193,7 @@ The explicit signup-enabled check is a separate phase; both the backend runtime
 and Vite frontend must use `VITE_SIGNUP_ENABLED=true` before running
 `bunx playwright test tests/e2e/registration-enabled.spec.cjs`. The normal suite
 skips that scenario. CI configures both flags on its disposable stack, runs the
-extra phase and keeps a separate report; see [CI configuration](CI.md).
+extra phase and keeps a separate report; see [CI configuration](../ci/checks-and-rules.md).
 
 
 `test:accounts` requires a disposable local full stack with no existing attachment

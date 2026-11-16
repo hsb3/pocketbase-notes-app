@@ -7,7 +7,7 @@ context, so run all commands from the repository root.
 | I want to… | Read | Start with |
 | --- | --- | --- |
 | Run the app on my machine | [Local stacks](LOCAL.md) | `make app` |
-| Work on the code | [Development](../docs/DEVELOPMENT.md) | `make start` |
+| Work on the code | [Development](../docs/development/setup.md) | `make start` |
 | Understand or build the image | [Shared image](IMAGE.md) | `docker build -f deploy/docker/Dockerfile .` |
 | Host it myself on Railway | [Railway self-host guide](RAILWAY.md) | `railway init` |
 | Update, back up, restore or rotate credentials | [Operations](OPERATIONS.md) | `make railway-check-backups` |

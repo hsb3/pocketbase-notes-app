@@ -7,6 +7,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { pb } from "@/services/pocketbase";
 import { useAdminCapability } from "@/hooks/use-admin-capability";
+import { type Theme, themeOptions, useTheme } from "@/features/theme/theme";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -15,6 +16,8 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -36,6 +39,7 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar();
   const isAdmin = useAdminCapability();
+  const { theme, setTheme } = useTheme();
 
   return (
     <SidebarMenu>
@@ -79,6 +83,29 @@ export function NavUser({
                 </div>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-muted-foreground text-xs">
+                Theme
+              </DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                aria-label="Theme"
+                value={theme}
+                onValueChange={(value) => setTheme(value as Theme)}
+              >
+                {themeOptions.map((option) => (
+                  <DropdownMenuRadioItem
+                    key={option.value}
+                    value={option.value}
+                    /** keep the menu open so the change is visible */
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    <option.icon />
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               {isAdmin && (

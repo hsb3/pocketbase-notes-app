@@ -7,7 +7,7 @@ GitHub Actions runs `.github/workflows/ci.yml` on every pull request targeting
 
 | Check | Work |
 | --- | --- |
-| `Quality` | Frozen dependency install, dependency audit, local-target safety tests, Biome, unused-code check (knip), setup/test-script type checks, frontend/config type checks and production build |
+| `Quality` | Frozen dependency install, dependency audit, local-target safety tests, Biome, unused-code check (knip), agent-context check (`scripts/ai-context.py check`), setup/test-script type checks, frontend/config type checks and production build |
 | `E2E (amd64)` | Native Ubuntu Docker build, fresh PocketBase + Mailpit + RustFS, live API tests and Chromium and WebKit browser scenarios |
 | `E2E (arm64)` | The same full-stack checks on native ARM Linux |
 
@@ -44,8 +44,9 @@ privileged credentials. No deployment or package publishing happens in CI.
 | Workflow | Runs | Work |
 | --- | --- | --- |
 | `codeql.yml` | Pull requests to `main`, pushes to `main`, Mondays 06:23 UTC | CodeQL analysis of JavaScript/TypeScript. Results appear under Security → Code scanning. Only this job holds `security-events: write` |
-| `release.yml` | Push of a `v*` tag | Checks the tag against `package.json` and `CHANGELOG.md`, then creates a GitHub Release. Only this job holds `contents: write`. See [releasing](RELEASING.md) |
-| `performance.yml` | Manual dispatch only | Runs the [editor benchmark](VERIFICATION.md#production-editor-performance) against the production image and uploads the report for 30 days. It is not part of pull request CI: it takes minutes, shared-runner timings are noisy, and no budget is enforced |
+| `release.yml` | Push of a `v*` tag | Checks the tag against `package.json` and `CHANGELOG.md`, then creates a GitHub Release. Only this job holds `contents: write`. See [releasing](releasing.md) |
+| `docs.yml` | Pull requests to `main`, pushes to `main`, manual dispatch | Builds the VitePress docs site with `bun run docs:build`, which fails on dead links. On `main` only, a separate job deploys it to GitHub Pages; only that job holds `pages: write` and `id-token: write` |
+| `performance.yml` | Manual dispatch only | Runs the [editor benchmark](../testing/verification.md#production-editor-performance) against the production image and uploads the report for 30 days. It is not part of pull request CI: it takes minutes, shared-runner timings are noisy, and no budget is enforced |
 
 `.github/dependabot.yml` opens weekly grouped pull requests for GitHub Actions pins
 and for Bun dependencies. Bun updates wait eight days after a version is published,
@@ -58,9 +59,11 @@ checks as any other.
 
 ```sh
 bun run knip
+python3 scripts/ai-context.py check
+bun run docs:build
 actionlint
 docker run --rm --network none -v "$PWD:/repo:ro" -w /repo lycheeverse/lychee:latest \
-  --offline --include-fragments --no-progress --exclude-path .agents/skills '**/*.md'
+  --offline --include-fragments --no-progress --exclude-path .agents/skills --exclude-path node_modules '**/*.md'
 .github/scripts/release-notes.sh "v$(jq -r .version package.json)"
 ```
 
@@ -112,7 +115,7 @@ Required check names must stay aligned with the workflow job names; checks are
 bound to the GitHub Actions integration rather than arbitrary commit statuses.
 
 For a failure, inspect the failed job first, then download its report/log artifact.
-Reproduce with the [local testing commands](VERIFICATION.md). When updating action
+Reproduce with the [local testing commands](../testing/verification.md). When updating action
 SHAs, runtimes or image digests, require a new green run on both architectures.
 Dependabot proposes action SHA updates; the actionlint image digest and the lychee
 version in `ci.yml` are bumped by hand.

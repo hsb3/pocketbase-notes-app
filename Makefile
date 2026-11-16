@@ -46,7 +46,7 @@ help: ## show this list
 		'make start' 'Work on the code: PocketBase in Docker + Vite hot reload. Needs Bun.' \
 		'make start-full' 'Same, plus local email (Mailpit) and S3 storage (RustFS).'
 	@printf '  Each one creates .env with generated secrets if it is missing.\n'
-	@printf '  More: docs/DEVELOPMENT.md, deploy/README.md\n'
+	@printf '  More: docs/development/setup.md, deploy/README.md\n'
 	@awk 'BEGIN {FS = ":.*?## "} \
 		/^##@/ {printf "\n\033[1m%s\033[0m\n", substr($$0, 5); next} \
 		/^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}' $(firstword $(MAKEFILE_LIST))

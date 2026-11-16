@@ -14,4 +14,4 @@ Notes and dated journal entries share a ProseKit editor. Title search, journal d
 
 ## Design authority
 
-The approved structure and acceptance criteria live in [the design brief](design/notes-journal.md); [wireframes](design/notes-journal-wireframes.html) define the three-region desktop workspace and single-region mobile flow. Preserve the existing neutral shadcn theme and reuse prebuilt components.
+The approved structure and acceptance criteria live in [the design brief](../design/notes-journal.md); [wireframes](../design/wireframes.md) define the three-region desktop workspace and single-region mobile flow. Preserve the existing neutral shadcn theme and reuse prebuilt components.
