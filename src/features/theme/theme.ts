@@ -6,7 +6,7 @@ export type Theme = "light" | "dark" | "system";
  * localStorage key. The inline script in index.html reads the same key before
  * first paint; keep the two in sync.
  */
-export const THEME_STORAGE_KEY = "theme";
+const THEME_STORAGE_KEY = "theme";
 
 const isTheme = (value: unknown): value is Theme =>
   value === "light" || value === "dark" || value === "system";
@@ -39,7 +39,7 @@ function update(next: Theme) {
   for (const listener of listeners) listener();
 }
 
-export function setTheme(next: Theme) {
+function setTheme(next: Theme) {
   try {
     localStorage.setItem(THEME_STORAGE_KEY, next);
   } catch {
