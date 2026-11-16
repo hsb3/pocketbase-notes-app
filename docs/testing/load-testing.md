@@ -9,8 +9,9 @@ Measured 2026-11-15 on one app container limited to **1 CPU and 512 MB**, with t
 local stack's settings (rate limiting off, files in RustFS):
 
 - **Comfortable up to about 245 requests/second** (200 simulated users acting about
-  once a second): no errors, p95 59–69 ms, p99 under 250 ms, memory steady near 250 MiB.
-- **The knee is at about 340–370 requests/second** (300–400 simulated users).
+  once a second): no errors, p95 about 50 ms, p99 under 125 ms, memory near 190 MiB
+  (about 250 MiB after eight minutes at that load).
+- **The knee is at about 360–390 requests/second** (300–400 simulated users).
   Throughput stops growing there and p95 passes one second.
 - **Past the knee the app is killed for exceeding its memory limit.** This happened in
   every pass that pushed beyond the knee, at 500 or 650 simulated users.
@@ -95,50 +96,53 @@ which it was throttled at its CPU limit.
 **Latency excludes one deliberate delay.** PocketBase sleeps a random time, up to
 500 ms, before answering a filtered list that matched nothing, once a client has sent
 more than three of those in three seconds. It is an anti-enumeration measure
-(`apis/record_crud.go` in 0.40.1), costs no CPU, and showed up as 350–470 ms at p95
-from the lightest stage on. Those responses (1.3% of requests) are reported on their
+(`apis/record_crud.go` in 0.40.1), costs no CPU, and showed up as 400–480 ms at p95
+from the lightest stage on. Those responses (1.2% of requests) are reported on their
 own row, not in the stage percentiles. A user typing a search that matches nothing can
 meet this delay.
 
 ## Results
 
-Two passes of the default run on commit `e88d827` (main at `c4813b4` plus the test),
+Two passes of the default run on commit `75e001a` (main at `73524fb` plus the test),
 rate limiting off. Each cell is pass 1 / pass 2.
 
 | Simulated users | req/s | p50 ms | p95 ms | p99 ms | Errors % | App CPU (cores) | Throttled periods % | App memory max MiB |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 50 | 61 / 63 | 1.2 / 1.2 | 7 / 8 | 53 / 55 | 0 / 0 | 0.18 / 0.19 | 0 / 1 | 129 / 147 |
-| 100 | 123 / 124 | 1.1 / 1.3 | 9 / 15 | 54 / 55 | 0 / 0 | 0.34 / 0.37 | 3 / 5 | 148 / 160 |
-| 200 | 245 / 243 | 1.3 / 1.5 | 59 / 69 | 150 / 246 | 0 / 0 | 0.66 / 0.69 | 27 / 27 | 181 / 193 |
-| 300 | 354 / 342 | 5 / 11 | 219 / 322 | 609 / 786 | 0 / 0 | 0.90 / 0.90 | 67 / 72 | 270 / 254 |
-| 400 | 340 / 370 | 120 / 92 | 1,668 / 1,411 | 2,356 / 2,298 | 0 / 0 | 0.98 / 0.98 | 93 / 93 | 424 / 369 |
-| 500 | 336 / 237 | 230 / 215 | 2,882 / 2,960 | 4,588 / 5,947 | 0 / 2.7 | 0.98 / 1.00 | 99 / 98 | 447 / 479 |
-| 650 | 85 / 29 | 374 / – | 5,646 / – | 9,294 / – | 23 / 100 | 1.00 / – | 99 / – | 493 / – |
+| 50 | 61 / 62 | 1.4 / 1.6 | 9 / 10 | 65 / 69 | 0 / 0 | 0.23 / 0.25 | 0 / 1 | 127 / 138 |
+| 100 | 124 / 124 | 1.2 / 1.1 | 10 / 8 | 59 / 59 | 0 / 0 | 0.38 / 0.37 | 4 / 4 | 145 / 151 |
+| 200 | 245 / 246 | 1.2 / 1.1 | 51 / 50 | 109 / 121 | 0 / 0 | 0.65 / 0.62 | 21 / 19 | 188 / 178 |
+| 300 | 358 / 357 | 2.6 / 2.0 | 134 / 156 | 306 / 361 | 0 / 0 | 0.85 / 0.84 | 59 / 54 | 244 / 230 |
+| 400 | 393 / 385 | 76 / 78 | 969 / 1,192 | 1,687 / 1,969 | 0 / 0 | 0.97 / 0.98 | 91 / 91 | 373 / 355 |
+| 500 | 376 / 377 | 177 / 167 | 2,314 / 2,223 | 3,615 / 3,790 | 0 / 0 | 1.00 / 1.00 | 99 / 98 | 476 / 413 |
+| 650 | 38 / 35 | – | – | – | 66 / 62 | 1.00 / 1.00 | 100 / 100 | 478 / 474 |
 
-The app was killed for memory during the 650-user stage in pass 1 and during the
-500-user stage in pass 2, which is why pass 2 has no 650 row. k6 itself peaked at 57%
-of its 200% CPU allowance.
+In both passes the app was killed for memory early in the 650-user stage, so that row
+mostly measures a dead server. k6 itself peaked at 42% of its 200% CPU allowance.
 
-Spread between the two passes below the knee: requests/second within 4%, p95 within
-10 ms up to 200 users and 219 against 322 ms at 300. Past the knee the passes agree on
-the shape, not the numbers.
+Spread between the two passes: requests/second within 2% up to 500 users; p95 within
+2 ms up to 200 users, 134 against 156 ms at 300 and 969 against 1,192 ms at 400.
+
+Spread across the day is wider. The same run earlier that day (`e88d827`, before
+opt-in two-step sign-in was merged), while the machine was busier, gave a knee of
+340–370 requests/second, p95 of 219 and 322 ms at 300 users, and one memory kill
+already at 500 users. Read the knee as 340–390 requests/second.
 
 p50 / p95 ms per operation, pass 1:
 
 | Operation | 50 | 100 | 200 | 300 | 400 | 500 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Log in | 53 / 61 | 52 / 85 | 57 / 239 | 133 / 762 | 1,180 / 2,498 | 1,950 / 4,692 |
-| Entry list | 1 / 3 | 1 / 3 | 1 / 58 | 5 / 176 | 134 / 938 | 236 / 1,473 |
-| Open tasks view | 3 / 7 | 3 / 7 | 4 / 56 | 9 / 171 | 121 / 995 | 205 / 1,462 |
-| Search | 1 / 2 | 1 / 2 | 1 / 45 | 4 / 185 | 131 / 992 | 237 / 1,531 |
-| Open entry | 1 / 1 | 0 / 1 | 0 / 36 | 2 / 118 | 65 / 582 | 105 / 1,006 |
-| Create entry | 2 / 3 | 1 / 4 | 1 / 47 | 4 / 321 | 405 / 2,184 | 1,558 / 4,285 |
-| Update entry | 2 / 3 | 2 / 4 | 2 / 44 | 5 / 423 | 466 / 2,168 | 1,240 / 4,040 |
-| Upload file | 6 / 12 | 6 / 22 | 8 / 96 | 16 / 599 | 779 / 2,278 | 1,527 / 4,240 |
-| Download file | 1 / 2 | 1 / 2 | 1 / 44 | 2 / 200 | 105 / 780 | 165 / 1,118 |
-| Empty filtered list (deliberate delay) | 1 / 467 | 166 / 467 | 186 / 470 | 224 / 497 | 394 / 1,148 | 458 / 1,646 |
+| Log in | 59 / 72 | 56 / 83 | 55 / 201 | 96 / 512 | 656 / 1,812 | 1,657 / 3,608 |
+| Entry list | 2 / 5 | 1 / 3 | 1 / 38 | 2 / 121 | 78 / 566 | 153 / 1,165 |
+| Open tasks view | 5 / 10 | 4 / 8 | 4 / 37 | 7 / 101 | 72 / 501 | 172 / 1,163 |
+| Search | 1 / 4 | 1 / 2 | 1 / 34 | 2 / 132 | 85 / 605 | 162 / 1,230 |
+| Open entry | 1 / 2 | 0 / 1 | 0 / 29 | 1 / 86 | 50 / 411 | 85 / 803 |
+| Create entry | 2 / 6 | 2 / 4 | 1 / 26 | 2 / 159 | 176 / 1,534 | 1,126 / 3,146 |
+| Update entry | 2 / 6 | 2 / 5 | 1 / 40 | 3 / 202 | 253 / 1,473 | 1,001 / 3,067 |
+| Upload file | 7 / 12 | 6 / 11 | 6 / 64 | 8 / 258 | 362 / 1,662 | 1,296 / 3,450 |
+| Download file | 1 / 3 | 1 / 2 | 1 / 19 | 1 / 121 | 77 / 465 | 148 / 906 |
+| Empty filtered list (deliberate delay) | 1 / 403 | 131 / 463 | 180 / 477 | 222 / 493 | 348 / 879 | 424 / 1,316 |
 
-Single passes with one thing changed (same commit, same day):
+Single passes with one thing changed (same day, commit `e88d827`):
 
 | Variant | Result |
 | --- | --- |
@@ -151,32 +155,32 @@ Single passes with one thing changed (same commit, same day):
 
 How we know it is CPU:
 
-- Requests/second grow in step with users up to 200, bend at 300 and stop growing at
-  340–370 while users keep increasing.
-- At that point the app uses 0.90–0.98 of its one core and is throttled in 67–93% of
-  scheduler periods. Memory, k6 (under a third of its allowance) and RustFS are not at
-  their limits.
+- Requests/second grow in step with users up to 300, then stop growing at 360–390
+  while users keep increasing.
+- At that point the app uses 0.97–1.00 of its one core and is throttled in over 90% of
+  scheduler periods. Memory, k6 (under a quarter of its allowance) and RustFS are not
+  at their limits.
 - Every operation slows together, including ones that touch no disk, such as issuing a
   file token.
 
-Why logins lead: a login takes 52–57 ms when the app is idle against 1–2 ms for a list
+Why logins lead: a login takes 55–59 ms when the app is idle against 1–2 ms for a list
 or a save, because PocketBase hashes the password with bcrypt. At 200 users the test
-makes 6.7 logins a second, which is about 0.37 of the 0.66 cores in use. Login is also
-the first operation to degrade (p95 239 ms at 200 users, when lists are at 58 ms).
-Removing logins raised the comfortable ceiling from about 245 to about 500
+makes about 7 logins a second, which is roughly 0.38 of the 0.62–0.65 cores in use.
+Login is also the first operation to degrade (p95 201 ms at 200 users, when lists are
+at 38 ms). Removing logins raised the comfortable ceiling from about 245 to about 500
 requests/second. So the answer depends heavily on how often people log in: 5% of
 actions is deliberately pessimistic, and a morning rush of logins is the realistic
 worst case.
 
-Past the knee, writes degrade faster than reads (create p95 2.2 s against 0.9 s for a
+Past the knee, writes degrade faster than reads (create p95 1.5 s against 0.6 s for a
 list at 400 users), which fits SQLite allowing one writer at a time. That is a second
 effect, visible only once CPU is already exhausted.
 
 ## Second limit: memory under overload
 
-Memory stays near 130–260 MiB while the app keeps up, then climbs quickly once
-requests queue: 254–270 MiB at 300 users, 369–424 at 400, and the kernel kills the
-container at 512 MB soon after. A Go soft limit of 400 MiB did not prevent it, so the
+Memory stays near 130–250 MiB while the app keeps up, then climbs quickly once
+requests queue: 230–244 MiB at 300 users, 355–373 at 400, 413–476 at 500, and the
+kernel kills the container at 512 MB soon after. A Go soft limit of 400 MiB did not prevent it, so the
 memory is not garbage waiting to be collected. What holds it was not established.
 
 The practical meaning: one overloaded instance of this size does not just get slow, it
@@ -226,8 +230,8 @@ What changes between the two settings:
   Entry lists return whole documents (about 85 KB a page here), which a real network
   would feel.
 - **Single node, SQLite.** One PocketBase process and one database file; there is
-  nothing to scale out to. The database was small: 8,000 entries at the start, about
-  40 MB, growing to roughly 115 MB in the longest pass. Large accounts or a database
+  nothing to scale out to. The database was small: 8,000 entries, about 40 MB, at the start
+  and on the order of 100 MB at the end of a pass. Large accounts or a database
   larger than memory were not tested.
 - **Files go to RustFS** here, as in `make app`. The Railway setup stores files on the
   local volume, which this test did not measure. Files were small (16–64 KB).
