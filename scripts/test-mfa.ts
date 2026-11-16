@@ -153,7 +153,7 @@ try {
     `collections/users/records/${owner.id}`,
     "collections/entries/records",
   ]) {
-    const response = await fetch(`${url}/api/${path}`, {
+    const response: Response = await fetch(`${url}/api/${path}`, {
       headers: { Authorization: pending },
     });
     const body = (await response.json()) as { totalItems?: number };
