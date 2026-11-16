@@ -7,6 +7,12 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ## [Unreleased]
 
+### Added
+
+- Documentation site built with VitePress (`bun run docs:build`) and deployed to
+  GitHub Pages from `main`; `docs/` reorganized into lowercase sections, with a new
+  tech stack page and wireframe images viewable on GitHub.
+
 ## [0.1.0] - 2026-11-15
 
 First versioned state of the app: a private notes and journaling app on React,

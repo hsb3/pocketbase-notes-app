@@ -30,7 +30,7 @@ TypeScript config for the app source (`src/`). Strict mode, bundler-style module
 
 ### `tsconfig.node.json`
 
-Separate TS project for Node/Bun-context files — `vite.config.ts`, `playwright.config.ts` and `playwright.performance.config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`) on the host and in CI. The Docker image build does not use it: it type-checks `src/` and bundles, so the Playwright configs are not image inputs.
+Separate TS project for Node/Bun-context files — `vite.config.ts`, `playwright.config.ts`, `playwright.performance.config.ts` and the docs site's `.vitepress/config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`) on the host and in CI. The Docker image build does not use it: it type-checks `src/` and bundles, so the Playwright configs are not image inputs.
 
 ## Code Quality
 
@@ -124,24 +124,26 @@ and merge settings. See [CI and repository rules](../ci/checks-and-rules.md).
 
 ### `.claude/settings.json` and `.codex/config.toml`
 
-Project-scoped plugin overrides disable unrelated installed add-ons without changing
-user-wide settings or uninstalling anything. Claude Code retains the already-enabled
-Bun, PocketBase and TypeScript LSP plugins. Codex retains Bun, PocketBase, Railway,
-TypeScript LSP, frontend design and browser tooling. Kata custody is disabled in
-both clients, and the standalone Claude Kata session hooks are removed. The repository's
-shadcn skill remains available. Previously disabled plugins are not enabled.
-
-These are explicit overrides for the installed inventory, not a wildcard deny rule;
-review them when installing another plugin. Claude's `.claude/settings.local.json`
-has higher precedence. Codex requires a trusted project to load `.codex/config.toml`.
-Restart existing sessions after changing plugin settings.
-
-Codex workspace-managed plugins ignore these project overrides. ElevenLabs, Pages,
-Sites and Work Pets therefore remain enabled at workspace scope; Product Design and
-Impeccable also remain available and are relevant to the frontend. Turning workspace
-plugins off requires a separate workspace-wide change. See the
-[Codex plugin scope documentation](https://developers.openai.com/plugins/build/plugins)
+Project-scoped plugin settings. Each lists only the plugins this project enables
+(and, for Claude Code, the two marketplaces they come from); every other plugin
+follows the user's own defaults. Claude Code enables Bun, PocketBase and TypeScript
+LSP. Codex enables those plus Railway, frontend design and browser tooling. Review
+them when the project starts or stops needing a plugin. Claude's
+`.claude/settings.local.json` has higher precedence; Codex loads `.codex/config.toml`
+only for a trusted project. Restart existing sessions after changing them. See the
+[Codex plugin documentation](https://developers.openai.com/plugins/build/plugins)
 and [Claude settings precedence](https://code.claude.com/docs/en/settings).
+
+### `AGENTS.md`, `.agents/` and `scripts/ai-context.py`
+
+`AGENTS.md` is the small instruction kernel every coding agent loads; Claude Code and
+Codex both read it natively, so there is no `CLAUDE.md`. Task detail lives in short
+topic pages under `.agents/context/` (build, maintain, improve), mapped in
+`.agents/context/ai-context.json` and printed by
+`python3 scripts/ai-context.py <topic>`. `python3 scripts/ai-context.py check` validates paths, headings, links,
+orphans and byte budgets; the procedure is `.agents/context/ai-context.md`, indexed
+in [`.agents/README.md`](../../.agents/README.md). `.agents/skills/` holds vendored
+skills (shadcn) and is excluded from Biome and the docs link check.
 
 ### `playwright.performance.config.ts`
 

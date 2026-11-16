@@ -1,0 +1,74 @@
+{
+  "rootInstructions": "AGENTS.md",
+  "wikiDir": ".agents/context",
+  "historyDir": ".agents/context/history",
+  "routerFile": ".agents/README.md",
+  "indexed": [],
+  "skipDirs": [
+    "node_modules",
+    "dist",
+    "pb/data",
+    "playwright-report",
+    "test-results"
+  ],
+  "mounts": {},
+  "budgets": {
+    "rootInstructionsMaxBytes": 8192,
+    "defaultTopicMaxBytes": 16384
+  },
+  "topics": {
+    "build": {
+      "description": "Set up, run or test the app locally (make app/start, Docker stacks, test suites).",
+      "sources": [
+        {
+          "path": ".agents/context/build.md"
+        },
+        {
+          "path": ".agents/context/docs.md",
+          "heading": "Build docs"
+        }
+      ]
+    },
+    "maintain": {
+      "description": "Dependency and PocketBase bumps, releases, deploy operations, backups, CI.",
+      "sources": [
+        {
+          "path": ".agents/context/maintain.md"
+        },
+        {
+          "path": ".agents/context/docs.md",
+          "heading": "Maintain docs"
+        }
+      ]
+    },
+    "improve": {
+      "description": "Add a feature, change the PocketBase schema or API rules, UI work.",
+      "sources": [
+        {
+          "path": ".agents/context/feature-workflow.md"
+        },
+        {
+          "path": ".agents/context/docs.md",
+          "heading": "Improve docs"
+        }
+      ]
+    },
+    "ai-context": {
+      "description": "Maintain the agent doc router: add, move or split topics and pages, fix check failures.",
+      "sources": [
+        {
+          "path": ".agents/context/ai-context.md"
+        }
+      ]
+    },
+    "ai-context-advanced": {
+      "description": "Router shared installation (AI_CONTEXT_ROOT/AI_CONTEXT_CONFIG) or mounting another router tree.",
+      "sources": [
+        {
+          "path": ".agents/context/ai-context-advanced.md"
+        }
+      ]
+    }
+  },
+  "unrouted": {}
+}

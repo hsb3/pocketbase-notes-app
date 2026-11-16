@@ -10,6 +10,7 @@
   "include": [
     "vite.config.ts",
     "playwright.config.ts",
-    "playwright.performance.config.ts"
+    "playwright.performance.config.ts",
+    ".vitepress/config.ts"
   ]
 }
