@@ -2,7 +2,8 @@ import { pb } from "@/services/pocketbase";
 import type { EntriesResponse } from "@/services/pocketbase-types";
 import type { NodeJSON } from "prosekit/core";
 
-export type Entry = EntriesResponse<NodeJSON>;
+type Task = { path: number[]; text: string };
+export type Entry = EntriesResponse<NodeJSON, Task[]>;
 type View = "all" | "note" | "journal" | "favorites";
 export type EntrySearch = {
   view: View;

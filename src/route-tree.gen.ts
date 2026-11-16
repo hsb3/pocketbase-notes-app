@@ -24,6 +24,7 @@ import { Route as AuthRegisterRouteImport } from './routes/auth/register'
 import { Route as AuthenticatedEntriesIndexRouteImport } from './routes/_authenticated/entries.index'
 import { Route as AuthenticatedEntriesEntryIdRouteImport } from './routes/_authenticated/entries.$entryId'
 import { Route as AuthenticatedEntriesNewRouteImport } from './routes/_authenticated/entries.new'
+import { Route as AuthenticatedEntriesTasksRouteImport } from './routes/_authenticated/entries.tasks'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -103,6 +104,12 @@ const AuthenticatedEntriesNewRoute = AuthenticatedEntriesNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AuthenticatedEntriesRoute,
 } as any)
+const AuthenticatedEntriesTasksRoute =
+  AuthenticatedEntriesTasksRouteImport.update({
+    id: '/tasks',
+    path: '/tasks',
+    getParentRoute: () => AuthenticatedEntriesRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/auth/register': typeof AuthRegisterRoute
   '/entries/$entryId': typeof AuthenticatedEntriesEntryIdRoute
   '/entries/new': typeof AuthenticatedEntriesNewRoute
+  '/entries/tasks': typeof AuthenticatedEntriesTasksRoute
   '/entries/': typeof AuthenticatedEntriesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -133,6 +141,7 @@ export interface FileRoutesByTo {
   '/auth/register': typeof AuthRegisterRoute
   '/entries/$entryId': typeof AuthenticatedEntriesEntryIdRoute
   '/entries/new': typeof AuthenticatedEntriesNewRoute
+  '/entries/tasks': typeof AuthenticatedEntriesTasksRoute
   '/entries': typeof AuthenticatedEntriesIndexRoute
 }
 export interface FileRoutesById {
@@ -151,6 +160,7 @@ export interface FileRoutesById {
   '/auth/register': typeof AuthRegisterRoute
   '/_authenticated/entries/$entryId': typeof AuthenticatedEntriesEntryIdRoute
   '/_authenticated/entries/new': typeof AuthenticatedEntriesNewRoute
+  '/_authenticated/entries/tasks': typeof AuthenticatedEntriesTasksRoute
   '/_authenticated/entries/': typeof AuthenticatedEntriesIndexRoute
 }
 export interface FileRouteTypes {
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/entries/$entryId'
     | '/entries/new'
+    | '/entries/tasks'
     | '/entries/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/entries/$entryId'
     | '/entries/new'
+    | '/entries/tasks'
     | '/entries'
   id:
     | '__root__'
@@ -201,6 +213,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/_authenticated/entries/$entryId'
     | '/_authenticated/entries/new'
+    | '/_authenticated/entries/tasks'
     | '/_authenticated/entries/'
   fileRoutesById: FileRoutesById
 }
@@ -323,18 +336,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEntriesNewRouteImport
       parentRoute: typeof AuthenticatedEntriesRoute
     }
+    '/_authenticated/entries/tasks': {
+      id: '/_authenticated/entries/tasks'
+      path: '/tasks'
+      fullPath: '/entries/tasks'
+      preLoaderRoute: typeof AuthenticatedEntriesTasksRouteImport
+      parentRoute: typeof AuthenticatedEntriesRoute
+    }
   }
 }
 
 interface AuthenticatedEntriesRouteChildren {
   AuthenticatedEntriesEntryIdRoute: typeof AuthenticatedEntriesEntryIdRoute
   AuthenticatedEntriesNewRoute: typeof AuthenticatedEntriesNewRoute
+  AuthenticatedEntriesTasksRoute: typeof AuthenticatedEntriesTasksRoute
   AuthenticatedEntriesIndexRoute: typeof AuthenticatedEntriesIndexRoute
 }
 
 const AuthenticatedEntriesRouteChildren: AuthenticatedEntriesRouteChildren = {
   AuthenticatedEntriesEntryIdRoute: AuthenticatedEntriesEntryIdRoute,
   AuthenticatedEntriesNewRoute: AuthenticatedEntriesNewRoute,
+  AuthenticatedEntriesTasksRoute: AuthenticatedEntriesTasksRoute,
   AuthenticatedEntriesIndexRoute: AuthenticatedEntriesIndexRoute,
 }
 

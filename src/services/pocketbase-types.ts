@@ -109,7 +109,7 @@ export const EntriesKindOptions = {
 	"journal": "journal",
 } as const
 export type EntriesKindOptions = typeof EntriesKindOptions[keyof typeof EntriesKindOptions]
-export type EntriesRecord<Tbody = unknown> = {
+export type EntriesRecord<Tbody = unknown, Ttasks = unknown> = {
 	attachments?: RecordIdString[]
 	body: null | Tbody
 	created: IsoAutoDateString
@@ -117,7 +117,9 @@ export type EntriesRecord<Tbody = unknown> = {
 	id: string
 	journal_date?: string
 	kind: EntriesKindOptions
+	open_tasks?: number
 	revision: number
+	tasks?: null | Ttasks
 	title: string
 	updated: IsoAutoDateString
 	user: RecordIdString
@@ -144,7 +146,7 @@ export type MfasResponse<Texpand = unknown> = Required<MfasRecord> & BaseSystemF
 export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemFields<Texpand>
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
 export type AttachmentsResponse<Texpand = unknown> = Required<AttachmentsRecord> & BaseSystemFields<Texpand>
-export type EntriesResponse<Tbody = unknown, Texpand = unknown> = Required<EntriesRecord<Tbody>> & BaseSystemFields<Texpand>
+export type EntriesResponse<Tbody = unknown, Ttasks = unknown, Texpand = unknown> = Required<EntriesRecord<Tbody, Ttasks>> & BaseSystemFields<Texpand>
 export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSystemFields<Texpand>
 
 // Types containing all Records and Responses, useful for creating typing helper functions
