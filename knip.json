@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/routes/**/*.tsx",
+    "src/components/editor/**/index.ts",
+    "scripts/*.ts",
+    "deploy/railway/*.ts",
+    "tests/**/*.cjs",
+    "playwright*.config.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx,css}",
+    "scripts/**/*.ts",
+    "deploy/railway/**/*.ts",
+    "tests/**/*.cjs",
+    "*.ts"
+  ],
+  "ignore": ["src/route-tree.gen.ts", "src/services/pocketbase-types.ts"],
+  "ignoreIssues": {
+    "src/components/ui/**": ["exports", "types"],
+    "src/components/editor/**": ["exports", "types"]
+  },
+  "ignoreDependencies": ["@iconify-json/lucide"],
+  "playwright": false
+}

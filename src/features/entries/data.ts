@@ -3,7 +3,7 @@ import type { EntriesResponse } from "@/services/pocketbase-types";
 import type { NodeJSON } from "prosekit/core";
 
 export type Entry = EntriesResponse<NodeJSON>;
-export type View = "all" | "note" | "journal" | "favorites";
+type View = "all" | "note" | "journal" | "favorites";
 export type EntrySearch = {
   view: View;
   q: string;
