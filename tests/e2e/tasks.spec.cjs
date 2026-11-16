@@ -143,7 +143,7 @@ test("open tasks list, tick-off, conflicts, isolation and mobile", async ({
       .getByRole("status")
       .filter({ hasText: "Unsaved changes" })
       .waitFor();
-    await page.getByRole("checkbox", { name: "Call Sam" }).check();
+    await page.getByRole("checkbox", { name: "Call Sam" }).click();
     await expect(page.getByRole("checkbox", { name: "Call Sam" })).toHaveCount(
       0,
     );
@@ -170,7 +170,7 @@ test("open tasks list, tick-off, conflicts, isolation and mobile", async ({
         revision: afterConflict.revision,
       },
     );
-    await page.getByRole("checkbox", { name: "Find charger" }).check();
+    await page.getByRole("checkbox", { name: "Find charger" }).click(); // click, not check(): the box reverts on a refused save or leaves the list on success
     await expect(page.getByRole("alert")).toContainText(
       "changed since this list loaded",
     );
@@ -221,7 +221,7 @@ test("open tasks list, tick-off, conflicts, isolation and mobile", async ({
       path: testInfo.outputPath("tasks-mobile.png"),
       fullPage: true,
     });
-    await charger.check();
+    await charger.click();
     await expect(page.getByText("No open tasks")).toBeVisible();
     assert.equal(errors.length, 0, errors.join("\n"));
     console.log(
