@@ -9,18 +9,19 @@ doc your step needs.
 | Label | Doc | Read it for |
 |---|---|---|
 | Contributing | [CONTRIBUTING.md](../../CONTRIBUTING.md) | Setup, pre-PR checks, rules of the road |
-| Development | [docs/DEVELOPMENT.md](../../docs/DEVELOPMENT.md) | `make app` / `make start` / `make start-full`, seeding |
+| Development | [docs/development/setup.md](../../docs/development/setup.md) | `make app` / `make start` / `make start-full`, seeding |
 | Local stacks | [deploy/LOCAL.md](../../deploy/LOCAL.md) | Compose files, named `STACK` instances, ports |
-| Verification | [docs/VERIFICATION.md](../../docs/VERIFICATION.md) | Test commands, coverage, debugging failures |
-| Root files | [docs/ROOT-FILES.md](../../docs/ROOT-FILES.md) | What each root config file does |
+| Verification | [docs/testing/verification.md](../../docs/testing/verification.md) | Test commands, coverage, debugging failures |
+| Root files | [docs/development/root-files.md](../../docs/development/root-files.md) | What each root config file does |
+| Docs site | [docs/development/root-files.md](../../docs/development/root-files.md#vitepressconfigts) | `bun run docs:build` (VitePress, `.vitepress/config.ts`); dead links fail it |
 
 ## Maintain docs
 
 | Label | Doc | Read it for |
 |---|---|---|
 | Image | [deploy/IMAGE.md](../../deploy/IMAGE.md) | Dockerfile stages, updating PocketBase |
-| Releasing | [docs/RELEASING.md](../../docs/RELEASING.md) | Versions, changelog, cutting a release |
-| CI | [docs/CI.md](../../docs/CI.md) | Required checks, other workflows, Dependabot, branch rules |
+| Releasing | [docs/ci/releasing.md](../../docs/ci/releasing.md) | Versions, changelog, cutting a release |
+| CI | [docs/ci/checks-and-rules.md](../../docs/ci/checks-and-rules.md) | Required checks, other workflows, Dependabot, branch rules |
 | Deployment | [deploy/README.md](../../deploy/README.md) | Deployment overview and file layout |
 | Railway | [deploy/RAILWAY.md](../../deploy/RAILWAY.md) | First-time Railway setup |
 | Operations | [deploy/OPERATIONS.md](../../deploy/OPERATIONS.md) | Operator commands, updates, rollback, backups, accounts |
@@ -29,11 +30,14 @@ doc your step needs.
 
 | Label | Doc | Read it for |
 |---|---|---|
-| Spec | [docs/SPEC.md](../../docs/SPEC.md) | Product purpose and boundaries |
+| Tech stack | [docs/architecture/tech-stack.md](../../docs/architecture/tech-stack.md) | What each piece is and why; architecture diagram |
+| Spec | [docs/architecture/spec.md](../../docs/architecture/spec.md) | Product purpose and boundaries |
 | Designs | [docs/design/](../../docs/design/notes-journal.md) | Feature designs (one file per feature) |
-| Attachments | [docs/ATTACHMENTS.md](../../docs/ATTACHMENTS.md) | Editor attachments, storage, access |
-| Verification | [docs/VERIFICATION.md](../../docs/VERIFICATION.md) | Where new tests go and what they cover |
+| Attachments | [docs/features/attachments.md](../../docs/features/attachments.md) | Editor attachments, storage, access |
+| Verification | [docs/testing/verification.md](../../docs/testing/verification.md) | Where new tests go and what they cover |
 
-Planned on other branches, not yet on `main` (add a row when they land): `docs/AUTH.md`
-(MFA), `docs/TASKS.md` (tasks view), `docs/LOAD-TESTING.md`, and a docs site that may
-rename `docs/*.md` to lowercase kebab-case.
+Planned on other branches, not yet on `main` (add a row when they land):
+`docs/features/auth.md` (MFA), `docs/features/tasks.md` (tasks view),
+`docs/testing/load-testing.md`. New human docs go under `docs/<section>/` in lowercase
+kebab-case; add them to the sidebar in `.vitepress/config.ts`. Pages compile as Vue templates: keep
+`<tags>` and `{{ }}` inside code spans that do not start a line.

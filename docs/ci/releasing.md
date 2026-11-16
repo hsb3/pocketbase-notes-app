@@ -17,7 +17,7 @@ changelog. Bump:
 ## Changelog
 
 Every pull request that users or operators would notice adds a line under
-`## [Unreleased]` in [`CHANGELOG.md`](../CHANGELOG.md), in a
+`## [Unreleased]` in [`CHANGELOG.md`](../../CHANGELOG.md), in a
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) group (Added, Changed,
 Fixed, Removed, Security). That section becomes the release notes.
 
@@ -63,4 +63,4 @@ The workflow (`.github/workflows/release.yml`) refuses to publish unless:
 ## Deployments
 
 Releasing does not deploy. Deploying a release to Railway is a separate, deliberate
-step described in [`deploy/README.md`](../deploy/README.md).
+step described in [`deploy/README.md`](../../deploy/README.md).

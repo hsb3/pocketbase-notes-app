@@ -59,7 +59,7 @@ files; download unsaved files before discarding a conflicting draft.
 - `bunx playwright test notebook`: ordinary notes, navigation, saves, conflicts,
   expiry recovery, sidebar/full-screen behavior and mobile layout.
 
-Run `make e2e` for all checks. See [test setup and reports](VERIFICATION.md).
+Run `make e2e` for all checks. See [test setup and reports](../testing/verification.md).
 
 Source: [ProseKit full registry block](https://prosekit.dev/r/react-example-full.json).
-[Upstream license notices](design/prebuilt-ui.md#source-notices) apply to copied code.
+[Upstream license notices](../design/prebuilt-ui.md#source-notices) apply to copied code.

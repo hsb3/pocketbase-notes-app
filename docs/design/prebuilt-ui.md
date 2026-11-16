@@ -33,7 +33,7 @@ focused reuse comparison, not a benchmark of the other editors.
   Added initial JSON, change callbacks and read-only state to connect to existing persistence.
   Responsive content padding and semantic surface colors adapt the example to this app.
 - The full schema is validated server-side. The real uploader uses protected PocketBase
-  attachments; demo content, people and tag datasets are omitted. See [attachment design](../ATTACHMENTS.md).
+  attachments; demo content, people and tag datasets are omitted. See [attachment design](../features/attachments.md).
 
 Save, validation, authentication recovery, conflict and deletion logic remains
 in `EntryEditor`. These are application-specific behavior rather than registry features.

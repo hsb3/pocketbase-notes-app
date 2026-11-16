@@ -13,7 +13,7 @@ cp .env.example .env   # then set PB_ENCRYPTION_KEY and the superuser credential
 make start             # PocketBase in Docker, seeded accounts, Vite dev server
 ```
 
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) covers the full stack (email and file
+[docs/development/setup.md](docs/development/setup.md) covers the full stack (email and file
 storage) and [AGENTS.md](AGENTS.md) lists the project's conventions and gotchas.
 
 ## Check your change
@@ -34,7 +34,7 @@ make up-full
 make e2e
 ```
 
-[docs/VERIFICATION.md](docs/VERIFICATION.md) describes what the suite covers.
+[docs/testing/verification.md](docs/testing/verification.md) describes what the suite covers.
 
 ## Rules of the road
 
@@ -50,7 +50,7 @@ make e2e
   operators would notice.
 - Never commit secrets, `.env` files or real user data.
 
-Releases are cut by the maintainer; see [docs/RELEASING.md](docs/RELEASING.md).
+Releases are cut by the maintainer; see [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ## Reporting problems
 

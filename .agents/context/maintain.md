@@ -37,6 +37,8 @@ maintain doc (listed below) that holds the procedure.
 - `.github/workflows/ci.yml`: required `Quality`, `E2E (amd64)`, `E2E (arm64)`;
   also `Docs links` (lychee, offline, anchors) and `Workflow lint` (CI). The CI doc's
   "Running the checks locally" section has the exact local commands.
+- `.github/workflows/docs.yml`: `Build docs site` (`bun run docs:build`) on PRs; on
+  `main` it also deploys the site to GitHub Pages.
 - Watch a PR with `gh pr checks --watch`. Fix the cause; never add retries or path
   exclusions to make a check pass.
 - Repository rulesets and settings (`.github/rulesets/`, `.github/repository.json`)

@@ -30,7 +30,7 @@ TypeScript config for the app source (`src/`). Strict mode, bundler-style module
 
 ### `tsconfig.node.json`
 
-Separate TS project for Node/Bun-context files — `vite.config.ts`, `playwright.config.ts` and `playwright.performance.config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`) on the host and in CI. The Docker image build does not use it: it type-checks `src/` and bundles, so the Playwright configs are not image inputs.
+Separate TS project for Node/Bun-context files — `vite.config.ts`, `playwright.config.ts`, `playwright.performance.config.ts` and the docs site's `.vitepress/config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`) on the host and in CI. The Docker image build does not use it: it type-checks `src/` and bundles, so the Playwright configs are not image inputs.
 
 ## Code Quality
 
@@ -46,7 +46,7 @@ shadcn/ui CLI config. Tells `shadcn add <component>` where to put components (`@
 
 ## Backend & Deployment
 
-Deployment files live under `deploy/`, organized by target — see [`deploy/README.md`](../deploy/README.md).
+Deployment files live under `deploy/`, organized by target — see [`deploy/README.md`](../../deploy/README.md).
 
 ### `deploy/docker/Dockerfile`
 
@@ -62,11 +62,11 @@ Extended dev stack: PocketBase plus Mailpit (SMTP catcher for testing emails, UI
 
 ### `deploy/local/docker-compose-stack.yml`
 
-Self-contained variant of the full stack for running the app, or long-running and parallel local instances: no bind mounts from the checkout (hooks, migrations and frontend are baked into the image; data, Mailpit certificate and files live in per-stack named volumes) and no fixed container names. Its `setup` one-shot service runs the configure and seed scripts in a container built from the Dockerfile's `tools` stage, so the host needs only Docker. Run with `make app` (optionally `STACK=<name>`); see [local stacks](../deploy/LOCAL.md#self-contained-stacks).
+Self-contained variant of the full stack for running the app, or long-running and parallel local instances: no bind mounts from the checkout (hooks, migrations and frontend are baked into the image; data, Mailpit certificate and files live in per-stack named volumes) and no fixed container names. Its `setup` one-shot service runs the configure and seed scripts in a container built from the Dockerfile's `tools` stage, so the host needs only Docker. Run with `make app` (optionally `STACK=<name>`); see [local stacks](../../deploy/LOCAL.md#self-contained-stacks).
 
 ### `deploy/railway/railway.json`
 
-Railway config-as-code: Dockerfile builder pointing at `deploy/docker/Dockerfile`, healthcheck on `/api/health`, restart policy. It takes effect only when the service's config file path points at it; otherwise apply the same settings directly on the service, and confirm either way on the deployment details page. The service needs `PB_ENCRYPTION_KEY` and a volume at `/pb/pb_data`. See the [Railway guide](../deploy/RAILWAY.md).
+Railway config-as-code: Dockerfile builder pointing at `deploy/docker/Dockerfile`, healthcheck on `/api/health`, restart policy. It takes effect only when the service's config file path points at it; otherwise apply the same settings directly on the service, and confirm either way on the deployment details page. The service needs `PB_ENCRYPTION_KEY` and a volume at `/pb/pb_data`. See the [Railway guide](../../deploy/RAILWAY.md).
 
 ### `.dockerignore`
 
@@ -78,7 +78,7 @@ Keeps secrets (`.env`, `*.pem`, keys/certs), `node_modules`, `pb/data`, and buil
 
 Template for `.env`, including backend credentials, local URLs, seed users, RustFS settings, port/container overrides and test overrides. Comments describe defaults and consumers. Secrets are left empty on purpose: `scripts/init-env.sh` (run by `make app`, `make start`, `make up*` and `make env`) copies the template when `.env` is missing and generates empty secrets without touching values that are set. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
 
-`VITE_AUTH_BYPASS` skips the frontend guard only in development. `VITE_SIGNUP_ENABLED` controls the registration UI at build time and public account creation in the backend at runtime; only the exact value `true` enables it. Sharing, collaboration, AI and offline sync are not implemented and have no enable switch. SMTP/S3 enablement lives in persisted PocketBase settings; `make up-full` configures local providers. Editor capabilities and attachment limits live in code/schema; see [attachment behavior](ATTACHMENTS.md).
+`VITE_AUTH_BYPASS` skips the frontend guard only in development. `VITE_SIGNUP_ENABLED` controls the registration UI at build time and public account creation in the backend at runtime; only the exact value `true` enables it. Sharing, collaboration, AI and offline sync are not implemented and have no enable switch. SMTP/S3 enablement lives in persisted PocketBase settings; `make up-full` configures local providers. Editor capabilities and attachment limits live in code/schema; see [attachment behavior](../features/attachments.md).
 
 ### `Makefile`
 
@@ -88,7 +88,11 @@ Task runner tying everything together. `make help` opens with which entry point 
 
 Excludes build output, `node_modules`, secrets (`.env`, `*.pem`), PocketBase data (`pb/data`), and local agent/editor state from version control.
 
-### `docs/SPEC.md`
+### `.vitepress/config.ts`
+
+The docs site. VitePress renders the repository's own Markdown (`docs/`, `deploy/*.md` and the root guides; `README.md` is the home page) for GitHub Pages under `/pocketbase-notes-app/`. Links to code and config files become GitHub links, and a link to a missing file fails `bun run docs:build`. Output goes to `.vitepress/dist` (ignored); `.github/workflows/docs.yml` builds it on pull requests and deploys it from `main`.
+
+### `docs/architecture/spec.md`
 
 Product purpose, boundaries and links to the notes/journal design.
 
@@ -110,13 +114,13 @@ email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_UR
 
 Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium and WebKit execution,
 a managed Vite server and failure artifacts. `.env` supplies the local backend;
-`TEST_APP_URL` can select an existing local frontend. See [testing](VERIFICATION.md).
+`TEST_APP_URL` can select an existing local frontend. See [testing](../testing/verification.md).
 
 ### `.github/`
 
 `workflows/ci.yml` runs quality and native amd64/arm64 full-stack tests.
 `rulesets/*.json` and `repository.json` record the admin-applied GitHub protection
-and merge settings. See [CI and repository rules](CI.md).
+and merge settings. See [CI and repository rules](../ci/checks-and-rules.md).
 
 ### `.claude/settings.json` and `.codex/config.toml`
 
@@ -135,10 +139,10 @@ and [Claude settings precedence](https://code.claude.com/docs/en/settings).
 `AGENTS.md` is the small instruction kernel every coding agent loads; Claude Code and
 Codex both read it natively, so there is no `CLAUDE.md`. Task detail lives in short
 topic pages under `.agents/context/` (build, maintain, improve), mapped in
-`.agents/context/ai-context.json` and printed by `python3 scripts/ai-context.py
-<topic>`. `python3 scripts/ai-context.py check` validates paths, headings, links,
+`.agents/context/ai-context.json` and printed by
+`python3 scripts/ai-context.py <topic>`. `python3 scripts/ai-context.py check` validates paths, headings, links,
 orphans and byte budgets; the procedure is `.agents/context/ai-context.md`, indexed
-in [`.agents/README.md`](../.agents/README.md). `.agents/skills/` holds vendored
+in [`.agents/README.md`](../../.agents/README.md). `.agents/skills/` holds vendored
 skills (shadcn) and is excluded from Biome and the docs link check.
 
 ### `playwright.performance.config.ts`
@@ -146,7 +150,7 @@ skills (shadcn) and is excluded from Biome and the docs link check.
 Runs the Chromium-only editor baseline against the local Docker production image,
 without starting Vite. Reuses loopback safety checks and credentials from the main
 Playwright config, but writes a separate performance report. `test:performance`
-measures production loading; the main browser matrix covers Chromium and WebKit behavior (Firefox is deferred). See [verification](VERIFICATION.md).
+measures production loading; the main browser matrix covers Chromium and WebKit behavior (Firefox is deferred). See [verification](../testing/verification.md).
 
 ### Deployment env and signup flag
 
@@ -163,14 +167,14 @@ available. Deployment setup/check scripts are colocated under `deploy/railway/`.
 
 Type-checks operational and test scripts, including `deploy/railway/`. CI invokes
 this separately from the frontend build. Deployment evidence output is selected
-through `DEPLOY_EVIDENCE_DIR`; see the [backup runbook](../deploy/OPERATIONS.md#backups).
+through `DEPLOY_EVIDENCE_DIR`; see the [backup runbook](../../deploy/OPERATIONS.md#backups).
 
 
 ### `deploy/railway/.env.example`
 
 Template for deployment infrastructure and superuser credentials. Regular-user
 credentials are managed separately. Verification creates temporary users or uses
-a read-only restore comparison; see [accounts](../deploy/OPERATIONS.md#accounts).
+a read-only restore comparison; see [accounts](../../deploy/OPERATIONS.md#accounts).
 The scripts act on the `PB_URL` in the private copy and require its hostname to
 be repeated (`CONFIRM` through `make`, `DEPLOY_CONFIRM` directly);
 `deploy/railway/run.sh` is the wrapper the `make railway-*` targets call.

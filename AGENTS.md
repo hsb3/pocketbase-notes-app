@@ -12,9 +12,9 @@ the rules every task needs. Task details live in routed topics under
   permission to weaken that rule: surface it to the owner. When your change alters
   behaviour that a topic or human doc describes, update it in the same change. Keep
   task-specific lessons in their topic; promote a one-line rule here only when every
-  task needs it. Run `python3 scripts/ai-context.py check` after any doc change. The
+  task needs it. Run `python3 scripts/ai-context.py check` (and `bun run docs:build` for human docs) after any doc change. The
   procedure is the `ai-context` topic. When a root config file changes, update
-  `docs/ROOT-FILES.md` in the same change.
+  `docs/development/root-files.md` in the same change.
 - **Topics point, human docs explain.** Topic pages are short and link to `docs/`,
   `deploy/`, `CONTRIBUTING.md`. Put facts in the human doc, not in a topic; every doc
   path a topic needs is listed once in `.agents/context/docs.md`.
