@@ -7,6 +7,7 @@ import {
   File,
   Inbox,
   Star,
+  ListChecks,
   Plus,
   ChevronLeft,
   ChevronRight,
@@ -56,6 +57,7 @@ export function AppSidebar({
   const result = entriesRoute.useLoaderData();
   const navigate = entriesRoute.useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
+  const onTasks = pathname === "/entries/tasks";
   const activeItem =
     navMain.find((item) => item.view === search.view) || navMain[0];
   const [query, setQuery] = React.useState(search.q);
@@ -125,7 +127,7 @@ export function AppSidebar({
                         });
                         setOpen(true);
                       }}
-                      isActive={activeItem.title === item.title}
+                      isActive={!onTasks && activeItem.title === item.title}
                       aria-label={item.title}
                       className="px-2.5 md:px-2"
                     >
@@ -134,6 +136,24 @@ export function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={{ children: "Open tasks", hidden: false }}
+                    isActive={onTasks}
+                    className="px-2.5 md:px-2"
+                  >
+                    <Link
+                      to="/entries/tasks"
+                      search={search}
+                      aria-label="Open tasks"
+                      onClick={() => setOpenMobile(false)}
+                    >
+                      <ListChecks />
+                      <span>Open tasks</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -262,6 +282,11 @@ export function AppSidebar({
                           />
                         )}
                       </span>{" "}
+                      {(entry.open_tasks || 0) > 0 && (
+                        <span className="rounded-full border px-1.5 text-xs">
+                          {entry.open_tasks} open
+                        </span>
+                      )}
                       <span className="ml-auto text-xs">
                         {new Date(
                           entry.kind === "journal"

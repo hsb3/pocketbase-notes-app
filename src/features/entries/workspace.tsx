@@ -39,19 +39,22 @@ export const WritingFocus = createContext<{
 export function Workspace() {
   const search = entriesRoute.useSearch();
   const path = useLocation({ select: (location) => location.pathname });
-  const hasEditor = path !== "/entries" && path !== "/entries/";
+  const onTasks = path === "/entries/tasks";
+  const hasEditor = path !== "/entries" && path !== "/entries/" && !onTasks;
   const [open, setOpen] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
   const focused = focusMode && hasEditor;
   useEffect(() => {
     if (!hasEditor) setFocusMode(false);
   }, [hasEditor]);
-  const title = {
-    all: "All entries",
-    note: "Notes",
-    journal: "Journal",
-    favorites: "Favorites",
-  }[search.view];
+  const title = onTasks
+    ? "Open tasks"
+    : {
+        all: "All entries",
+        note: "Notes",
+        journal: "Journal",
+        favorites: "Favorites",
+      }[search.view];
   return (
     <WritingFocus.Provider
       value={{ focused, toggle: () => setFocusMode((value) => !value) }}
