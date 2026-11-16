@@ -31,3 +31,9 @@
 - No un-ticking or editing task text from the list: open the entry for that.
 - No real-time updates: the list refreshes on load and after each tick.
 - Items beyond the first 100 in one entry are counted but not listed; the entry says to open it.
+
+## Tests
+
+`scripts/test-entries.ts` (API: derivation, forging, isolation) and `tests/e2e/tasks.spec.cjs`
+(browser: desktop and mobile, keyboard, conflicts, dark mode). See
+[test setup and reports](../testing/verification.md).

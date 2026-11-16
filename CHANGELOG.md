@@ -12,6 +12,9 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 - Documentation site built with VitePress (`bun run docs:build`) and deployed to
   GitHub Pages from `main`; `docs/` reorganized into lowercase sections, with a new
   tech stack page and wireframe images viewable on GitHub.
+- Open tasks: unchecked checklist items across your entries in one view, ticked off
+  in place through the normal save-conflict check, with per-entry open counts.
+  Counts are derived on the server and backfilled for existing entries.
 
 ## [0.1.0] - 2026-11-15
 

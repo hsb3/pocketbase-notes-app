@@ -11,6 +11,18 @@ hardening, hooks) use the same procedure minus the frontend stage.
 - Define independently verifiable acceptance criteria in the conversation.
 - Read Spec and any matching file in Designs (improve docs, listed below) so the
   change stays inside the product's boundaries.
+- Write them before any code, as user stories with **Given / When / Then**
+  scenarios. Each story should be testable on its own; mark the minimum useful
+  slice.
+- List **edge cases** next to them: denied and cross-account access, concurrent
+  or stale saves (the `revision` 409 path), empty and oversized input, existing
+  data that needs a backfill, values a client could forge. Each one becomes a test
+  or a stated gap.
+- Name what the feature deliberately is **not**; it goes in the feature doc.
+- **Gate before building**: check the plan against the hard limits in
+  `AGENTS.md` and the stages below (backend first, locked rules, server-derived
+  values, no new dependencies, generated files untouched). Write down any
+  exception and why; an unexplained one stops the work.
 
 ## Stage 1 — Backend (only if the change touches PocketBase)
 
