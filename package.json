@@ -16,7 +16,7 @@
     "pb:codegen": "bun run scripts/codegen.ts",
     "test:install": "playwright install chromium webkit",
     "test:smoke": "bun run scripts/test-services.ts && playwright test --grep @smoke",
-    "test:api": "bun run scripts/test-services.ts && bun run scripts/test-entries.ts && bun run scripts/test-attachments.ts && bun run scripts/test-capabilities.ts && bun run scripts/test-backups.ts",
+    "test:api": "bun run scripts/test-services.ts && bun run scripts/test-entries.ts && bun run scripts/test-attachments.ts && bun run scripts/test-capabilities.ts && bun run scripts/test-mfa.ts && bun run scripts/test-backups.ts",
     "test:accounts": "bun run scripts/test-seed.ts && bun run scripts/test-deployment-accounts.ts && bun run scripts/test-restore.ts",
     "test:e2e": "bun run test:api && playwright test",
     "test:report": "playwright show-report",
