@@ -7,6 +7,13 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ## [Unreleased]
 
+### Changed
+
+- The restore test's temporary container runs with CPU, memory and process limits,
+  and Biome skips locally synced `.claude/skills/`.
+- GitHub Actions bumped (`actions/checkout`, `actions/setup-node`,
+  `actions/upload-artifact`).
+
 ## [0.1.0] - 2026-11-16
 
 First versioned state of the app: a private notes and journaling app on React,

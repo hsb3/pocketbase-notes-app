@@ -23,10 +23,6 @@ Fixed, Removed, Security). That section becomes the release notes.
 
 ## Cut a release
 
-The first release, `v0.1.0`, is already prepared: `package.json` says `0.1.0` and
-the changelog has a dated `0.1.0` section. If you tag on a later day, change that
-date in a pull request first, then continue at step 2.
-
 1. Open a pull request that:
    - sets `version` in `package.json` to the new `X.Y.Z`;
    - renames `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` (today's date) and adds
