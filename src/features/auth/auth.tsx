@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Link, useRouter } from "@tanstack/react-router";
 import { useFormState } from "@/hooks/use-form-state";
 import { FormError, FormField, FormLabel } from "@/components/ui/form";
+import { CodeStep, pendingMfaId } from "@/features/auth/two-step";
 import {
   type AuthMethodsList,
   type AuthProviderInfo,
@@ -21,9 +22,11 @@ const signupEnabled = import.meta.env.VITE_SIGNUP_ENABLED === "true";
 const SocialAuth = ({
   providers,
   redirect,
+  onMfa,
 }: {
   providers: AuthProviderInfo[];
   redirect?: string;
+  onMfa: (mfaId: string) => void;
 }) => {
   const router = useRouter();
 
@@ -70,9 +73,11 @@ const SocialAuth = ({
 
         return router.navigate({ to: "/" });
       })
-      .catch(() =>
-        setError("Could not sign in with this provider. Please try again."),
-      )
+      .catch((err) => {
+        const mfaId = pendingMfaId(err);
+        if (mfaId) return onMfa(mfaId);
+        setError("Could not sign in with this provider. Please try again.");
+      })
       .finally(() => setLoading(undefined));
   };
 
@@ -113,6 +118,7 @@ export const LoginForm = ({ redirect }: { redirect?: string }) => {
   const router = useRouter();
 
   const [authMethods, setAuthMethods] = useState<AuthMethodsList>();
+  const [mfa, setMfa] = useState<{ mfaId: string; email?: string }>();
 
   useEffect(() => {
     pb.collection("users")
@@ -134,17 +140,20 @@ export const LoginForm = ({ redirect }: { redirect?: string }) => {
     },
   });
 
+  const signedIn = () =>
+    redirect
+      ? router.navigate({ href: redirect })
+      : router.navigate({ to: "/" });
+
   const loginWithPassword = () =>
     form.submit(async (data) => {
       return pb
         .collection("users")
         .authWithPassword(data.identity, data.password)
-        .then(() =>
-          redirect
-            ? router.navigate({ href: redirect })
-            : router.navigate({ to: "/" }),
-        )
+        .then(signedIn)
         .catch(async (err) => {
+          const mfaId = pendingMfaId(err);
+          if (mfaId) return setMfa({ mfaId, email: data.identity.trim() });
           if (err instanceof ClientResponseError)
             if (err.status === 403)
               /**
@@ -166,6 +175,11 @@ export const LoginForm = ({ redirect }: { redirect?: string }) => {
           return form.setError("identity", (err as Error).message);
         });
     });
+
+  if (mfa)
+    return (
+      <CodeStep {...mfa} onDone={signedIn} onCancel={() => setMfa(undefined)} />
+    );
 
   return (
     <form
@@ -242,7 +256,11 @@ export const LoginForm = ({ redirect }: { redirect?: string }) => {
         <>
           {(authMethods?.password.enabled ?? true) && <Separator />}
 
-          <SocialAuth providers={providers} redirect={redirect} />
+          <SocialAuth
+            providers={providers}
+            redirect={redirect}
+            onMfa={(mfaId) => setMfa({ mfaId })}
+          />
         </>
       )}
     </form>
