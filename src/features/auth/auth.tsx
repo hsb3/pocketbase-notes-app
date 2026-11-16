@@ -443,7 +443,7 @@ export const RegisterForm = () => {
       </FormField>
 
       {verificationError && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-sm text-destructive">
           {verificationError}
         </p>
       )}

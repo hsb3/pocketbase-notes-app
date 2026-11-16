@@ -85,7 +85,7 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-muted-foreground text-xs">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
                 Theme
               </DropdownMenuLabel>
               <DropdownMenuRadioGroup

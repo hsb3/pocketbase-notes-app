@@ -12,7 +12,7 @@ export const FormFieldset = forwardRef<
     className={cn("grid gap-3 rounded-lg border p-4", className)}
     {...props}
   >
-    <legend className="-ml-1 px-1 font-medium text-sm">{props.title}</legend>
+    <legend className="-ml-1 px-1 text-sm font-medium">{props.title}</legend>
     {children}
   </fieldset>
 ));
@@ -56,7 +56,7 @@ export const FormError = forwardRef<
   return (
     <p
       ref={ref}
-      className={cn("font-medium text-destructive text-xs", className)}
+      className={cn("text-xs font-medium text-destructive", className)}
       {...props}
     >
       {children}

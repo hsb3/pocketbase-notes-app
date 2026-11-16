@@ -24,6 +24,11 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 - README rewritten around what you get and how to run it, with fresh screenshots
   and a short recording captured by `scripts/capture-screenshots.sh`.
 
+### Fixed
+
+- Long entry titles wrap on phones instead of being cut off; dependencies updated
+  (React 19.3, TanStack Router 1.170.46, Biome 2.6, Vite 8.3, Playwright 1.65).
+
 ## [0.1.0] - 2026-11-15
 
 First versioned state of the app: a private notes and journaling app on React,

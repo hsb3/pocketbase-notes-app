@@ -4,6 +4,7 @@ import {
   useContext,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -111,11 +112,11 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
         },
   );
   const draftRef = useRef(draft);
-  draftRef.current = draft;
   const [uploading, setUploading] = useState(0);
   const uploadingRef = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
-  const baseline = useRef(JSON.stringify(draft));
+  const [initialBaseline] = useState(() => JSON.stringify(draft));
+  const baseline = useRef(initialBaseline);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [error, setError] = useState("");
@@ -132,7 +133,6 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
   const accountEmail = useRef(pb.authStore.record?.email || "");
   const dirty = JSON.stringify(draft) !== baseline.current;
   const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
   const bypass = useRef(false);
   const blocker = useBlocker({
     shouldBlockFn: () =>
@@ -289,7 +289,12 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
     }
   }
   const saveRef = useRef(save);
-  saveRef.current = save;
+  // Handlers (blocker, uploads, Ctrl/Cmd+S) read the latest committed values.
+  useLayoutEffect(() => {
+    draftRef.current = draft;
+    dirtyRef.current = dirty;
+    saveRef.current = save;
+  });
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
@@ -413,9 +418,11 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
             <label className="sr-only" htmlFor="entry-title">
               Entry title
             </label>
-            <input
+            {/* A one-line textarea so long titles wrap on narrow screens. */}
+            <textarea
               id="entry-title"
               className="entry-title-input"
+              rows={1}
               placeholder={
                 draft.kind === "journal"
                   ? "Give today a title…"
@@ -424,8 +431,14 @@ export function EntryEditor({ entry }: { entry?: Entry }) {
               value={draft.title}
               maxLength={160}
               disabled={saving}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.preventDefault();
+              }}
               onChange={(event) =>
-                setDraft({ ...draft, title: event.target.value })
+                setDraft({
+                  ...draft,
+                  title: event.target.value.replace(/[\r\n]+/g, " "),
+                })
               }
             />
             <div className="flex gap-1">

@@ -93,13 +93,13 @@ export default function ImageUploadPopover(props: {
         placement="bottom"
         className="z-50 block h-min w-min overflow-visible transition-transform duration-100 ease-out motion-reduce:transition-none"
       >
-        <PopoverPopup className="box-border flex w-sm origin-(--transform-origin) starting:scale-95 flex-col gap-y-4 rounded-xl border border-gray-200 bg-[canvas] p-6 text-sm starting:opacity-0 shadow-lg transition-[opacity,scale] transition-discrete duration-40 data-[state=closed]:scale-95 data-[state=closed]:opacity-0 data-[state=closed]:duration-150 motion-reduce:transition-none dark:border-gray-800">
+        <PopoverPopup className="box-border flex w-sm origin-(--transform-origin) flex-col gap-y-4 rounded-xl border border-gray-200 bg-[canvas] p-6 text-sm shadow-lg transition-[opacity,scale] transition-discrete duration-40 data-[state=closed]:scale-95 data-[state=closed]:opacity-0 data-[state=closed]:duration-150 motion-reduce:transition-none dark:border-gray-800 starting:scale-95 starting:opacity-0">
           {file ? null : (
             <>
               <label htmlFor={`id-link-${ariaId}`}>Embed Link</label>
               <input
                 id={`id-link-${ariaId}`}
-                className="box-border flex h-9 w-full rounded-md border border-gray-200 border-solid bg-[canvas] px-3 py-2 text-sm outline-hidden ring-0 ring-transparent transition file:border-0 file:bg-transparent file:font-medium file:text-sm placeholder:text-gray-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:focus-visible:ring-gray-300 dark:placeholder:text-gray-500"
+                className="box-border flex h-9 w-full rounded-md border border-solid border-gray-200 bg-[canvas] px-3 py-2 text-sm ring-0 ring-transparent outline-hidden transition file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-0 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:placeholder:text-gray-500 dark:focus-visible:ring-gray-300"
                 placeholder="Paste the image link..."
                 type="url"
                 value={url}
@@ -113,7 +113,7 @@ export default function ImageUploadPopover(props: {
               <label htmlFor={`id-upload-${ariaId}`}>Upload</label>
               <input
                 id={`id-upload-${ariaId}`}
-                className="box-border flex h-9 w-full rounded-md border border-gray-200 border-solid bg-[canvas] px-3 py-2 text-sm outline-hidden ring-0 ring-transparent transition file:border-0 file:bg-transparent file:font-medium file:text-sm placeholder:text-gray-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:focus-visible:ring-gray-300 dark:placeholder:text-gray-500"
+                className="box-border flex h-9 w-full rounded-md border border-solid border-gray-200 bg-[canvas] px-3 py-2 text-sm ring-0 ring-transparent outline-hidden transition file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-0 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:placeholder:text-gray-500 dark:focus-visible:ring-gray-300"
                 accept="image/*"
                 type="file"
                 onChange={handleFileChange}
@@ -123,7 +123,7 @@ export default function ImageUploadPopover(props: {
 
           {url ? (
             <button
-              className="inline-flex h-10 w-full items-center justify-center whitespace-nowrap rounded-md border-0 bg-gray-900 px-4 py-2 font-medium text-gray-50 text-sm ring-offset-white transition-colors hover:bg-gray-900/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:bg-gray-50 dark:text-gray-900 dark:ring-offset-gray-950 dark:focus-visible:ring-gray-300 dark:hover:bg-gray-50/90"
+              className="inline-flex h-10 w-full items-center justify-center rounded-md border-0 bg-gray-900 px-4 py-2 text-sm font-medium whitespace-nowrap text-gray-50 ring-offset-white transition-colors hover:bg-gray-900/90 focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 dark:bg-gray-50 dark:text-gray-900 dark:ring-offset-gray-950 dark:hover:bg-gray-50/90 dark:focus-visible:ring-gray-300"
               onClick={handleSubmit}
             >
               Insert Image
@@ -132,7 +132,7 @@ export default function ImageUploadPopover(props: {
 
           {file ? (
             <button
-              className="inline-flex h-10 w-full items-center justify-center whitespace-nowrap rounded-md border-0 bg-gray-900 px-4 py-2 font-medium text-gray-50 text-sm ring-offset-white transition-colors hover:bg-gray-900/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:bg-gray-50 dark:text-gray-900 dark:ring-offset-gray-950 dark:focus-visible:ring-gray-300 dark:hover:bg-gray-50/90"
+              className="inline-flex h-10 w-full items-center justify-center rounded-md border-0 bg-gray-900 px-4 py-2 text-sm font-medium whitespace-nowrap text-gray-50 ring-offset-white transition-colors hover:bg-gray-900/90 focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 dark:bg-gray-50 dark:text-gray-900 dark:ring-offset-gray-950 dark:hover:bg-gray-50/90 dark:focus-visible:ring-gray-300"
               onClick={handleSubmit}
             >
               Upload Image

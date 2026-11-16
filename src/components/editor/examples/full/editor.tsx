@@ -57,7 +57,7 @@ export default function Editor(props: EditorProps) {
 
   return (
     <ProseKit editor={editor}>
-      <div className="box-border flex h-full min-h-36 w-full flex-col overflow-x-hidden overflow-y-hidden rounded-md border border-border border-solid bg-background text-foreground">
+      <div className="box-border flex h-full min-h-36 w-full flex-col overflow-x-hidden overflow-y-hidden rounded-md border border-solid border-border bg-background text-foreground">
         <div inert={props.disabled}>
           <Toolbar uploader={props.uploader} />
         </div>
@@ -67,7 +67,7 @@ export default function Editor(props: EditorProps) {
             role="textbox"
             aria-label="Entry body"
             aria-multiline="true"
-            className="ProseMirror box-border min-h-[45svh] px-4 py-3 leading-7 outline-0 outline-hidden sm:px-5 [&_blockquote]:border-l [&_blockquote]:pl-4 [&_blockquote]:italic [&_h1]:font-semibold [&_h1]:text-3xl [&_h2]:font-semibold [&_h2]:text-2xl [&_h3]:font-semibold [&_h3]:text-xl [&_p]:my-3 [&_pre]:overflow-x-auto [&_span[data-mention=tag]]:text-violet-500 [&_span[data-mention=user]]:text-blue-500 [&_table]:w-full [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
+            className="ProseMirror box-border min-h-[45svh] px-4 py-3 leading-7 outline-hidden outline-0 sm:px-5 [&_blockquote]:border-l [&_blockquote]:pl-4 [&_blockquote]:italic [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:text-xl [&_h3]:font-semibold [&_p]:my-3 [&_pre]:overflow-x-auto [&_span[data-mention=tag]]:text-violet-500 [&_span[data-mention=user]]:text-blue-500 [&_table]:w-full [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
           ></div>
           <InlineMenu />
           <SlashMenu />

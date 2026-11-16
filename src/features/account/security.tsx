@@ -112,14 +112,14 @@ export const AccountSecurity = () => {
       <Link to="/" className="text-sm underline">
         Back to notes
       </Link>
-      <h1 className="font-semibold text-xl">Account security</h1>
+      <h1 className="text-xl font-semibold">Account security</h1>
 
       <section className="flex flex-col gap-3 rounded-lg border p-4">
         <h2 className="font-medium">Two-step sign-in</h2>
         <p className="text-sm" data-testid="mfa-status">
           Status: <strong>{enabled ? "On" : "Off"}</strong>
         </p>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           When it is on, signing in takes your password and then a one-time code
           we email to <strong>{user.email}</strong>. You will need access to
           that inbox every time you sign in.
