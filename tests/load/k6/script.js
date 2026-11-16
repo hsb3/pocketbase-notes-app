@@ -553,7 +553,10 @@ export function handleSummary(data) {
   const opsTable = `${opLines.join("\n")}\n`;
   return {
     stdout: `\n${info.join("\n")}\n\n${lines.join("\n")}\n\np50 / p95 ms per operation:\n\n${opsTable}`,
-    "/results/summary.json": JSON.stringify(data),
+    "/results/summary.json": JSON.stringify({
+      ...data,
+      setup_data: { ...data.setup_data, users: undefined },
+    }),
     "/results/stages.tsv": `${stageRows.join("\n")}\n`,
     "/results/ops.md": opsTable,
     "/results/info.txt": `${info.join("\n")}\n`,
