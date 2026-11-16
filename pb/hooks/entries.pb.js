@@ -2,7 +2,12 @@ onRecordValidate((e) => {
   const validate = require(`${__hooks}/entry-validation.js`);
   try {
     const attachments = e.record.getStringSlice("attachments");
-    const images = validate.body(JSON.parse(e.record.getString("body")), attachments.length > 0);
+    const doc = JSON.parse(e.record.getString("body"));
+    const images = validate.body(doc, attachments.length > 0);
+    // Derived here so clients cannot forge the Open tasks index.
+    const tasks = validate.tasks(doc);
+    e.record.set("open_tasks", tasks.count);
+    e.record.set("tasks", tasks.open);
     if (images.some((id) => !attachments.includes(id))) throw new Error("An embedded image is missing its attachment.");
     for (const id of attachments) {
       const attachment = e.app.findRecordById("attachments", id);
