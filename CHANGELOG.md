@@ -19,6 +19,11 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
   in place through the normal save-conflict check, with per-entry open counts.
   Counts are derived on the server and backfilled for existing entries.
 
+### Changed
+
+- README rewritten around what you get and how to run it, with fresh screenshots
+  and a short recording captured by `scripts/capture-screenshots.sh`.
+
 ### Fixed
 
 - Long entry titles wrap on phones instead of being cut off; dependencies updated
