@@ -107,7 +107,7 @@ watchdog_pid=""
 
 {
   docker inspect --format 'app container: status={{.State.Status}} oom_killed={{.State.OOMKilled}} restarts={{.RestartCount}}' "$PB"
-  echo "app database size: $(docker exec "$PB" sh -c 'du -sh /pb/pb_data/data.db | cut -f1' 2>/dev/null || echo unknown)"
+  echo "app database size: $(docker exec "$PB" sh -c 'du -ch /pb/pb_data/data.db* | tail -1 | cut -f1' 2>/dev/null || echo unknown)"
   echo "k6 exit code: $k6_exit"
 } >>"$RESULTS/environment.txt"
 compose logs --no-color pocketbase >"$RESULTS/pocketbase.log" 2>&1 || true
