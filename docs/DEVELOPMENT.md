@@ -76,3 +76,18 @@ These settings are development-only and are not embedded in the production image
 Configure real SMTP/S3 services separately in production; local filesystem storage
 remains available there. The email-template migration uses `{APP_URL}`, so set the
 PocketBase application URL to the public frontend address in each environment.
+
+
+## Seed accounts without unintended resets
+
+`make seed` and `make stack-seed STACK=<name>` create missing local seed accounts
+and verify their credentials. Existing passwords, verification status and profile
+fields are preserved. A credential mismatch fails with a message instead of
+resetting the account. Supply the current local credentials to continue.
+
+An intentional development password reset uses
+`make seed SEED_ARGS=--reset-passwords` (or the same option with `stack-seed`).
+Only the configured seed accounts are affected; profile/verification fields stay
+unchanged. Seeding refuses non-loopback URLs, and any superuser CLI write requires
+`PB_CONTAINER` to publish PocketBase on the configured loopback port. The entries
+seed command adds sample entries only to an empty existing seed account.

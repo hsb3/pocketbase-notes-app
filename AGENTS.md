@@ -19,7 +19,7 @@ React 19 + TanStack Router frontend, PocketBase backend, built with Bun and Vite
 
 - `make start` — backend up + seed + vite dev server (reads `.env`; `PB_PORT` may differ from 8080)
 - `make up` / `make up-full` / `make down` / `make logs` / `make health`
-- `make seed` — superuser + verified test user (PB 0.23+: `_superusers`, not "admins")
+- `make seed` — create missing local accounts; preserve existing passwords (PB 0.23+: `_superusers`, not "admins")
 - `bun run lint` (Biome — owns unused-variable checks; tsc does not), `bun run build`
   (type-checks both tsconfigs, then vite build)
 

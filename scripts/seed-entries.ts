@@ -1,25 +1,18 @@
+import assert from "node:assert/strict";
 import PocketBase from "pocketbase";
-const pb = new PocketBase(process.env.VITE_PB_URL);
+const url = process.env.VITE_PB_URL;
+assert(
+  url && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname),
+  "Seed entries require a local backend.",
+);
+const pb = new PocketBase(url);
 await pb
   .collection("_superusers")
   .authWithPassword(process.env.PB_EMAIL!, process.env.PB_PASSWORD!);
 const email = process.env.SEED_USER_EMAIL || "user@example.com";
-const password = process.env.SEED_USER_PASSWORD || "user-changeme-123";
-let user;
-try {
-  user = await pb
-    .collection("users")
-    .getFirstListItem(pb.filter("email = {:email}", { email }));
-} catch (error) {
-  if ((error as { status: number }).status !== 404) throw error;
-  user = await pb.collection("users").create({
-    email,
-    password,
-    passwordConfirm: password,
-    name: "Jamie",
-    verified: true,
-  });
-}
+const user = await pb
+  .collection("users")
+  .getFirstListItem(pb.filter("email = {:email}", { email }));
 const existing = await pb
   .collection("entries")
   .getList(1, 1, { filter: pb.filter("user = {:id}", { id: user.id }) });

@@ -87,6 +87,8 @@ jobs:
         run: make up-full
       - name: Run API and browser tests
         run: bun run test:e2e
+      - name: Verify account lifecycle and deployment drills
+        run: bun run test:accounts
       - name: Verify explicitly enabled registration
         run: |
           VITE_SIGNUP_ENABLED=true docker compose --project-directory . -f deploy/local/docker-compose-full.yml up -d --no-deps --wait pocketbase

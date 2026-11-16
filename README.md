@@ -32,7 +32,9 @@ make start
 ```
 
 Set the superuser credentials and matching `PB_PORT` / `VITE_PB_URL` in `.env`.
-`make start` starts PocketBase, seeds the development account, and runs Vite.
+`make start` starts PocketBase, creates missing development accounts, and runs
+Vite. Existing passwords are preserved; intentional resets are described in
+[local seeding](docs/DEVELOPMENT.md#seed-accounts-without-unintended-resets).
 The default development login is `user@example.com` / `user-changeme-123`;
 `SEED_USER_EMAIL` and `SEED_USER_PASSWORD` override it. Sample entries are added
 only when that account's notebook is empty.

@@ -25,6 +25,7 @@ The backend stays running; tests never seed or reset existing development accoun
 | --- | --- |
 | `make smoke` / `bun run test:smoke` | Mailpit verification/reset emails and token use; real RustFS upload/download bytes; browser login, private note save and reload |
 | `make e2e` / `bun run test:e2e` | All API checks and default-disabled browser scenarios, including smoke |
+| `bun run test:accounts` | Create-only seeding, explicit resets, fixture cleanup, existing-account protection, local email delivery, account-neutral configuration and isolated archive restore |
 | `bun run test:api` | Services, entry validation, account isolation, concurrent saves, protected files, attachment cleanup, admin capabilities and automatic-backup health |
 | `bunx playwright test` | Browser scenarios only |
 | `bun run lint` | Formatting and lint |
@@ -193,3 +194,9 @@ and Vite frontend must use `VITE_SIGNUP_ENABLED=true` before running
 `bunx playwright test tests/e2e/registration-enabled.spec.cjs`. The normal suite
 skips that scenario. CI configures both flags on its disposable stack, runs the
 extra phase and keeps a separate report; see [CI configuration](CI.md).
+
+
+`test:accounts` requires a disposable local full stack with no existing attachment
+records or backup configuration. It temporarily changes local storage/mail settings
+for the configuration and restore drills and restores them in cleanup. It never
+uses personal app-user credentials. CI runs it before the signup-enabled phase.

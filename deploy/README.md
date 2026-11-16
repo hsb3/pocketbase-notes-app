@@ -16,8 +16,9 @@ repository root; Docker's build context must remain the root, not `deploy/`.
 Copy `.env.example` to `.env`, generate `PB_ENCRYPTION_KEY`, set local superuser
 credentials, and keep `VITE_PB_URL` aligned with `PB_PORT`. `make start` starts the
 backend, seeds development accounts and starts Vite. `make start-full` additionally
-configures local email and storage. Seeding resets the configured development
-accounts' passwords; never run it against production.
+configures local email and storage. Seeding creates missing development accounts
+and preserves existing passwords unless `--reset-passwords` is explicitly supplied.
+It refuses remote targets.
 
 The Makefile supplies `--project-directory .` so Compose mounts resolve correctly.
 All published local service ports bind to loopback. PocketBase data lives in
@@ -256,12 +257,10 @@ Sources checked for this plan:
   the schedules were read back and a manual volume backup was created.
 - No RustFS or Mailpit services are deployed. Resend delivers real mail; no local
   seed script was run. `admin@example.com` and `user@example.com` were absent.
-- The app and superuser accounts use `henry.burden@gmail.com` with distinct random
-  passwords. Credentials and the encryption key are in the ignored mode-0600
-  `deploy/railway/.env`: use `PB_USER_PASSWORD` for the app, `PB_ADMIN_PASSWORD`
-  for the PocketBase dashboard at `/_/`. Open it using the account menu →
-  **PocketBase admin**; the link opens a new tab and does not pass credentials.
-  API keys never enter the frontend.
+- Initial setup created distinct app-user and superuser accounts. Superuser
+  credentials and the stable encryption key are in the ignored deployment `.env`.
+  Personal app-user passwords are no longer deployment inputs. The **PocketBase
+  admin** shortcut opens a separate dashboard login and passes no credentials.
 - The later `hsburden3@outlook.com` test account and its content were preserved. Only the deployment verification fixture was removed.
 - `VITE_SIGNUP_ENABLED=false` is explicit in Railway and defaults to false in
   both Docker stages. It hides the registration UI and the PocketBase hooks reject
@@ -326,8 +325,9 @@ a full deployed performance benchmark is still outstanding.
 4. For an empty install, create the required superuser with PocketBase's CLI inside
    the service, passing `--encryptionEnv=PB_ENCRYPTION_KEY`. Do not seed default users.
 5. Review the exact target guard in `deploy/railway/configure.ts` for the new URL;
-   run it only for initial setup. It deliberately refuses unexpected existing
-   users. It configures SMTP, templates, local files, backup storage and the app account.
+   run it only for infrastructure setup. It configures SMTP, templates and backup
+   storage without creating or resetting accounts; existing remote file storage
+   is refused rather than disabled. Provision app users separately.
 6. Enable/read back volume backup schedules. Run the email and app checks only on
    the intended test environment; they send real emails/create temporary fixtures.
    Restore a downloaded backup into a separate instance with outgoing mail disabled.
@@ -367,9 +367,10 @@ For a bucket credential rotation:
 
 Deployment verification scripts write to the explicit `DEPLOY_EVIDENCE_DIR`
 absolute directory, created privately if absent. Choose a fresh directory for each
-run; an existing directory must already have private permissions. The `verify-app`, `verify-email`, `verify-signup` and `verify-restore` scripts
-are setup/recovery drills with documented fixture assumptions; some write data or
-send real mail. They are not health monitors. `backup.ts` creates a remote archive
+run; an existing directory must already have private permissions. The app and signup drills create disposable accounts and remove their records
+in `finally` cleanup. The email drill requires an unused test mailbox and changes
+only its newly created account. The restore drill compares the source to an
+isolated restore read-only. They are not health monitors. `backup.ts` creates a remote archive
 and downloads `restore-proof.zip` into that directory.
 
 ## Relink a moved checkout
@@ -392,3 +393,46 @@ server shows the shortcut only when the app account has a verified email matchin
 a PocketBase superuser. The endpoint returns a boolean, never superuser records or
 tokens. Loading, lookup failures and account changes hide the shortcut. The
 PocketBase dashboard retains its independent authentication.
+
+## Account lifecycle
+
+Routine Railway uploads start PocketBase against the persistent volume. Startup
+creates no application accounts and resets no passwords. Keep the volume and
+`PB_ENCRYPTION_KEY` stable. Changing an environment-file password does not update
+a database account.
+
+For first-time setup:
+
+1. Copy `deploy/railway/.env.example` to `deploy/railway/.env`, restrict it to mode
+   `0600`, and supply infrastructure/superuser credentials from a password manager.
+2. Create the superuser explicitly in the running container with
+   `pocketbase superuser create EMAIL PASSWORD --encryptionEnv=PB_ENCRYPTION_KEY`.
+   Use `create`, never `upsert`, for bootstrap. PocketBase can exit zero after a
+   CLI error; verify authentication before treating bootstrap as complete.
+3. Run `bun run deploy/railway/configure.ts` for infrastructure settings. It does
+   not provision regular users or change existing credentials.
+4. Provision regular users deliberately through the PocketBase dashboard's
+   `users` collection. Store their login credentials separately from deployment
+   configuration. Public signup stays disabled unless explicitly enabled.
+
+For verification, set `DEPLOY_EVIDENCE_DIR` to a fresh private directory and run
+`bun run deploy/railway/verify-app.ts` or `verify-signup.ts`. Both generate
+in-memory temporary credentials and clean their accounts and cascaded notes/files after
+success or ordinary failure. Existing data need not be empty. Interrupted
+processes or backend outages can prevent cleanup; failed cleanup exits nonzero.
+No verification passwords or auth tokens are written to evidence; screenshots
+can contain a temporary fixture email.
+
+The email drill is an explicit mail-sending operation:
+`VERIFY_EMAIL` must identify an unused test mailbox, and `RESEND_API_KEY` must be
+injected for Resend delivery inspection. Run `bun run deploy/railway/verify-email.ts`
+only when sending to that recipient is intended. Existing recipients are refused;
+password resets affect only the newly created fixture. Local tests use Mailpit.
+
+For a restore drill, pause source writes while taking and checking the backup.
+Boot the extracted backup separately with the same encryption key and superuser
+credentials; disable SMTP and backup cron in the copy before verification. Set
+`RESTORE_URL` to its loopback URL and run `bun run deploy/railway/verify-restore.ts`.
+The script compares user/entry/attachment records and file bytes read-only. It
+fails if the source has changed since the snapshot. S3-hosted attachment objects
+remain external to PocketBase backups and require separate recovery.
