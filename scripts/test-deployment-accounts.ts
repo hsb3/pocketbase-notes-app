@@ -94,10 +94,19 @@ try {
     before,
     "Mail verification must refuse existing accounts",
   );
-  await run("verify-email", {
-    VERIFY_EMAIL: `mail-${crypto.randomUUID()}@example.test`,
-    MAILPIT_URL: process.env.MAILPIT_URL || "http://127.0.0.1:8025",
-  });
+  const originalMeta = (await admin.settings.getAll()).meta;
+  try {
+    // Exercise separate frontend/API origins even in the self-contained local stack.
+    await admin.settings.update({
+      meta: { ...originalMeta, appURL: "http://127.0.0.1:4174" },
+    });
+    await run("verify-email", {
+      VERIFY_EMAIL: `mail-${crypto.randomUUID()}@example.test`,
+      MAILPIT_URL: process.env.MAILPIT_URL || "http://127.0.0.1:8025",
+    });
+  } finally {
+    await admin.settings.update({ meta: originalMeta });
+  }
   assert.deepEqual(await snapshot(), before, "Mail fixtures must be removed");
   const proxy = Bun.serve({
     hostname: "127.0.0.1",

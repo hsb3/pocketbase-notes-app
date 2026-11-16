@@ -1,7 +1,6 @@
 import { evidenceDirectory } from "./evidence";
 import assert from "node:assert/strict";
 import {
-  deploymentURL,
   localDeployment,
   deploymentAdmin,
   createVerificationUser,
@@ -29,6 +28,7 @@ async function main() {
     "Set RESEND_API_KEY for delivery verification, or local MAILPIT_URL.",
   );
   const admin = await deploymentAdmin();
+  const appURL = new URL((await admin.settings.getAll()).meta.appURL);
   const fixture = await createVerificationUser(admin, {
     email,
     verified: false,
@@ -116,14 +116,8 @@ async function main() {
           if (message.last_event === "delivered") html = message.html;
         }
         for (const match of html.matchAll(/href=["']([^"']+)["']/g)) {
-          const link = new URL(
-            match[1].replaceAll("&amp;", "&"),
-            deploymentURL,
-          );
-          if (
-            link.origin === new URL(deploymentURL!).origin &&
-            link.pathname === path
-          )
+          const link = new URL(match[1].replaceAll("&amp;", "&"), appURL);
+          if (link.origin === appURL.origin && link.pathname === path)
             token = link.searchParams.get("token");
         }
       }
