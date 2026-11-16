@@ -10,8 +10,9 @@ export const localDeployment = ["localhost", "127.0.0.1", "[::1]"].includes(
   new URL(deploymentURL).hostname,
 );
 assert(
-  localDeployment || deploymentURL === "https://notes-staging.up.railway.app",
-  "Unexpected deployment target.",
+  (localDeployment && process.env.DEPLOY_ALLOW_LOCAL === "true") ||
+    deploymentURL === "https://notes-staging.up.railway.app",
+  "Unexpected deployment target; local drills require DEPLOY_ALLOW_LOCAL=true.",
 );
 
 export async function deploymentAdmin(url = deploymentURL!) {

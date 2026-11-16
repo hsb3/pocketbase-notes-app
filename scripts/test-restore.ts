@@ -145,6 +145,7 @@ try {
       env: {
         ...process.env,
         PB_URL: url!,
+        DEPLOY_ALLOW_LOCAL: "true",
         PB_ADMIN_EMAIL: process.env.PB_EMAIL!,
         PB_ADMIN_PASSWORD: process.env.PB_PASSWORD!,
         PB_USER_EMAIL: "",

@@ -418,7 +418,8 @@ For first-time setup:
 For verification, set `DEPLOY_EVIDENCE_DIR` to a fresh private directory and run
 `bun run deploy/railway/verify-app.ts` or `verify-signup.ts`. Both generate
 in-memory temporary credentials and clean their accounts and cascaded notes/files after
-success or ordinary failure. Existing data need not be empty. Interrupted
+success or ordinary failure. Existing data need not be empty. Loopback test targets require the explicit
+`DEPLOY_ALLOW_LOCAL=true` opt-in; ordinary commands retain the staging URL guard. Interrupted
 processes or backend outages can prevent cleanup; failed cleanup exits nonzero.
 No verification passwords or auth tokens are written to evidence; screenshots
 can contain a temporary fixture email.
