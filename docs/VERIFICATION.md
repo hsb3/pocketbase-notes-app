@@ -181,7 +181,7 @@ the form is absent and existing login works. Positive test accounts were deleted
 The existing accounts and their test note/attachment were preserved. Deployed
 opt-in mode and live OAuth login remain unverified. The local opt-in registration
 and verification retry flow passed both browser projects during the
-[repository review](reviews/2026-11-15.md).
+2026-11-15 repository review.
 
 The account-menu admin shortcut is covered in Chromium and WebKit: it resolves
 against the configured PocketBase URL (including a separate local backend port),

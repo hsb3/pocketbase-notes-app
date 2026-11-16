@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # bunfig.toml refuses versions published less than 7 days ago; wait a
+    # little longer so a proposed version always installs.
+    cooldown:
+      default-days: 8
+    open-pull-requests-limit: 5
+    ignore:
+      # Version-coupled to the PocketBase server pinned in deploy/docker/Dockerfile.
+      # Patch updates still arrive; bump minor/major together with the server.
+      - dependency-name: pocketbase
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+      dependencies:
+        dependency-type: production
+        update-types: [minor, patch]

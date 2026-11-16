@@ -7,9 +7,17 @@ GitHub Actions runs `.github/workflows/ci.yml` on every pull request targeting
 
 | Check | Work |
 | --- | --- |
-| `Quality` | Frozen dependency install, dependency audit, local-target safety tests, Biome, setup/test-script type checks, frontend/config type checks and production build |
+| `Quality` | Frozen dependency install, dependency audit, local-target safety tests, Biome, unused-code check (knip), setup/test-script type checks, frontend/config type checks and production build |
 | `E2E (amd64)` | Native Ubuntu Docker build, fresh PocketBase + Mailpit + RustFS, live API tests and Chromium and WebKit browser scenarios |
 | `E2E (arm64)` | The same full-stack checks on native ARM Linux |
+
+Two more jobs in the same workflow run on every pull request but are not required
+by the ruleset:
+
+| Check | Work |
+| --- | --- |
+| `Docs links` | lychee in offline mode checks relative links and heading anchors in every Markdown file except the vendored `.agents/skills/`. External URLs are not fetched, so other sites cannot fail it |
+| `Workflow lint` | actionlint over `.github/workflows/`, run from a digest-pinned image with no network |
 
 E2E jobs run only after Quality passes. Both architectures must pass. The complete
 suite includes the smoke scenario; no duplicate smoke job is needed. Workflow/job
@@ -30,6 +38,35 @@ Actions are pinned by commit SHA; Node and Bun versions are explicit. The token 
 read-only contents permission and checkout does not retain Git credentials. The
 workflow uses `pull_request`, not `pull_request_target`, so fork code does not receive
 privileged credentials. No deployment or package publishing happens in CI.
+
+## Other workflows
+
+| Workflow | Runs | Work |
+| --- | --- | --- |
+| `codeql.yml` | Pull requests to `main`, pushes to `main`, Mondays 06:23 UTC | CodeQL analysis of JavaScript/TypeScript. Results appear under Security → Code scanning. Only this job holds `security-events: write` |
+| `release.yml` | Push of a `v*` tag | Checks the tag against `package.json` and `CHANGELOG.md`, then creates a GitHub Release. Only this job holds `contents: write`. See [releasing](RELEASING.md) |
+| `performance.yml` | Manual dispatch only | Runs the [editor benchmark](VERIFICATION.md#production-editor-performance) against the production image and uploads the report for 30 days. It is not part of pull request CI: it takes minutes, shared-runner timings are noisy, and no budget is enforced |
+
+`.github/dependabot.yml` opens weekly grouped pull requests for GitHub Actions pins
+and for Bun dependencies. Bun updates wait eight days after a version is published,
+so they clear the seven-day `minimumReleaseAge` in `bunfig.toml`. Minor and major
+updates of the `pocketbase` SDK are ignored because it is bumped together with the
+server image (see `AGENTS.md`). Dependabot pull requests go through the same required
+checks as any other.
+
+### Running the checks locally
+
+```sh
+bun run knip
+actionlint
+docker run --rm --network none -v "$PWD:/repo:ro" -w /repo lycheeverse/lychee:latest \
+  --offline --include-fragments --no-progress --exclude-path .agents/skills '**/*.md'
+.github/scripts/release-notes.sh "v$(jq -r .version package.json)"
+```
+
+`knip.json` lists the entry points knip cannot infer (file routes, scripts, deployment
+helpers, tests) and silences unused-export reports for the vendored shadcn and ProseKit
+component folders; unused files and dependencies are still reported everywhere.
 
 Reports, failure traces/screenshots and service logs are uploaded per architecture
 with seven-day retention, including on test failure. `.env`, database files and TLS
@@ -77,3 +114,5 @@ bound to the GitHub Actions integration rather than arbitrary commit statuses.
 For a failure, inspect the failed job first, then download its report/log artifact.
 Reproduce with the [local testing commands](VERIFICATION.md). When updating action
 SHAs, runtimes or image digests, require a new green run on both architectures.
+Dependabot proposes action SHA updates; the actionlint image digest and the lychee
+version in `ci.yml` are bumped by hand.
