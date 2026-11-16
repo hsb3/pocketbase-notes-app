@@ -11,6 +11,8 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 - The restore test's temporary container runs with CPU, memory and process limits,
   and Biome skips locally synced `.claude/skills/`.
+- The `make railway-verify-*` scripts wait and retry when the deployment's
+  rate limit answers 429.
 - GitHub Actions bumped (`actions/checkout`, `actions/setup-node`,
   `actions/upload-artifact`).
 
