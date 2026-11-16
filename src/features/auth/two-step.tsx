@@ -107,7 +107,7 @@ export const CodeStep = ({
       className="m-auto flex flex-col gap-3 p-2"
       aria-labelledby="two-step-title"
     >
-      <h1 id="two-step-title" className="font-semibold text-lg">
+      <h1 id="two-step-title" className="text-lg font-semibold">
         Check your email
       </h1>
       {otpId ? (

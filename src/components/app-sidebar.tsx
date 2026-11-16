@@ -174,7 +174,7 @@ export function AppSidebar({
         >
           <SidebarHeader className="gap-3.5 border-b p-4">
             <div className="flex w-full items-center justify-between">
-              <div className="font-medium text-base text-foreground">
+              <div className="text-base font-medium text-foreground">
                 {activeItem?.title}
               </div>
               <Label className="flex items-center gap-2 text-sm">
@@ -270,7 +270,7 @@ export function AppSidebar({
                       pathname.endsWith(`/${entry.id}`) ? "page" : undefined
                     }
                     key={entry.id}
-                    className="flex flex-col items-start gap-2 whitespace-nowrap border-b p-4 text-sm leading-tight last:border-b-0 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground aria-[current=page]:bg-sidebar-accent"
+                    className="flex flex-col items-start gap-2 border-b p-4 text-sm leading-tight whitespace-nowrap last:border-b-0 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground aria-[current=page]:bg-sidebar-accent"
                   >
                     <div className="flex w-full items-center gap-2">
                       <span>
@@ -301,7 +301,7 @@ export function AppSidebar({
                     <span className="w-full truncate font-medium">
                       {entry.title}
                     </span>
-                    <span className="line-clamp-2 w-full whitespace-break-spaces text-xs">
+                    <span className="line-clamp-2 w-full text-xs whitespace-break-spaces">
                       {bodyText(entry.body)}
                     </span>
                   </Link>
