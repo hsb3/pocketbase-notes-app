@@ -168,7 +168,7 @@ button { gap: .5rem; }
 .document-heading { display: flex; align-items: center; gap: .75rem; }
 .document-meta { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin: .25rem 0 .75rem; }
 .entry-kind { font-size: .8rem; color: hsl(var(--muted-foreground)); }
-.entry-title-input { min-width: 0; flex: 1; font-family: inherit; font-weight: 600; font-size: 1.5rem; line-height: 1.4; letter-spacing: -.02em; width: 100%; background: transparent; outline: none; padding: .25rem 0; }
+.entry-title-input { min-width: 0; flex: 1; font-family: inherit; font-weight: 600; font-size: 1.5rem; line-height: 1.4; letter-spacing: -.02em; width: 100%; background: transparent; outline: none; padding: .25rem 0; resize: none; field-sizing: content; overflow-wrap: anywhere; }
 .entry-title-input::placeholder { color: hsl(var(--muted-foreground)); }
 .entry-title-input:focus-visible { box-shadow: 0 1px 0 hsl(var(--ring)); }
 .document-footer { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 1rem; min-height: 32px; border-top: 1px solid hsl(var(--border)); padding: .375rem 1rem; background: hsl(var(--muted) / .5); font-size: .75rem; color: hsl(var(--muted-foreground)); }

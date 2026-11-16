@@ -1,10 +1,17 @@
-import { createContext, useEffect, useState, type CSSProperties } from "react";
+import {
+  createContext,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   Outlet,
   Link,
   useLocation,
   getRouteApi,
   useRouter,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
@@ -47,6 +54,10 @@ export function Workspace() {
   useEffect(() => {
     if (!hasEditor) setFocusMode(false);
   }, [hasEditor]);
+  const focusValue = useMemo(
+    () => ({ focused, toggle: () => setFocusMode((value) => !value) }),
+    [focused],
+  );
   const title = onTasks
     ? "Open tasks"
     : {
@@ -56,9 +67,7 @@ export function Workspace() {
         favorites: "Favorites",
       }[search.view];
   return (
-    <WritingFocus.Provider
-      value={{ focused, toggle: () => setFocusMode((value) => !value) }}
-    >
+    <WritingFocus.Provider value={focusValue}>
       <SidebarProvider
         open={focused ? false : open}
         onOpenChange={setOpen}
@@ -138,9 +147,9 @@ export function WorkspacePending() {
     </div>
   );
 }
-export function WorkspaceError({ error }: { error: Error }) {
+export function WorkspaceError({ error }: ErrorComponentProps) {
   const router = useRouter();
-  const missing = "status" in error && error.status === 404;
+  const missing = (error as { status?: unknown } | null)?.status === 404;
   return (
     <Empty className="h-full">
       <EmptyHeader>

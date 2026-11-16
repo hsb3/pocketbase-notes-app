@@ -53,7 +53,7 @@ export function OpenTasks({ entries }: { entries: TaskEntry[] }) {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4 md:p-8">
-      <h1 className="font-semibold text-xl">Open tasks</h1>
+      <h1 className="text-xl font-semibold">Open tasks</h1>
       {error && (
         <p
           role="alert"
@@ -79,7 +79,7 @@ export function OpenTasks({ entries }: { entries: TaskEntry[] }) {
                 {entry.title}
               </Link>
             </h2>
-            <span className="shrink-0 text-muted-foreground text-xs">
+            <span className="shrink-0 text-xs text-muted-foreground">
               {entry.kind === "journal"
                 ? `Journal · ${entry.journal_date}`
                 : "Note"}{" "}
@@ -110,7 +110,7 @@ export function OpenTasks({ entries }: { entries: TaskEntry[] }) {
             })}
           </ul>
           {(entry.open_tasks || 0) > (entry.tasks?.length || 0) && (
-            <p className="text-muted-foreground text-xs">
+            <p className="text-xs text-muted-foreground">
               More open items in this entry. Open it to see them all.
             </p>
           )}

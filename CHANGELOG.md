@@ -9,6 +9,9 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Added
 
+- Opt-in two-step sign-in: after the password (or OAuth2), an emailed one-time code.
+  Turned on and off from Account security with the current password; see
+  [docs/features/auth.md](docs/features/auth.md).
 - Documentation site built with VitePress (`bun run docs:build`) and deployed to
   GitHub Pages from `main`; `docs/` reorganized into lowercase sections, with a new
   tech stack page and wireframe images viewable on GitHub.
@@ -17,6 +20,16 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
   Counts are derived on the server and backfilled for existing entries.
 - Load test that runs entirely in Docker (`tests/load/run.sh`: capped app stack plus
   k6), with measured capacity of one instance in `docs/testing/load-testing.md`.
+
+### Changed
+
+- README rewritten around what you get and how to run it, with fresh screenshots
+  and a short recording captured by `scripts/capture-screenshots.sh`.
+
+### Fixed
+
+- Long entry titles wrap on phones instead of being cut off; dependencies updated
+  (React 19.3, TanStack Router 1.170.46, Biome 2.6, Vite 8.3, Playwright 1.65).
 
 ## [0.1.0] - 2026-11-15
 

@@ -1,4 +1,9 @@
-import { ChevronsUpDown, ExternalLink, LogOut } from "lucide-react";
+import {
+  ChevronsUpDown,
+  ExternalLink,
+  LogOut,
+  ShieldCheck,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { pb } from "@/services/pocketbase";
 import { useAdminCapability } from "@/hooks/use-admin-capability";
@@ -80,7 +85,7 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-muted-foreground text-xs">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
                 Theme
               </DropdownMenuLabel>
               <DropdownMenuRadioGroup
@@ -115,6 +120,12 @@ export function NavUser({
                   </a>
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem asChild>
+                <Link to="/account">
+                  <ShieldCheck />
+                  Account security
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/auth/logout">
                   <LogOut />

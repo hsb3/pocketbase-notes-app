@@ -160,7 +160,7 @@ export default function Toolbar(props: { uploader?: Uploader<string> }) {
     <div
       role="toolbar"
       aria-label="Formatting"
-      className="z-2 box-border flex flex-nowrap items-center gap-1 overflow-x-auto border-gray-200 border-t-0 border-r-0 border-b border-l-0 border-solid p-2 sm:flex-wrap dark:border-gray-800"
+      className="z-2 box-border flex flex-nowrap items-center gap-1 overflow-x-auto border-t-0 border-r-0 border-b border-l-0 border-solid border-gray-200 p-2 sm:flex-wrap dark:border-gray-800"
     >
       {items.undo && (
         <Button
