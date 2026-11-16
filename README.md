@@ -21,7 +21,7 @@ editor block. See [component sources and adaptations](docs/design/prebuilt-ui.md
 
 [Mobile screenshot](docs/images/notebook-mobile.png) ·
 [Design and scope](docs/design/notes-journal.md) ·
-[Verification](docs/VERIFICATION.md)
+[Verification](docs/testing/verification.md)
 
 ## Run locally
 
@@ -34,14 +34,14 @@ make start
 Set the superuser credentials and matching `PB_PORT` / `VITE_PB_URL` in `.env`.
 `make start` starts PocketBase, creates missing development accounts, and runs
 Vite. Existing passwords are preserved; intentional resets are described in
-[local seeding](docs/DEVELOPMENT.md#seed-accounts-without-unintended-resets).
+[local seeding](docs/development/setup.md#seed-accounts-without-unintended-resets).
 The default development login is `user@example.com` / `user-changeme-123`;
 `SEED_USER_EMAIL` and `SEED_USER_PASSWORD` override it. Sample entries are added
 only when that account's notebook is empty.
 
 For email and S3-backed file storage, use `make start-full` instead. It configures
 Mailpit and RustFS automatically; `make check-services` verifies both. See the
-[full-stack setup](docs/DEVELOPMENT.md#full-stack-mailpit-smtp--rustfs-s3).
+[full-stack setup](docs/development/setup.md#full-stack-mailpit-smtp--rustfs-s3).
 
 ## Checks
 
@@ -59,18 +59,18 @@ and screenshots stay in ignored test-output directories. No global Playwright
 installation or manually started frontend is required.
 
 Run `bun run lint` and `bun run build` for static checks, or `bun run test:report`
-to open the browser report. See [testing details](docs/VERIFICATION.md) and
-[CI and protected-branch policy](docs/CI.md).
+to open the browser report. See [testing details](docs/testing/verification.md) and
+[CI and protected-branch policy](docs/ci/checks-and-rules.md).
 
 ## Boundaries
 
 Entries are private through application access rules, not end-to-end encryption.
 Drafts are in memory until Save; browser crashes can lose unsaved work. Conflict
 recovery offers a plain-text copy and a confirmed reload, not automatic merging.
-There is no sharing, AI or offline synchronization. See [attachments](docs/ATTACHMENTS.md)
+There is no sharing, AI or offline synchronization. See [attachments](docs/features/attachments.md)
 for file limits, private storage and cleanup behavior.
 OAuth providers and production email still require PocketBase configuration.
 Local email delivery is captured by Mailpit in full-stack mode.
 
-See [development setup](docs/DEVELOPMENT.md), [deployment](deploy/README.md),
-and [root configuration](docs/ROOT-FILES.md).
+See [development setup](docs/development/setup.md), [deployment](deploy/README.md),
+and [root configuration](docs/development/root-files.md).

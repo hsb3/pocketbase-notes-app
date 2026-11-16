@@ -42,3 +42,6 @@ test-results/
 playwright-report/
 
 ci-artifacts/
+
+# Docs site (VitePress) build output
+.vitepress/dist

@@ -1,8 +1,8 @@
 # Notes and journal — design draft
 
-Status: implemented with the adopted prebuilt shadcn workspace and ProseKit full editor. See [verification](../VERIFICATION.md).
+Status: implemented with the adopted prebuilt shadcn workspace and ProseKit full editor. See [verification](../testing/verification.md).
 
-[Early wireframes](notes-journal-wireframes.html) are historical layout sketches. The adopted implementation is documented in [component sources](prebuilt-ui.md). This design supersedes the [project tracker proposal](project-tracker.md).
+[Early wireframes](wireframes.md) are historical layout sketches. The adopted implementation is documented in [component sources](prebuilt-ui.md).
 
 ## Product and scope
 
@@ -52,7 +52,7 @@ Show one region at a time: entry list or editor. Navigation opens in a Sheet. Ba
 
 The official shadcn CLI recognized the existing Vite/Tailwind/Radix setup. The component configuration now explicitly selects Tabler icons, matching the existing source. Keep the existing neutral semantic tokens and installed icon library. No preset or base-library migration is proposed.
 
-The full ProseKit registry editor is adapted in `src/components/editor/examples/full/`. Private file uploads and validation are described in [attachments](../ATTACHMENTS.md).
+The full ProseKit registry editor is adapted in `src/components/editor/examples/full/`. Private file uploads and validation are described in [attachments](../features/attachments.md).
 
 Sources: [shadcn skill](https://ui.shadcn.com/docs/skills), [component catalog](https://ui.shadcn.com/docs/components), [registry directory](https://ui.shadcn.com/docs/directory), [ProseKit React example](https://prosekit.dev/r/react-example-minimal.json).
 

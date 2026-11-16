@@ -57,7 +57,7 @@ new. Changing those values later does not change the existing account.
 from the checkout. `make start-full` adds Mailpit and RustFS and persists SMTP
 and S3 settings in PocketBase. After that, keep using the full stack:
 `make up` does not revert those settings or trust the Mailpit certificate.
-Details are in [Development](../docs/DEVELOPMENT.md).
+Details are in [Development](../docs/development/setup.md).
 
 Stop with `make down` or `make down-full`. Do not run `docker compose down -v`
 unless you intend to delete the Mailpit and RustFS data.
@@ -76,7 +76,7 @@ code receives no S3 credentials.
 `RUSTFS_ACCESS_KEY` and `RUSTFS_SECRET_KEY` set the local API and console
 login; `RUSTFS_BUCKET` selects the bucket. Changing an endpoint or bucket does
 not copy files, and the setup script refuses to overwrite a different active
-provider or bucket. See [attachment storage](../docs/ATTACHMENTS.md).
+provider or bucket. See [attachment storage](../docs/features/attachments.md).
 
 ## Check the Compose files
 

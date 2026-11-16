@@ -1,7 +1,7 @@
 name: Editor performance
 
 # Manual only: the benchmark takes minutes, shared runners give noisy timings,
-# and no budget is enforced yet. See docs/VERIFICATION.md.
+# and no budget is enforced yet. See docs/testing/verification.md.
 on:
   workflow_dispatch:
 

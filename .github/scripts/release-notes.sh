@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: release-notes.sh <tag>. Fails unless <tag> is v<package.json version> with a dated
-# CHANGELOG.md section; prints that section as release notes. See docs/RELEASING.md.
+# CHANGELOG.md section; prints that section as release notes. See docs/ci/releasing.md.
 set -euo pipefail
 
 tag=${1:?usage: release-notes.sh <tag>}

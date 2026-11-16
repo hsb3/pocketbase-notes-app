@@ -1,4 +1,4 @@
-# Adding a feature
+# Improve: adding a feature
 
 One procedure for all features. Every feature runs the shared stages; features that
 touch PocketBase run the backend stage as well. The discriminator is not
@@ -8,8 +8,9 @@ hardening, hooks) use the same procedure minus the frontend stage.
 
 ## Stage 0 — Define the outcome (always)
 
-- Define independently verifiable acceptance criteria in the conversation or
-  project handoff. This project does not use Kata.
+- Define independently verifiable acceptance criteria in the conversation.
+- Read Spec and any matching file in Designs (improve docs, listed below) so the
+  change stays inside the product's boundaries.
 
 ## Stage 1 — Backend (only if the change touches PocketBase)
 
@@ -47,18 +48,24 @@ instead of N+1 fetches.
    `src/route-tree.gen.ts` regenerates on dev/build — never hand-edit).
    Auth-gated pages go under `src/routes/_authenticated/`.
 3. UI primitives come from shadcn (`bunx shadcn@latest add <component>`) into
-   `src/components/ui/` — don't hand-roll what shadcn ships.
+   `src/components/ui/` — don't hand-roll what shadcn ships. The vendored shadcn
+   skill is in `.agents/skills/shadcn/`. Editor UI lives in `src/components/editor/`
+   (ProseKit). Theme (light, dark, system) is `src/features/theme/`; style with its
+   tokens, and check new UI in both themes.
 4. Talk to PocketBase only through `pb` from `src/services/pocketbase.ts`,
    using the generated collection types.
 
 ## Stage 3 — Verify and close (always)
 
-- `bun run lint` and `bun run build` both exit 0.
+- `bun run lint`, `bun run knip` and `bun run build` all exit 0.
+- Add or extend tests where Verification says that kind of behaviour is covered.
 - Exercise the feature against a live stack (`make start`) — a type-checked
   build proves shapes, not behavior. If behavior can't be exercised, say so
   in the close message instead of implying it was.
 - Report the verification evidence and any remaining gaps in the conversation
-  or project handoff.
+  and the pull request.
+- Add a line under `Unreleased` in `CHANGELOG.md` when users or operators would
+  notice the change.
 
 ## Constraints that apply to every stage
 
@@ -66,5 +73,4 @@ instead of N+1 fetches.
   configs are read-only for delegated agents.
 - Generated files (`route-tree.gen.ts`, `pocketbase-types.ts`) are outputs,
   never inputs.
-- PocketBase server (0.40.x, pinned in `deploy/docker/Dockerfile`) and the JS
-  SDK (^0.28) version-couple: bump together, then `make codegen`.
+- The PocketBase server/SDK version coupling is a hard limit in `AGENTS.md`.
