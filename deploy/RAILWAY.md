@@ -128,6 +128,14 @@ deployment requires it. This one sets the application URL, sender, SMTP,
 application email links, rate limits and a daily backup to the bucket with
 seven archives kept. It creates no accounts and changes no passwords.
 
+Rate limits count requests per visitor address. Behind Railway's edge every
+request arrives from the edge, so the command also tells PocketBase to read the
+visitor's address from the `X-Real-IP` header, which Railway documents as the
+client's address ([specs and limits](https://docs.railway.com/networking/public-networking/specs-and-limits)).
+Without it, all visitors would share one budget of about two sign-ins every three
+seconds. Check it once on your instance: see
+[client addresses](OPERATIONS.md#client-addresses-and-rate-limits).
+
 Then, in the Railway dashboard, enable daily and weekly backups on the volume
 ([volume backups](https://docs.railway.com/volumes/backups)).
 

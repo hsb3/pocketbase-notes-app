@@ -10,6 +10,12 @@ const env = process.env;
 const smtpHost = env.PB_SMTP_HOST || "smtp.resend.com";
 const smtpPort = Number(env.PB_SMTP_PORT || 465);
 const backupCron = env.BACKUP_CRON || "0 7 * * *";
+// Railway's edge sets X-Real-IP to the client address; without a trusted header every
+// visitor shares the edge's address in rate limits. Empty value = trust no header.
+const trustedProxyHeaders = (env.PB_TRUSTED_PROXY_HEADERS ?? "X-Real-IP")
+  .split(",")
+  .map((header) => header.trim())
+  .filter(Boolean);
 try {
   assert(
     env.PB_SENDER_ADDRESS && env.PB_SMTP_PASSWORD,
@@ -48,6 +54,8 @@ try {
     },
     s3: { enabled: false },
     rateLimits: { ...current.rateLimits, enabled: true },
+    // Rightmost address: the one the proxy wrote, not one a client prepended.
+    trustedProxy: { headers: trustedProxyHeaders, useLeftmostIP: false },
     backups: {
       cron: backupCron,
       cronMaxKeep: 7,
@@ -84,8 +92,12 @@ try {
   assert.equal(readback.smtp.host, smtpHost);
   assert.equal(readback.backups.cron, backupCron);
   assert.equal(readback.s3.enabled, false);
+  assert.deepEqual(readback.trustedProxy, {
+    headers: trustedProxyHeaders,
+    useLeftmostIP: false,
+  });
   process.stdout.write(
-    "Configured SMTP, private local files and scheduled off-volume backups. Accounts unchanged.\n",
+    `Configured SMTP, private local files, scheduled off-volume backups and rate limits keyed on ${trustedProxyHeaders.join(", ") || "the connecting address"}. Accounts unchanged.\n`,
   );
 } catch (error) {
   verificationFailure(error);

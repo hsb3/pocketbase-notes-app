@@ -10,7 +10,7 @@ own machine and read their target from the private file `deploy/railway/.env`
 | --- | --- |
 | `make railway-check-backups` | None. Reads backup settings and listing metadata |
 | `make railway-verify-restore` | None. Compares it with a local restore |
-| `make railway-configure CONFIRM=<host>` | Writes SMTP, sender, email links, rate limits, backup schedule |
+| `make railway-configure CONFIRM=<host>` | Writes SMTP, sender, email links, rate limits, trusted client-address header, backup schedule |
 | `make railway-backup CONFIRM=<host>` | Creates one backup archive and downloads it |
 | `make railway-verify-app CONFIRM=<host>` | Creates temporary users, a note and a file, then deletes them |
 | `make railway-verify-signup CONFIRM=<host>` | Creates a temporary user to prove signup is refused |
@@ -25,6 +25,27 @@ Use a fresh one per run; it is created with private permissions. Output never
 contains passwords or tokens; screenshots can show a temporary fixture email.
 An interrupted run or a backend outage can prevent fixture cleanup, in which
 case the command exits nonzero.
+
+## Client addresses and rate limits
+
+`make railway-configure` turns on PocketBase's rate limits and sets its trusted
+proxy header to `X-Real-IP` (`PB_TRUSTED_PROXY_HEADERS` in the operator file),
+reading the rightmost address in it. Railway's documentation says its edge sets
+that header to the client's address, but does not say whether a value sent by
+the client is replaced. Check it once after configuring, and again if Railway
+changes its edge:
+
+1. Send a request with a made-up address:
+   `curl -s -o /dev/null -H 'X-Real-IP: 203.0.113.7' https://<host>/api/health`
+2. Open the admin UI (`https://<host>/_/`), **Logs**, and open that request.
+   **userIP** should be your own public address and **remoteIP** Railway's edge.
+3. If **userIP** is `203.0.113.7`, the header can be forged: visitors can then
+   dodge the per-address limits or spend someone else's. Report it, and decide
+   between keeping the header (forgeable limits) and setting
+   `PB_TRUSTED_PROXY_HEADERS=` empty and rerunning the command (one shared budget
+   for everyone, which blocks sign-ins under modest traffic).
+
+`make railway-configure` reads the setting back and fails if it did not apply.
 
 ## Updates
 

@@ -28,6 +28,7 @@ The backend stays running; tests never seed or reset existing development accoun
 | `bun run test:accounts` | Create-only seeding, explicit resets, fixture cleanup, existing-account protection, local email delivery, account-neutral configuration and isolated archive restore |
 | `bun run test:api` | Services, entry validation, account isolation, concurrent saves, protected files, attachment cleanup, admin capabilities, two-step sign-in and automatic-backup health |
 | `bunx playwright test` | Browser scenarios only |
+| `make load-test` / `tests/load/run.sh` | Capacity of one capped instance under k6 load, entirely in Docker; see [load testing](load-testing.md) |
 | `bun run lint` | Formatting and lint |
 | `bun run build` | Application/config TypeScript checks and production frontend build |
 | `bunx tsc -p scripts/tsconfig.json` | Backend verification/setup script types |

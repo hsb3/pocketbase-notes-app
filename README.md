@@ -84,7 +84,8 @@ make up-full && make e2e                        # API and browser tests, desktop
 
 Tests create and delete their own accounts on the local backend. CI runs the
 same suite on Linux amd64 and arm64 for every pull request. Details:
-[verification](docs/testing/verification.md) and
+[verification](docs/testing/verification.md),
+[load testing](docs/testing/load-testing.md) (`make load-test`) and
 [CI and repository rules](docs/ci/checks-and-rules.md).
 
 ## Deploy

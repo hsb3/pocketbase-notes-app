@@ -168,6 +168,45 @@ try {
       before,
       "Infrastructure configuration must preserve all accounts",
     );
+    const configured = await admin.settings.getAll();
+    assert.equal(configured.rateLimits.enabled, true);
+    assert.deepEqual(configured.trustedProxy, {
+      headers: ["X-Real-IP"],
+      useLeftmostIP: false,
+    });
+    // Default "*:auth" rule: 2 per 3 s per client address, so the third is refused.
+    const login = async (headers: Record<string, string>) =>
+      (
+        await fetch(new URL("/api/collections/users/auth-with-password", url), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({
+            identity: "nobody@example.invalid",
+            password: "wrong-password",
+          }),
+        })
+      ).status;
+    const clientA = { "X-Real-IP": "203.0.113.10" };
+    assert.deepEqual(
+      [await login(clientA), await login(clientA), await login(clientA)],
+      [400, 400, 429],
+      "One forwarded client address must be limited",
+    );
+    assert.equal(
+      await login({ "X-Real-IP": "203.0.113.20" }),
+      400,
+      "Another forwarded client address must have its own bucket",
+    );
+    assert.equal(
+      await login({ ...clientA, "X-Forwarded-For": "203.0.113.30" }),
+      429,
+      "An untrusted header must not pick the bucket",
+    );
+    assert.equal(
+      await login({ "X-Real-IP": "203.0.113.40, 203.0.113.10" }),
+      429,
+      "A client-prepended address must not pick the bucket",
+    );
   } finally {
     await admin.settings.update({
       smtp: { ...settings.smtp, password: "mailpit" },
@@ -178,6 +217,7 @@ try {
       backups: settings.backups,
       meta: settings.meta,
       rateLimits: settings.rateLimits,
+      trustedProxy: settings.trustedProxy,
     });
     await admin.collections.update("users", {
       verificationTemplate: usersCollection.verificationTemplate,
@@ -188,7 +228,7 @@ try {
     .collection("users")
     .authWithPassword(email, password);
   console.log(
-    "PASS: deployment checks need no personal credentials, clean successful/failed fixtures, reject existing mail recipients, and configuration preserves accounts",
+    "PASS: deployment checks need no personal credentials, clean successful/failed fixtures, reject existing mail recipients, configuration preserves accounts and keys rate limits on the trusted client address",
   );
 } finally {
   await admin.collection("users").delete(existing.id);
