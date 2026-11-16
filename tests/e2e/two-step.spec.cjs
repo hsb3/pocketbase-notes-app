@@ -31,12 +31,20 @@ async function signIn(page, session, redirect) {
   await page.getByRole("button", { name: "Login", exact: true }).click();
 }
 
-async function setTwoStep(page, session, state) {
+async function setTwoStep(page, session, state, seen) {
   await page.getByLabel("Current password").fill("not-my-password");
   await page.getByRole("button", { name: /Turn (on|off) two-step/ }).click();
   await expect(page.getByRole("alert")).toContainText("incorrect");
   await page.getByLabel("Current password").fill(session.password);
   await page.getByRole("button", { name: /Turn (on|off) two-step/ }).click();
+  if (state === "On") {
+    // Turning it on signs out every session; this tab signs back in with a code.
+    await expect(page.getByText("every device and browser")).toBeVisible();
+    await page
+      .getByLabel("Sign-in code")
+      .fill(await nextCode(session.email, seen));
+    await page.getByRole("button", { name: "Verify and sign in" }).click();
+  }
   await expect(page.getByTestId("mfa-status")).toHaveText(`Status: ${state}`);
 }
 
@@ -63,7 +71,7 @@ for (const [label, viewport] of [
         await page.getByRole("menuitem", { name: "Account security" }).click();
         await expect(page).toHaveURL(/\/account$/);
         await expect(page.getByTestId("mfa-status")).toHaveText("Status: Off");
-        await setTwoStep(page, session, "On");
+        await setTwoStep(page, session, "On", seen);
 
         await page.goto("/auth/logout");
         await signIn(page, session, "/entries?view=favorites");
@@ -93,7 +101,7 @@ for (const [label, viewport] of [
 
         await page.goto("/account");
         await expect(page.getByTestId("mfa-status")).toHaveText("Status: On");
-        await setTwoStep(page, session, "Off");
+        await setTwoStep(page, session, "Off", seen);
         await page.goto("/auth/logout");
         await signIn(page, session);
         await expect(page).toHaveURL(/\/entries(?:\?|$)/);

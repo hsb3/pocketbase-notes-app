@@ -11,8 +11,8 @@ needs to run it. PocketBase 0.40.x; the behaviour below was checked against 0.40
 | OAuth2 (Google, GitHub, ...) | `/auth/login`, one button per provider | Shown only for providers enabled in PocketBase. New accounts through OAuth are refused unless `VITE_SIGNUP_ENABLED=true` (`pb/hooks/signup.pb.js`). |
 | Two-step sign-in (optional, per user) | After either method above | An emailed one-time code as a second step. Off by default. |
 
-A one-time code is never a way to sign in on its own: accounts without two-step sign-in get no code
-emails, and for accounts with it a code only replaces one of the two steps.
+A one-time code is never a way to sign in on its own: a code email goes out only after the
+password (or OAuth2) step of an account with two-step sign-in on.
 
 ## Configure an OAuth2 provider
 
@@ -38,10 +38,18 @@ Sign-in with it on:
 
 1. The user enters email and password. PocketBase answers `401` with an `mfaId` and **no token**:
    the half-finished sign-in opens nothing.
-2. The app shows **Check your email** and calls `requestOTP(email)`. The user types the code;
-   the app calls `authWithOTP(otpId, code, { mfaId })` and gets a normal session.
+2. The app shows **Check your email** and calls `request-otp` with the email **and the `mfaId`**.
+   The user types the code; the app calls `authWithOTP(otpId, code, { mfaId })` and gets a
+   normal session.
 3. The app then follows the same return-URL rules as a password sign-in (`?redirect=` is only
    followed for same-site paths).
+
+`pb/hooks/mfa.pb.js` sends a code only when the request carries an unexpired `mfaId` from this
+account's first step. Every other `request-otp` call (no or someone else's `mfaId`, an account
+with it off, an unknown email) gets a random decoy `otpId` and no email. The responses look the
+same and take about the same time (measured median 0.4-0.5 ms on the dev stack; a real send,
+only possible after the password, ~14 ms). So nobody without the password can flood the inbox,
+use up the account's code attempts (the lock-out below) or find out who has it on.
 
 Turning it on or off (`/account`, user menu → **Account security**):
 
@@ -50,6 +58,14 @@ Turning it on or off (`/account`, user menu → **Account security**):
 - Turning it on needs a verified email; the page explains this and offers a verification email.
 - Users can only change their own record (the users update rule is `id = @request.auth.id`;
   another user gets `404`). Superusers can change it without a password (recovery, below).
+- **Turning it on signs out every session** of the account (PocketBase's `tokenKey` is rotated),
+  including other devices that never passed a second step. The tab that turned it on asks for
+  the code it has just emailed, which also proves the email arrives; **Back to login** there
+  signs out.
+- **Turning it off** (by the user or a superuser) deletes the account's outstanding codes and
+  pending second steps, so a code emailed earlier cannot sign in alone afterwards.
+- Sign-up (when `VITE_SIGNUP_ENABLED=true`) always creates accounts with it off, so the
+  verified-email check cannot be skipped.
 - Accounts created through OAuth have a random password; to use two-step sign-in they first set
   one with **Forgot password**.
 
@@ -78,10 +94,16 @@ implemented but not covered by automated tests: no provider is configured in the
   "Failed to send OTP email" (dashboard → **Logs**) and the user waits for a code that never
   comes. Without working email, users with two-step sign-in cannot sign in.
 - **Rate limiting on** (dashboard → **Settings**, rate limits; `rateLimits.enabled` in the
-  settings API). It is off by default. The default `*:auth` rule covers the sign-in calls,
-  including `auth-with-otp`, but not `request-otp`: add a rule for `users:requestOTP` (for example
-  3 requests per 60 seconds) so nobody can flood an account's inbox with code emails.
+  settings API). It is off by default. It is general hygiene, not what protects two-step
+  sign-in: limits are per IP, so they slow but do not stop targeted abuse. The hook above is
+  what stops code emails and attempt burning for anyone without the password.
 - `APP_URL` (Application settings) pointing at the app, as for the other emails.
+
+## Rolling back the migration
+
+`migrate down` on `1794796102_updated_users.js` removes the `mfaEnabled` field and turns MFA and
+OTP off. That silently switches two-step sign-in off for **every** user, and their choice is lost:
+they would have to turn it on again. Restore from a backup instead if you need the old state.
 
 ## Recovery: a user lost access to their email
 
@@ -91,7 +113,8 @@ second step off on a stranger's word defeats its purpose.
 1. Open the dashboard (`/_/`) → **Collections** → **users** and find the account.
 2. Either untick **mfaEnabled** (they sign in with their password again), or set **email** to a
    new address they control and tick **verified**.
-3. Save. If the password may also be compromised, have them use **Forgot password** after.
+3. Save. Any codes still in their old inbox stop working. If the password may also be
+   compromised, have them use **Forgot password** after.
 
 Over the API this is a superuser-authenticated `PATCH /api/collections/users/records/<id>` with
 `{"mfaEnabled": false}`.
@@ -100,6 +123,8 @@ Over the API this is a superuser-authenticated `PATCH /api/collections/users/rec
 
 - `scripts/test-mfa.ts` (part of `bun run test:api`): off by default, password and verified
   checks, owner-only flag, a pending `mfaId` reads nothing, wrong and reused codes, a code alone
-  does not sign in, superuser recovery.
+  does not sign in, superuser recovery, decoy `request-otp` responses without a valid `mfaId`,
+  codes voided when turned off, sessions ended when turned on, and sign-up forced off (that
+  last check needs a backend with `VITE_SIGNUP_ENABLED=true` and is skipped otherwise).
 - `tests/e2e/two-step.spec.cjs`: the whole flow through the UI in Chromium and WebKit at desktop
   and mobile sizes, reading codes from Mailpit.

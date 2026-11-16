@@ -34,10 +34,11 @@ doc your step needs.
 | Spec | [docs/architecture/spec.md](../../docs/architecture/spec.md) | Product purpose and boundaries |
 | Designs | [docs/design/](../../docs/design/notes-journal.md) | Feature designs (one file per feature) |
 | Attachments | [docs/features/attachments.md](../../docs/features/attachments.md) | Editor attachments, storage, access |
+| Auth | [docs/features/auth.md](../../docs/features/auth.md) | Sign-in methods, OAuth setup, two-step sign-in (MFA), recovery |
 | Verification | [docs/testing/verification.md](../../docs/testing/verification.md) | Where new tests go and what they cover |
 
 Planned on other branches, not yet on `main` (add a row when they land):
-`docs/features/auth.md` (MFA), `docs/features/tasks.md` (tasks view),
+`docs/features/tasks.md` (tasks view),
 `docs/testing/load-testing.md`. New human docs go under `docs/<section>/` in lowercase
 kebab-case; add them to the sidebar in `.vitepress/config.ts`. Pages compile as Vue templates: keep
 `<tags>` and `{{ }}` inside code spans that do not start a line.

@@ -7,7 +7,8 @@
 onRecordUpdateRequest((e) => {
   const original = e.record.original();
   const enabled = e.record.getBool("mfaEnabled");
-  if (enabled !== original.getBool("mfaEnabled") && !e.hasSuperuserAuth()) {
+  const changed = enabled !== original.getBool("mfaEnabled");
+  if (changed && !e.hasSuperuserAuth()) {
     const password = e.requestInfo().body.currentPassword;
     if (typeof password !== "string" || !original.validatePassword(password)) {
       throw new BadRequestError("Your current password is incorrect.", {
@@ -23,19 +24,46 @@ onRecordUpdateRequest((e) => {
       );
     }
   }
+  // Sessions from before opting in never passed the second step: end them.
+  if (changed && enabled) e.record.refreshTokenKey();
+  // Codes and pending second steps from while it was on would otherwise sign in alone.
+  if (changed && !enabled) {
+    $app.deleteAllOTPsByRecord(original);
+    $app.deleteAllMFAsByRecord(original);
+  }
   e.next();
 }, "users");
 
-// Codes are only a second step: accounts without two-step sign-in get no email,
-// and the same kind of decoy id PocketBase returns for unknown addresses.
+// Sign-up never starts with it on: that would skip the verified-email check.
+onRecordCreateRequest((e) => {
+  if (!e.hasSuperuserAuth()) e.record.set("mfaEnabled", false);
+  e.next();
+}, "users");
+
+// Codes are only a second step: an email goes out only with an unexpired mfaId
+// from this account's password step. Everything else (opted out, unknown email,
+// no or foreign mfaId) gets the same random decoy id and no email, so nobody can
+// flood an inbox, burn the real code or tell opted-in accounts apart.
 onRecordRequestOTPRequest((e) => {
-  if (e.record && !e.record.getBool("mfaEnabled")) {
+  const mfaId = e.requestInfo().body.mfaId;
+  let passed = false;
+  if (e.record?.getBool("mfaEnabled") && typeof mfaId === "string" && mfaId) {
+    try {
+      const mfa = $app.findMFAById(mfaId);
+      passed =
+        mfa.recordRef() === e.record.id &&
+        mfa.collectionRef() === e.collection.id &&
+        !mfa.hasExpired(e.collection.mfa.durationTime());
+    } catch {
+      passed = false;
+    }
+  }
+  if (!passed)
     return e.json(200, {
       otpId: $security.randomStringWithAlphabet(
         15,
         "abcdefghijklmnopqrstuvwxyz0123456789",
       ),
     });
-  }
   e.next();
 }, "users");

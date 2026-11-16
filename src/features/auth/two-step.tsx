@@ -62,9 +62,10 @@ export const CodeStep = ({
       try {
         setOtpId(
           (
-            await pb
-              .collection("users")
-              .requestOTP(address, { requestKey: null })
+            await pb.collection("users").requestOTP(address, {
+              body: { email: address, mfaId },
+              requestKey: null,
+            })
           ).otpId,
         );
         start();
@@ -75,7 +76,7 @@ export const CodeStep = ({
         setBusy(false);
       }
     },
-    [start],
+    [mfaId, start],
   );
 
   // Send once per step, even when StrictMode runs effects twice.

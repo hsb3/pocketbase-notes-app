@@ -1,10 +1,11 @@
 import { IconLoader2 } from "@tabler/icons-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { ClientResponseError } from "pocketbase";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormError, FormField, FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { CodeStep, pendingMfaId } from "@/features/auth/two-step";
 import { pb } from "@/services/pocketbase";
 import type { UsersResponse } from "@/services/pocketbase-types";
 import { formHandler } from "@/utils/form";
@@ -16,6 +17,8 @@ export const AccountSecurity = () => {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmMfaId, setConfirmMfaId] = useState<string>();
+  const router = useRouter();
 
   useEffect(() => {
     const id = pb.authStore.record?.id;
@@ -46,11 +49,20 @@ export const AccountSecurity = () => {
         }),
       );
       setPassword("");
-      setNotice(
-        enabled
-          ? "Two-step sign-in is off. Your password alone signs you in."
-          : "Two-step sign-in is on. Next time you sign in, we will email you a code.",
-      );
+      if (enabled)
+        return setNotice(
+          "Two-step sign-in is off. Your password alone signs you in.",
+        );
+      // Turning it on ended every session, this one too: sign back in with both steps.
+      try {
+        await pb
+          .collection("users")
+          .authWithPassword(user.email, password, { requestKey: null });
+      } catch (err) {
+        const mfaId = pendingMfaId(err);
+        if (!mfaId) throw err;
+        setConfirmMfaId(mfaId);
+      }
     } catch (err) {
       setError(
         err instanceof ClientResponseError && err.status === 400
@@ -73,6 +85,27 @@ export const AccountSecurity = () => {
       setError("Could not send the verification email. Please try again.");
     }
   };
+
+  if (confirmMfaId)
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4">
+        <p className="text-sm" role="status">
+          Two-step sign-in is on, and every device and browser signed in to your
+          account was signed out. Enter the code to stay signed in here.
+        </p>
+        <CodeStep
+          mfaId={confirmMfaId}
+          email={user.email}
+          onDone={() => {
+            setConfirmMfaId(undefined);
+            setNotice(
+              "Two-step sign-in is on. Other devices will ask for a code at their next sign-in.",
+            );
+          }}
+          onCancel={() => router.navigate({ to: "/auth/logout" })}
+        />
+      </div>
+    );
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4">

@@ -9,6 +9,9 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Added
 
+- Opt-in two-step sign-in: after the password (or OAuth2), an emailed one-time code.
+  Turned on and off from Account security with the current password; see
+  [docs/features/auth.md](docs/features/auth.md).
 - Documentation site built with VitePress (`bun run docs:build`) and deployed to
   GitHub Pages from `main`; `docs/` reorganized into lowercase sections, with a new
   tech stack page and wireframe images viewable on GitHub.
