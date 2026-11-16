@@ -19,9 +19,11 @@ the rules every task needs. Task details live in routed topics under
   `deploy/`, `CONTRIBUTING.md`. Put facts in the human doc, not in a topic; every doc
   path a topic needs is listed once in `.agents/context/docs.md`.
 - **Search before you edit, and change as little as possible.** Match existing style.
-- **Scope lives in the conversation.** This project uses no task tracker or handoff
-  file. Agree acceptance criteria in the conversation and report verification evidence
-  there and in the pull request.
+- **Issues are the inbox, specs drive the work.** Bugs and requests land in GitHub
+  issues. A feature, schema or API-rule change, or design change gets a spec-kit spec
+  under `specs/NNN-name/` before code (`/speckit-specify`, then plan, tasks,
+  implement); bug fixes, dependency bumps and docs go straight to a pull request.
+  Report verification evidence in the pull request and link the issue.
 - **Helper files go in the repo.** Scripts in `scripts/`, deployment helpers in
   `deploy/<target>/`. Scratch output stays outside the repo.
 
@@ -34,6 +36,8 @@ the rules every task needs. Task details live in routed topics under
   `scripts/` setup, seed and test scripts; `tests/e2e/` Playwright.
 - `deploy/docker/` shared image, `deploy/local/` Compose files (run via `make` from
   the repo root), `deploy/railway/` operator scripts; `docs/` human docs.
+- `specs/` one folder per feature spec; `.specify/` spec-kit templates, scripts and
+  the constitution (`.specify/memory/constitution.md`, a summary of this file).
 
 ## Hard limits
 
@@ -74,7 +78,8 @@ contradictory, inspect the relevant source, code or tests before acting.
 To add a topic: put the page in `.agents/context/`, map it in
 `.agents/context/ai-context.json`, list it in this table and in `.agents/README.md`,
 run `check`. If a topic goes over budget, split it rather than raising the cap.
-Skills (`.agents/skills/`) are workflow adapters, not the source of truth.
+Skills (`.agents/skills/`, `.claude/skills/`) are workflow adapters, not the source
+of truth; the `speckit-*` ones are installed by `specify` and not edited by hand.
 
 ## Gotchas
 

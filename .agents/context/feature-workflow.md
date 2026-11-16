@@ -6,23 +6,45 @@ touch PocketBase run the backend stage as well. The discriminator is not
 rules, hooks in `pb/hooks/`, or server settings). Backend-only changes (rules
 hardening, hooks) use the same procedure minus the frontend stage.
 
-## Stage 0 — Define the outcome (always)
+## Intake — where work comes from
 
-- Define independently verifiable acceptance criteria in the conversation.
+- Bugs and feature requests land in GitHub issues (the issue forms). Ideas that are
+  parked carry the `backlog` label; nothing is built from the inbox directly.
+- **Needs a spec**: a new feature, a schema or API-rule change, a design or UI
+  change users would notice. **Straight to a pull request**: bug fixes that restore
+  documented behaviour, dependency bumps, docs, CI and tooling.
+- When a spec'd item is picked up, name its issue in the spec and close it from
+  the pull request (`Closes #N`).
+
+## Stage 0 — Define the outcome with spec-kit (always)
+
+Run the skills in order; each writes into `specs/NNN-short-name/`:
+
+1. `/speckit-specify <what and why>` writes `spec.md`: user stories with
+   **Given / When / Then** scenarios, each testable on its own, the minimum useful
+   slice marked. Use `/speckit-clarify` when the request is ambiguous.
+2. `/speckit-plan` writes `plan.md` (plus research, data model and contracts when
+   the change needs them) and checks it against the constitution.
+3. `/speckit-tasks` writes `tasks.md`; `/speckit-implement` works through it.
+   `/speckit-analyze` cross-checks the three files before implementing.
+
+While writing the spec:
+
 - Read Spec and any matching file in Designs (improve docs, listed below) so the
   change stays inside the product's boundaries.
-- Write them before any code, as user stories with **Given / When / Then**
-  scenarios. Each story should be testable on its own; mark the minimum useful
-  slice.
-- List **edge cases** next to them: denied and cross-account access, concurrent
-  or stale saves (the `revision` 409 path), empty and oversized input, existing
-  data that needs a backfill, values a client could forge. Each one becomes a test
-  or a stated gap.
+- List **edge cases**: denied and cross-account access, concurrent or stale saves
+  (the `revision` 409 path), empty and oversized input, existing data that needs a
+  backfill, values a client could forge. Each one becomes a test or a stated gap.
 - Name what the feature deliberately is **not**; it goes in the feature doc.
-- **Gate before building**: check the plan against the hard limits in
-  `AGENTS.md` and the stages below (backend first, locked rules, server-derived
-  values, no new dependencies, generated files untouched). Write down any
-  exception and why; an unexplained one stops the work.
+- **Gate before building**: the plan's constitution check must pass against
+  `.specify/memory/constitution.md`, which summarises the hard limits in
+  `AGENTS.md` and the stages below. Write down any exception and why; an
+  unexplained one stops the work.
+
+`specs/001-open-tasks/` is a finished example. The spec folder is the record of
+intent; the feature doc under `docs/features/` stays the record of behaviour.
+`.specify/` scripts and the `speckit-*` skills are installed by the `specify` CLI
+(`specify integration upgrade`); change templates there, never the skills.
 
 ## Stage 1 — Backend (only if the change touches PocketBase)
 
@@ -74,8 +96,8 @@ instead of N+1 fetches.
 - Exercise the feature against a live stack (`make start`) — a type-checked
   build proves shapes, not behavior. If behavior can't be exercised, say so
   in the close message instead of implying it was.
-- Report the verification evidence and any remaining gaps in the conversation
-  and the pull request.
+- Tick the finished items in the spec's `tasks.md`. Report the verification
+  evidence and any remaining gaps in the pull request, and close the issue from it.
 - Add a line under `Unreleased` in `CHANGELOG.md` when users or operators would
   notice the change.
 

@@ -160,6 +160,20 @@ orphans and byte budgets; the procedure is `.agents/context/ai-context.md`, inde
 in [`.agents/README.md`](../../.agents/README.md). `.agents/skills/` holds vendored
 skills (shadcn) and is excluded from Biome and the docs link check.
 
+### `.specify/`, `specs/` and the `speckit-*` skills
+
+[Spec Kit](https://github.com/github/spec-kit) drives feature work. `specs/` holds
+one folder per feature (`spec.md`, `plan.md`, `tasks.md` and supporting notes);
+`specs/001-open-tasks/` is the first. `.specify/` holds what the `specify` CLI
+installs: templates, shell scripts, the workflow definition, integration manifests
+and `memory/constitution.md`, the project's principles summarised from `AGENTS.md`.
+The same CLI installs the `speckit-*` skills into `.claude/skills/` (Claude Code)
+and `.agents/skills/` (Codex); upgrade them with `specify integration upgrade`
+instead of editing them. `.specify/.gitignore` keeps per-checkout state out of Git.
+Both folders are left out of the docs site, `.specify/` is left out of Biome, and
+the templates and skills are skipped by the docs link check. How the workflow is used is in
+[CONTRIBUTING.md](../../CONTRIBUTING.md#how-work-flows).
+
 ### `playwright.performance.config.ts`
 
 Runs the Chromium-only editor baseline against the local Docker production image,
