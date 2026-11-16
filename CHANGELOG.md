@@ -48,6 +48,9 @@ stacks and a Railway self-host guide.
   ([#1], [#2], [#15])
 - Agent instructions split into a small `AGENTS.md` and task topics loaded on
   demand (`python3 scripts/ai-context.py`), checked in CI. ([#22])
+- Load test that runs entirely in Docker (`make load-test`: capped app stack plus
+  k6), with measured capacity of one instance in
+  [docs/testing/load-testing.md](docs/testing/load-testing.md). ([#28])
 
 ### Changed
 
@@ -100,3 +103,4 @@ stacks and a Railway self-host guide.
 [#24]: https://github.com/hsb3/pocketbase-notes-app/pull/24
 [#25]: https://github.com/hsb3/pocketbase-notes-app/pull/25
 [#26]: https://github.com/hsb3/pocketbase-notes-app/pull/26
+[#28]: https://github.com/hsb3/pocketbase-notes-app/pull/28
