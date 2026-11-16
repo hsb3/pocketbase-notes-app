@@ -18,6 +18,8 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 - Open tasks: unchecked checklist items across your entries in one view, ticked off
   in place through the normal save-conflict check, with per-entry open counts.
   Counts are derived on the server and backfilled for existing entries.
+- Load test that runs entirely in Docker (`tests/load/run.sh`: capped app stack plus
+  k6), with measured capacity of one instance in `docs/testing/load-testing.md`.
 
 ### Changed
 

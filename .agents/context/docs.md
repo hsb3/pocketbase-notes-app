@@ -37,8 +37,8 @@ doc your step needs.
 | Auth | [docs/features/auth.md](../../docs/features/auth.md) | Sign-in methods, OAuth setup, two-step sign-in (MFA), recovery |
 | Tasks | [docs/features/tasks.md](../../docs/features/tasks.md) | Open tasks view, server-derived task index |
 | Verification | [docs/testing/verification.md](../../docs/testing/verification.md) | Where new tests go and what they cover |
+| Load testing | [docs/testing/load-testing.md](../../docs/testing/load-testing.md) | `tests/load/run.sh`, measured capacity of one instance, method limits |
 
-Planned on other branches, not yet on `main` (add a row when they land):
-`docs/testing/load-testing.md`. New human docs go under `docs/<section>/` in lowercase
+New human docs go under `docs/<section>/` in lowercase
 kebab-case; add them to the sidebar in `.vitepress/config.ts`. Pages compile as Vue templates: keep
 `<tags>` and `{{ }}` inside code spans that do not start a line.
