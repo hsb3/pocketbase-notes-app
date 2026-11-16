@@ -1,110 +1,153 @@
 import { evidenceDirectory } from "./evidence";
 import assert from "node:assert/strict";
-import { loadEnvFile } from "node:process";
-import PocketBase from "pocketbase";
+import {
+  localDeployment,
+  deploymentAdmin,
+  createVerificationUser,
+  verificationFailure,
+} from "./verification";
 
-// Sends verification and reset emails to the configured account, then consumes their tokens.
-loadEnvFile("deploy/railway/.env");
-const env = process.env;
-assert.equal(env.PB_URL, "https://notes-staging.up.railway.app");
-assert.equal(env.PB_USER_EMAIL, "henry.burden@gmail.com");
-const key = Bun.spawnSync(["secret", "get", "RESEND_API_KEY"], {
-  stdout: "pipe",
-  stderr: "pipe",
-});
-assert.equal(key.exitCode, 0, "Cannot retrieve Resend management key");
-const pb = new PocketBase(env.PB_URL);
-type Mail = {
-  id: string;
-  to: string[];
-  from: string;
-  created_at: string;
-  subject: string;
-  last_event: string;
-  html: string;
-};
-async function resend<T>(path: string): Promise<T> {
-  const response = await fetch(`https://api.resend.com${path}`, {
-    headers: { Authorization: `Bearer ${key.stdout.toString().trim()}` },
+// Explicit opt-in: sends mail only to an unused test recipient, never an existing account.
+async function main() {
+  const email = process.env.VERIFY_EMAIL;
+  assert(
+    email,
+    "Set VERIFY_EMAIL to an unused test mailbox. This command sends real mail.",
+  );
+  const mailpit = process.env.MAILPIT_URL;
+  assert(
+    !mailpit ||
+      (localDeployment &&
+        ["localhost", "127.0.0.1", "[::1]"].includes(
+          new URL(mailpit).hostname,
+        )),
+    "Mailpit verification is local-only.",
+  );
+  assert(
+    mailpit || process.env.RESEND_API_KEY,
+    "Set RESEND_API_KEY for delivery verification, or local MAILPIT_URL.",
+  );
+  const admin = await deploymentAdmin();
+  const appURL = new URL((await admin.settings.getAll()).meta.appURL);
+  const fixture = await createVerificationUser(admin, {
+    email,
+    verified: false,
   });
-  if (response.status === 429) {
-    await Bun.sleep(1500);
-    return resend<T>(path);
-  }
-  assert(response.ok, `Resend read failed: ${response.status}`);
-  return response.json() as Promise<T>;
-}
-const evidence = [];
-try {
-  for (const [kind, path] of [
-    ["verification", "/auth/email-verification-confirm"],
-    ["reset", "/auth/password-reset-confirm"],
-  ]) {
-    const started = Date.now();
-    if (kind === "verification")
-      await pb.collection("users").requestVerification(env.PB_USER_EMAIL!);
-    else await pb.collection("users").requestPasswordReset(env.PB_USER_EMAIL!);
-    let mail: Mail | undefined;
-    for (let attempt = 0; attempt < 30; attempt++) {
-      await Bun.sleep(2000);
-      const list = await resend<{ data: Mail[] }>("/emails?limit=20");
-      const candidate = list.data.find(
-        (m) =>
-          m.to.includes(env.PB_USER_EMAIL!) &&
-          m.from.includes("noreply@send.functionform.ai") &&
-          Date.parse(m.created_at) >= started - 1000 &&
-          (kind === "reset"
-            ? /reset/i.test(m.subject)
-            : /verify|verification/i.test(m.subject)),
+  const pb = fixture.client;
+  const evidence = [];
+  try {
+    for (const [kind, path] of [
+      ["verification", "/auth/email-verification-confirm"],
+      ["reset", "/auth/password-reset-confirm"],
+    ]) {
+      const started = Date.now();
+      if (kind === "verification")
+        await pb.collection("users").requestVerification(email);
+      else await pb.collection("users").requestPasswordReset(email);
+      let token: string | null = null;
+      for (let attempt = 0; attempt < 30 && !token; attempt++) {
+        await Bun.sleep(1000);
+        let html = "";
+        if (mailpit) {
+          const response: Response = await fetch(
+            `${mailpit}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`,
+            { signal: AbortSignal.timeout(15000) },
+          );
+          assert(response.ok, "Mailpit search failed");
+          const list = (await response.json()) as {
+            messages: { ID: string }[];
+          };
+          for (const item of list.messages) {
+            const response: Response = await fetch(
+              `${mailpit}/api/v1/message/${item.ID}`,
+              {
+                signal: AbortSignal.timeout(15000),
+              },
+            );
+            assert(response.ok, "Mailpit message read failed");
+            const message = (await response.json()) as { HTML: string };
+            if (message.HTML.includes(path)) {
+              html = message.HTML;
+              break;
+            }
+          }
+        } else {
+          const headers = {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          };
+          const response: Response = await fetch(
+            "https://api.resend.com/emails?limit=20",
+            {
+              headers,
+              signal: AbortSignal.timeout(15000),
+            },
+          );
+          if (response.status === 429) continue;
+          assert(response.ok, `Resend read failed: ${response.status}`);
+          const list = (await response.json()) as {
+            data: {
+              id: string;
+              to: string[];
+              created_at: string;
+              subject: string;
+            }[];
+          };
+          const candidate:
+            | { id: string; to: string[]; created_at: string; subject: string }
+            | undefined = list.data.find(
+            (m) =>
+              m.to.includes(email) &&
+              Date.parse(m.created_at) >= started - 1000 &&
+              (kind === "reset"
+                ? /reset/i.test(m.subject)
+                : /verify|verification/i.test(m.subject)),
+          );
+          if (!candidate) continue;
+          const detail: Response = await fetch(
+            `https://api.resend.com/emails/${candidate.id}`,
+            { headers, signal: AbortSignal.timeout(15000) },
+          );
+          if (detail.status === 429) continue;
+          assert(detail.ok, "Resend message read failed");
+          const message = (await detail.json()) as {
+            html: string;
+            last_event: string;
+          };
+          if (message.last_event === "delivered") html = message.html;
+        }
+        for (const match of html.matchAll(/href=["']([^"']+)["']/g)) {
+          const link = new URL(match[1].replaceAll("&amp;", "&"), appURL);
+          if (link.origin === appURL.origin && link.pathname === path)
+            token = link.searchParams.get("token");
+        }
+      }
+      assert(
+        token,
+        `No delivered ${kind} email with a matching application link observed`,
       );
-      if (!candidate) continue;
-      await Bun.sleep(1000);
-      mail = await resend<Mail>(`/emails/${candidate.id}`);
-      if (mail.last_event === "delivered") break;
+      if (kind === "verification")
+        await pb.collection("users").confirmVerification(token);
+      else {
+        const replacement = crypto.randomUUID();
+        await pb
+          .collection("users")
+          .confirmPasswordReset(token, replacement, replacement);
+        await pb.collection("users").authWithPassword(email, replacement);
+      }
+      evidence.push({ kind, delivered: true, tokenAccepted: true });
     }
-    assert.equal(
-      mail?.last_event,
-      "delivered",
-      `No delivered ${kind} email observed`,
+    assert(
+      (await admin.collection("users").getOne(fixture.record.id)).verified,
     );
-    const links = [...mail.html.matchAll(/href=["']([^"']+)["']/g)].map((m) =>
-      m[1].replaceAll("&amp;", "&"),
+    await Bun.write(
+      `${evidenceDirectory}/email-checks.json`,
+      JSON.stringify(evidence),
     );
-    const link = links.find((v: string) =>
-      v.startsWith(`${env.PB_URL}${path}?`),
+    process.stdout.write(
+      "PASS: disposable-account verification and password-reset delivery/token checks",
     );
-    assert(link, "Email must point to the deployed app");
-    const token = new URL(link).searchParams.get("token");
-    assert(token, "Missing email token");
-    if (kind === "verification")
-      await pb.collection("users").confirmVerification(token);
-    else
-      await pb
-        .collection("users")
-        .confirmPasswordReset(
-          token,
-          env.PB_USER_PASSWORD!,
-          env.PB_USER_PASSWORD!,
-        );
-    evidence.push({
-      kind,
-      id: mail.id,
-      status: mail.last_event,
-      tokenAccepted: true,
-    });
-    process.stdout.write(`${kind}: delivered and token accepted\n`);
+  } finally {
+    await fixture.cleanup();
   }
-  const login = await pb
-    .collection("users")
-    .authWithPassword(env.PB_USER_EMAIL!, env.PB_USER_PASSWORD!);
-  assert(login.record.verified);
-  await Bun.write(
-    `${evidenceDirectory}/email-checks.json`,
-    JSON.stringify(evidence, null, 2),
-  );
-} catch (error) {
-  process.stderr.write(
-    `Email verification failed: ${error instanceof Error ? error.message : "Unknown error"}\n`,
-  );
-  process.exitCode = 1;
 }
+main().catch(verificationFailure);

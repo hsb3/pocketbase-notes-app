@@ -162,3 +162,18 @@ available. Deployment setup/check scripts are colocated under `deploy/railway/`.
 Type-checks operational and test scripts, including `deploy/railway/`. CI invokes
 this separately from the frontend build. Deployment evidence output is selected
 through `DEPLOY_EVIDENCE_DIR`; see the [backup runbook](../deploy/README.md#backup-health-and-credential-rotation).
+
+
+### `deploy/railway/.env.example`
+
+Template for deployment infrastructure and superuser credentials. Regular-user
+credentials are managed separately. Verification creates temporary users or uses
+a read-only restore comparison; see the [account lifecycle](../deploy/README.md#account-lifecycle).
+
+### `scripts/seed.sh` and `scripts/seed.ts`
+
+The shell entry point forwards arguments to Bun. The implementation validates the
+local target, creates missing accounts, verifies logins and seeds an empty notebook.
+`--reset-passwords` explicitly permits changes to the configured seed passwords;
+normal `make start`/`make seed` runs preserve them. `SEED_ARGS` forwards this option
+through the Makefile. `scripts/seed-entries.ts` no longer creates accounts itself.

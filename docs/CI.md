@@ -20,7 +20,8 @@ Each hosted runner creates a fresh `.env` with random development credentials,
 initializes its own database and bucket, and destroys its services afterward.
 No repository secrets, production data or deployed backend are used. Playwright
 starts its own Vite server with auth bypass disabled. After the default-disabled
-suite, CI explicitly enables signup on the disposable backend and runs the
+suite, CI exercises account seeding, deployment-fixture cleanup and an isolated
+archive restore. CI then explicitly enables signup on the disposable backend and runs the
 registration retry scenario with the matching frontend flag; its report is
 written under `playwright-report/signup-enabled`. The Docker image is built as
 part of full-stack startup, including fresh migrations and S3 configuration.

@@ -47,8 +47,8 @@ logs: ## tail PocketBase logs
 health: ## check the PocketBase API
 	curl -s http://localhost:$(PB_PORT)/api/health && echo
 
-seed: ## seed admin + regular user (verified) and check both logins
-	./scripts/seed.sh
+seed: ## create missing local accounts; preserve existing passwords
+	./scripts/seed.sh $(SEED_ARGS)
 
 codegen: ## regenerate PocketBase record types
 	bun run pb:codegen
@@ -92,7 +92,7 @@ stack-up: stack-build ## start + configure stack STACK (app and API on STACK_POR
 	@echo "$(STACK): app http://127.0.0.1:$(STACK_PORT)  Mailpit http://127.0.0.1:$(STACK_MAILPIT_PORT)  RustFS http://127.0.0.1:$(STACK_RUSTFS_CONSOLE_PORT)"
 
 stack-seed: ## seed accounts and sample entries into stack STACK
-	./scripts/seed.sh
+	./scripts/seed.sh $(SEED_ARGS)
 
 stack-check: ## verify email and RustFS uploads against stack STACK
 	bun run scripts/test-services.ts

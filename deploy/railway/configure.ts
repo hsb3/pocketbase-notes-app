@@ -1,27 +1,23 @@
 import assert from "node:assert/strict";
-import { loadEnvFile } from "node:process";
-import PocketBase from "pocketbase";
+import {
+  deploymentURL,
+  deploymentAdmin,
+  verificationFailure,
+} from "./verification";
 
-loadEnvFile("deploy/railway/.env");
 const env = process.env;
-assert.equal(env.PB_URL, "https://notes-staging.up.railway.app");
-const pb = new PocketBase(env.PB_URL);
-pb.autoCancellation(false);
 try {
-  await pb
-    .collection("_superusers")
-    .authWithPassword(env.PB_ADMIN_EMAIL!, env.PB_ADMIN_PASSWORD!);
-  const accounts = await pb.collection("users").getFullList();
-  assert(
-    accounts.every((a) => a.email === env.PB_USER_EMAIL),
-    "Unexpected users: refusing configuration",
-  );
+  const pb = await deploymentAdmin();
   const current = await pb.settings.getAll();
+  assert(
+    !current.s3.enabled,
+    "Existing remote file storage must not be disabled by initial configuration.",
+  );
   await pb.settings.update({
     meta: {
       ...current.meta,
       appName: "PocketBase Notes",
-      appURL: env.PB_URL,
+      appURL: deploymentURL,
       senderName: "PocketBase Notes",
       senderAddress: "noreply@send.functionform.ai",
     },
@@ -67,25 +63,14 @@ try {
       ),
     },
   });
-  if (!accounts.length)
-    await pb.collection("users").create({
-      email: env.PB_USER_EMAIL,
-      password: env.PB_USER_PASSWORD,
-      passwordConfirm: env.PB_USER_PASSWORD,
-      name: "Henry",
-      verified: false,
-    });
   await pb.settings.testS3("backups");
   const readback = await pb.settings.getAll();
   assert.equal(readback.smtp.host, "smtp.resend.com");
   assert.equal(readback.backups.cron, "0 7 * * *");
   assert.equal(readback.s3.enabled, false);
   process.stdout.write(
-    "Configured SMTP, private local files, daily off-volume backups, and only the requested user.\n",
+    "Configured SMTP, private local files and daily off-volume backups. Accounts unchanged.\n",
   );
 } catch (error) {
-  process.stderr.write(
-    `Deployment configuration failed: ${error instanceof Error ? error.message : "Unknown error"}\n`,
-  );
-  process.exitCode = 1;
+  verificationFailure(error);
 }
