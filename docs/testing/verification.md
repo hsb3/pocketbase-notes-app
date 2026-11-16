@@ -71,12 +71,20 @@ test runs do not overwrite `docs/images/`. Treat traces as private: they can con
 synthetic credentials and authenticated requests. `DEBUG_BROWSER=1` prints browser
 console errors from the full scenarios. Each new browser run replaces prior outputs.
 
+The README images in `docs/images/` come from
+[`scripts/capture-screenshots.sh`](../../scripts/capture-screenshots.sh), which drives
+`tests/screenshots/capture.cjs` against a fresh `make app` stack in a limited
+Playwright container. Review every image before copying it in.
+
 ## Limits
 
 Chromium and WebKit projects run the same desktop/mobile-viewport
 scenarios. A configured project is not a passing result; see the recorded run below.
 Actual Safari, physical-phone keyboards, screen readers, OAuth and production
-deployment still require separate verification. [GitHub Actions](../ci/checks-and-rules.md) runs the same suite on Linux amd64 and arm64.
+deployment still require separate verification. Firefox is not in the matrix. The
+entry title grows with its text through CSS `field-sizing`, which Playwright's
+Firefox 159 supports (checked once at 390px); a browser without it shows a one-row
+title that wraps and scrolls instead of growing. [GitHub Actions](../ci/checks-and-rules.md) runs the same suite on Linux amd64 and arm64.
 
 ## Production editor performance
 
@@ -172,7 +180,7 @@ and OAuth remain separate open verification items.
 The live staging app passed browser login, note save/reload, private attachment
 bytes, anonymous/cross-account denials, restart persistence, and a portable backup
 restore in an isolated local instance. Resend reported verification/reset emails
-delivered and their tokens were accepted. See `deploy/README.md` for the runbook.
+delivered and their tokens were accepted. See [Operations](../../deploy/OPERATIONS.md) for the runbook.
 
 Registration now defaults off via `VITE_SIGNUP_ENABLED=false`. The local regression
 runs on Chromium and WebKit, and the live deployment separately proved anonymous

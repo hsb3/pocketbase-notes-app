@@ -9,8 +9,7 @@ You need [Bun](https://bun.sh) and Docker with Compose.
 
 ```sh
 bun install
-cp .env.example .env   # then set PB_ENCRYPTION_KEY and the superuser credentials
-make start             # PocketBase in Docker, seeded accounts, Vite dev server
+make start   # creates .env with generated secrets, PocketBase in Docker, seeded accounts, Vite
 ```
 
 [docs/development/setup.md](docs/development/setup.md) covers the full stack (email and file
@@ -18,13 +17,20 @@ storage) and [AGENTS.md](AGENTS.md) lists the project's conventions and gotchas.
 
 ## Check your change
 
-Run these before opening a pull request. CI runs the same commands.
+Run these before opening a pull request. CI's Quality job runs the same commands.
 
 ```sh
-bun run lint    # Biome: formatting and lint rules
-bun run knip    # unused files, exports and dependencies
-bun run build   # type checks and the production build
+bun audit                              # known-vulnerable dependencies
+bun test scripts/local-target.test.ts  # script safety guards
+bun run lint                           # Biome: formatting and lint rules
+bun run knip                           # unused files, exports and dependencies
+python3 scripts/ai-context.py check    # agent docs: paths, links, size budgets
+bunx tsc -p scripts/tsconfig.json      # script types
+bun run build                          # app and config type checks, production build
 ```
+
+If you changed docs, also run `bun run docs:build` (fails on a broken link) and the
+link check in [CI and repository rules](docs/ci/checks-and-rules.md).
 
 For changes to behavior, also run the browser and API suite against the local stack:
 
