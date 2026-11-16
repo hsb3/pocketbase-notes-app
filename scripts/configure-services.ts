@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, readdirSync } from "node:fs";
 import PocketBase from "pocketbase";
 
 const url = process.env.VITE_PB_URL;
@@ -13,6 +14,12 @@ const container = process.env.PB_CONTAINER || "pocketbase";
 try {
   await pb.collection("_superusers").authWithPassword(PB_EMAIL, PB_PASSWORD);
 } catch {
+  // Inside the stack's setup container there is no Docker CLI: the PocketBase
+  // service creates the superuser at startup, so a failed login means bad credentials.
+  assert(
+    Bun.which("docker"),
+    "Cannot authenticate the superuser. Check PB_EMAIL and PB_PASSWORD in .env.",
+  );
   // Create on a fresh database, never reset an existing superuser's credentials.
   const create = Bun.spawnSync(
     [
@@ -50,23 +57,33 @@ assert(
   "A different bucket is configured; migrate uploads before switching buckets.",
 );
 if (!settings.s3.enabled) {
-  // Read inside the container: self-contained stacks keep pb_data in a volume.
-  const files = Bun.spawnSync(
-    [
-      "docker",
-      "exec",
-      container,
-      "sh",
-      "-c",
-      "find /pb/pb_data/storage -type f 2>/dev/null | head -n 1",
-    ],
-    { stdout: "pipe", stderr: "pipe" },
-  );
-  assert.equal(files.exitCode, 0, `Cannot inspect storage in ${container}.`);
-  assert(
-    !files.stdout.toString().trim(),
-    "Local uploads exist. Migrate them before enabling RustFS.",
-  );
+  // PB_DATA_DIR: the data volume mounted into the setup container. Otherwise
+  // read inside the PocketBase container, where stacks keep pb_data in a volume.
+  const dataDirectory = process.env.PB_DATA_DIR;
+  let uploads: boolean;
+  if (dataDirectory) {
+    const storage = `${dataDirectory}/storage`;
+    uploads =
+      existsSync(storage) &&
+      readdirSync(storage, { recursive: true, withFileTypes: true }).some(
+        (entry) => entry.isFile(),
+      );
+  } else {
+    const files = Bun.spawnSync(
+      [
+        "docker",
+        "exec",
+        container,
+        "sh",
+        "-c",
+        "find /pb/pb_data/storage -type f 2>/dev/null | head -n 1",
+      ],
+      { stdout: "pipe", stderr: "pipe" },
+    );
+    assert.equal(files.exitCode, 0, `Cannot inspect storage in ${container}.`);
+    uploads = Boolean(files.stdout.toString().trim());
+  }
+  assert(!uploads, "Local uploads exist. Migrate them before enabling RustFS.");
 }
 const appURL = process.env.DEV_APP_URL || "http://127.0.0.1:5173";
 await pb.settings.update({

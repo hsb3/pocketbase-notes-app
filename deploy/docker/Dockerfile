@@ -2,7 +2,7 @@
 # Local dev on Apple Silicon -> linux/arm64; Railway -> linux/amd64.
 # Build context is the repo root: docker build -f deploy/docker/Dockerfile .
 
-FROM oven/bun:1.4.0-alpine@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb AS frontend-build
+FROM oven/bun:1.4.0-alpine@sha256:07235578f79ef8c6f97d94aee7938e76f5cdba5f21ae5dbfdd3d3d38058437eb AS deps
 
 WORKDIR /app
 
@@ -10,11 +10,25 @@ COPY package.json bun.lock bunfig.toml ./
 
 RUN bun install --frozen-lockfile
 
-COPY index.html tsconfig.json tsconfig.node.json vite.config.ts playwright.config.ts playwright.performance.config.ts ./
+
+# Setup tooling for the self-contained local stack (make app / make stack-up):
+# runs scripts/configure-services.ts and scripts/seed.ts so the host needs no Bun.
+# Not part of the runtime image; only built when a compose file asks for this target.
+FROM deps AS tools
+
+COPY scripts ./scripts
+
+
+FROM deps AS frontend-build
+
+COPY index.html tsconfig.json vite.config.ts ./
 COPY src ./src
 
+# Type-check the app and bundle it. This is `bun run build` without the
+# tsconfig.node.json pass: tool configs (Vite, Playwright) are checked on the host and in CI.
 ARG VITE_SIGNUP_ENABLED=false
-RUN VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED} bun run build
+RUN VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED} bun x tsc -p tsconfig.json \
+  && VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED} bun x vite build
 
 
 FROM alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce

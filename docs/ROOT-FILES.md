@@ -30,7 +30,7 @@ TypeScript config for the app source (`src/`). Strict mode, bundler-style module
 
 ### `tsconfig.node.json`
 
-Separate TS project for Node/Bun-context files — `vite.config.ts`, `playwright.config.ts` and `playwright.performance.config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`).
+Separate TS project for Node/Bun-context files — `vite.config.ts`, `playwright.config.ts` and `playwright.performance.config.ts`. Needed because the config file runs in a Node-like environment, not the browser, so it must not share the DOM-lib settings of the main tsconfig. Checked explicitly by the `build` script (`tsc -p tsconfig.node.json`) on the host and in CI. The Docker image build does not use it: it type-checks `src/` and bundles, so the Playwright configs are not image inputs.
 
 ## Code Quality
 
@@ -50,23 +50,23 @@ Deployment files live under `deploy/`, organized by target — see [`deploy/READ
 
 ### `deploy/docker/Dockerfile`
 
-Two-stage build: (1) Bun image builds the frontend to `dist/`; (2) Alpine image downloads a pinned, SHA256-verified PocketBase binary (per-arch checksums, native amd64/arm64 via `TARGETARCH`) and serves the built frontend from `pb_public` alongside hooks and migrations. Copies only frontend build inputs and produces the single production image. PocketBase serves both API and static frontend on port 8080 with `/pb` as its working directory and an API healthcheck. The PocketBase server version (0.40.x) is version-coupled to the `pocketbase` JS SDK (^0.28) in `package.json` — bump them together.
+Multi-stage build: (1) a Bun `deps` stage installs from the frozen lockfile and feeds `frontend-build`, which type-checks `src/` and builds the frontend to `dist/`, and `tools`, which adds `scripts/` for the self-contained stack's setup container; (2) the default Alpine stage downloads a pinned, SHA256-verified PocketBase binary (per-arch checksums, native amd64/arm64 via `TARGETARCH`) and serves the built frontend from `pb_public` alongside hooks and migrations. Copies only frontend build inputs and produces the single production image. PocketBase serves both API and static frontend on port 8080 with `/pb` as its working directory and an API healthcheck. The PocketBase server version (0.40.x) is version-coupled to the `pocketbase` JS SDK (^0.28) in `package.json` — bump them together.
 
 ### `deploy/local/docker-compose.yml`
 
-Standard local backend: builds the shared Dockerfile, mounts `pb/data`, `pb/hooks`, `pb/migrations` for persistence and live hook/migration editing, binds the published port to loopback, and requires `PB_ENCRYPTION_KEY` from `.env` (settings encryption). This is what `make up` runs (from the repo root, via `--project-directory .`).
+Standard local backend: builds the shared Dockerfile, mounts `pb/data`, `pb/hooks`, `pb/migrations` for persistence and live hook/migration editing, binds the published port to loopback, and requires `PB_ENCRYPTION_KEY` from `.env` (settings encryption; generated when empty). This is what `make up` runs (from the repo root, via `--project-directory .`). Like every local Compose service it has CPU, memory and process limits.
 
 ### `deploy/local/docker-compose-full.yml`
 
-Extended dev stack: PocketBase plus Mailpit (SMTP catcher for testing emails, UI on :8025) and RustFS (S3-compatible storage on :9000/:9001). Run with `make up-full` when developing email or file-storage features; the default compose file suffices only while persisted PocketBase settings do not depend on these services.
+Extended dev stack: PocketBase plus Mailpit (SMTP catcher for testing emails, UI on :8025) and RustFS (S3-compatible storage on :9000/:9001). Host ports and container names have `.env` overrides so two checkouts can run side by side. Run with `make up-full` when developing email or file-storage features; the default compose file suffices only while persisted PocketBase settings do not depend on these services.
 
 ### `deploy/local/docker-compose-stack.yml`
 
-Self-contained variant of the full stack for long-running or parallel local instances: no bind mounts from the checkout (hooks, migrations and frontend are baked into the image; data, Mailpit certificate and files live in per-stack named volumes) and no fixed container names. Run with `make stack-up STACK=<name>`; see [`deploy/README.md`](../deploy/README.md#self-contained-stacks).
+Self-contained variant of the full stack for running the app, or long-running and parallel local instances: no bind mounts from the checkout (hooks, migrations and frontend are baked into the image; data, Mailpit certificate and files live in per-stack named volumes) and no fixed container names. Its `setup` one-shot service runs the configure and seed scripts in a container built from the Dockerfile's `tools` stage, so the host needs only Docker. Run with `make app` (optionally `STACK=<name>`); see [local stacks](../deploy/LOCAL.md#self-contained-stacks).
 
 ### `deploy/railway/railway.json`
 
-Railway config-as-code: Dockerfile builder pointing at `deploy/docker/Dockerfile`, healthcheck on `/api/health`, restart policy. The staging service readback on 2026-11-15 uses settings applied directly in Railway; this JSON is reference material, not its effective configuration. New services must verify that the platform accepts the config path or apply/read back equivalent settings. The service needs `PB_ENCRYPTION_KEY` and a volume at `/pb/pb_data`.
+Railway config-as-code: Dockerfile builder pointing at `deploy/docker/Dockerfile`, healthcheck on `/api/health`, restart policy. It takes effect only when the service's config file path points at it; otherwise apply the same settings directly on the service, and confirm either way on the deployment details page. The service needs `PB_ENCRYPTION_KEY` and a volume at `/pb/pb_data`. See the [Railway guide](../deploy/RAILWAY.md).
 
 ### `.dockerignore`
 
@@ -76,13 +76,13 @@ Keeps secrets (`.env`, `*.pem`, keys/certs), `node_modules`, `pb/data`, and buil
 
 ### `.env.example`
 
-Template for `.env`, including backend credentials, local URLs, seed users, RustFS settings and test overrides. Comments describe defaults and consumers. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
+Template for `.env`, including backend credentials, local URLs, seed users, RustFS settings, port/container overrides and test overrides. Comments describe defaults and consumers. Secrets are left empty on purpose: `scripts/init-env.sh` (run by `make app`, `make start`, `make up*` and `make env`) copies the template when `.env` is missing and generates empty secrets without touching values that are set. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
 
 `VITE_AUTH_BYPASS` skips the frontend guard only in development. `VITE_SIGNUP_ENABLED` controls the registration UI at build time and public account creation in the backend at runtime; only the exact value `true` enables it. Sharing, collaboration, AI and offline sync are not implemented and have no enable switch. SMTP/S3 enablement lives in persisted PocketBase settings; `make up-full` configures local providers. Editor capabilities and attachment limits live in code/schema; see [attachment behavior](ATTACHMENTS.md).
 
 ### `Makefile`
 
-Task runner tying everything together: `make start` = backend up + seed + dev server; also `up`/`up-full`/`down`/`logs`/`health`/`seed`/`codegen`/`dev-solo`. Loads `.env` automatically and runs the compose files in `deploy/local/` with the repo root as project directory. Convenience layer — the canonical entry point for local development.
+Task runner tying everything together. `make help` opens with which entry point to use: `make app` (whole app in Docker, seeded, no Bun), `make start` (backend up + seed + dev server) or `make start-full` (adds Mailpit and RustFS). Also `up`/`up-full`/`down`/`logs`/`health`/`seed`/`codegen`/`dev-solo`, the `stack-*` targets, and `railway-*` operator targets split into read-only checks and mutating ones that refuse to run without `CONFIRM=<deployment hostname>`. Loads `.env` automatically and runs the compose files in `deploy/local/` with the repo root as project directory.
 
 ### `.gitignore`
 
@@ -148,7 +148,7 @@ measures production loading; the main browser matrix covers Chromium and WebKit 
 
 ### Deployment env and signup flag
 
-`deploy/railway/.env` is ignored and contains test-deployment credentials; nested
+`deploy/railway/.env` is ignored and holds the operator's deployment credentials; nested
 env files are also excluded from the Docker context. `VITE_SIGNUP_ENABLED` defaults
 to false and must match at frontend build and PocketBase runtime. Docker accepts
 it as a build argument; local Compose passes it as both argument and runtime env.
@@ -161,18 +161,21 @@ available. Deployment setup/check scripts are colocated under `deploy/railway/`.
 
 Type-checks operational and test scripts, including `deploy/railway/`. CI invokes
 this separately from the frontend build. Deployment evidence output is selected
-through `DEPLOY_EVIDENCE_DIR`; see the [backup runbook](../deploy/README.md#backup-health-and-credential-rotation).
+through `DEPLOY_EVIDENCE_DIR`; see the [backup runbook](../deploy/OPERATIONS.md#backups).
 
 
 ### `deploy/railway/.env.example`
 
 Template for deployment infrastructure and superuser credentials. Regular-user
 credentials are managed separately. Verification creates temporary users or uses
-a read-only restore comparison; see the [account lifecycle](../deploy/README.md#account-lifecycle).
+a read-only restore comparison; see [accounts](../deploy/OPERATIONS.md#accounts).
+The scripts act on the `PB_URL` in the private copy and require its hostname to
+be repeated (`CONFIRM` through `make`, `DEPLOY_CONFIRM` directly);
+`deploy/railway/run.sh` is the wrapper the `make railway-*` targets call.
 
 ### `scripts/seed.sh` and `scripts/seed.ts`
 
-The shell entry point forwards arguments to Bun. The implementation validates the
+The shell entry point forwards arguments to Bun. `make stack-seed` and `make app` run `seed.ts` in the stack's setup container instead. The implementation validates the
 local target, creates missing accounts, verifies logins and seeds an empty notebook.
 `--reset-passwords` explicitly permits changes to the configured seed passwords;
 normal `make start`/`make seed` runs preserve them. `SEED_ARGS` forwards this option

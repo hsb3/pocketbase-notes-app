@@ -107,3 +107,30 @@ test("deployment drills require explicit opt-in before contacting a local target
     server.stop(true);
   }
 });
+
+test("deployment scripts refuse a remote target that was not confirmed by hostname", async () => {
+  for (const [url, confirm] of [
+    ["https://notes.example.invalid", ""],
+    ["https://notes.example.invalid", "other.example.invalid"],
+    ["http://notes.example.invalid", "notes.example.invalid"],
+  ]) {
+    const child = Bun.spawn(
+      [process.execPath, "-e", 'import "./deploy/railway/verification";'],
+      {
+        env: {
+          ...process.env,
+          PB_URL: url,
+          DEPLOY_CONFIRM: confirm,
+          DEPLOY_ALLOW_LOCAL: "true",
+          PB_ADMIN_EMAIL: "guard@example.invalid",
+          PB_ADMIN_PASSWORD: "not-a-real-secret",
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const error = await new Response(child.stderr).text();
+    expect(await child.exited).not.toBe(0);
+    expect(error).toContain("DEPLOY_CONFIRM");
+  }
+});
