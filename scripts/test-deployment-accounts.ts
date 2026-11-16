@@ -155,6 +155,7 @@ try {
     await admin.settings.update({ s3: { enabled: false } });
     await run("configure", {
       PB_SMTP_PASSWORD: "local-test-only",
+      PB_SENDER_ADDRESS: "notes@example.test",
       BACKUP_BUCKET: process.env.RUSTFS_BUCKET || "pocketbase",
       BACKUP_ENDPOINT: "http://rustfs:9000",
       BACKUP_REGION: "us-east-1",

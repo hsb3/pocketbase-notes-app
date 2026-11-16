@@ -6,7 +6,23 @@ import {
 } from "./verification";
 
 const env = process.env;
+// Defaults suit Resend; any SMTP provider works through these variables.
+const smtpHost = env.PB_SMTP_HOST || "smtp.resend.com";
+const smtpPort = Number(env.PB_SMTP_PORT || 465);
+const backupCron = env.BACKUP_CRON || "0 7 * * *";
 try {
+  assert(
+    env.PB_SENDER_ADDRESS && env.PB_SMTP_PASSWORD,
+    "Set PB_SENDER_ADDRESS and PB_SMTP_PASSWORD.",
+  );
+  assert(
+    env.BACKUP_BUCKET &&
+      env.BACKUP_ENDPOINT &&
+      env.BACKUP_REGION &&
+      env.BACKUP_ACCESS_KEY &&
+      env.BACKUP_SECRET_KEY,
+    "Set the BACKUP_* storage variables.",
+  );
   const pb = await deploymentAdmin();
   const current = await pb.settings.getAll();
   assert(
@@ -19,21 +35,21 @@ try {
       appName: "PocketBase Notes",
       appURL: deploymentURL,
       senderName: "PocketBase Notes",
-      senderAddress: "noreply@send.functionform.ai",
+      senderAddress: env.PB_SENDER_ADDRESS,
     },
     smtp: {
       enabled: true,
-      host: "smtp.resend.com",
-      port: 465,
-      username: "resend",
+      host: smtpHost,
+      port: smtpPort,
+      username: env.PB_SMTP_USERNAME || "resend",
       password: env.PB_SMTP_PASSWORD,
       authMethod: "PLAIN",
-      tls: true,
+      tls: smtpPort === 465,
     },
     s3: { enabled: false },
     rateLimits: { ...current.rateLimits, enabled: true },
     backups: {
-      cron: "0 7 * * *",
+      cron: backupCron,
       cronMaxKeep: 7,
       s3: {
         enabled: true,
@@ -65,11 +81,11 @@ try {
   });
   await pb.settings.testS3("backups");
   const readback = await pb.settings.getAll();
-  assert.equal(readback.smtp.host, "smtp.resend.com");
-  assert.equal(readback.backups.cron, "0 7 * * *");
+  assert.equal(readback.smtp.host, smtpHost);
+  assert.equal(readback.backups.cron, backupCron);
   assert.equal(readback.s3.enabled, false);
   process.stdout.write(
-    "Configured SMTP, private local files and daily off-volume backups. Accounts unchanged.\n",
+    "Configured SMTP, private local files and scheduled off-volume backups. Accounts unchanged.\n",
   );
 } catch (error) {
   verificationFailure(error);

@@ -1,3 +1,4 @@
+# PocketBase only, with hooks and migrations mounted from the checkout.
 # Run from the repo root: make up
 # (docker compose --project-directory . -f deploy/local/docker-compose.yml up)
 services:
@@ -8,12 +9,15 @@ services:
       args:
         VITE_SIGNUP_ENABLED: ${VITE_SIGNUP_ENABLED:-false}
     restart: unless-stopped
-    container_name: pocketbase
+    container_name: ${PB_CONTAINER:-pocketbase}
+    cpus: 2
+    mem_limit: 1g
+    pids_limit: 256
     ports:
       - "127.0.0.1:${PB_PORT:-8080}:8080"
     environment:
       - VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED:-false}
-      - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:?Set PB_ENCRYPTION_KEY to a securely generated value in .env}
+      - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:?Set PB_ENCRYPTION_KEY in .env (make env generates it)}
     volumes:
       - ./pb/data:/pb/pb_data
       - ./pb/hooks:/pb/pb_hooks

@@ -2,26 +2,38 @@
 
 ## Quick start
 
+Pick the one that matches what you are doing. `make help` shows the same
+choice at the top.
+
+| Goal | Command | Host needs |
+| --- | --- | --- |
+| Just run the app | `make app` | Docker |
+| Work on the code | `make start` | Docker, Bun |
+| Work on email or attachments | `make start-full` | Docker, Bun |
+
 ```sh
-cp .env.example .env
-openssl rand -base64 24   # paste output into PB_ENCRYPTION_KEY in .env
-make start                # backend up + seed + vite dev server
+make start   # backend up + seed + Vite dev server
 ```
+
+Each of these creates `.env` from `.env.example` when it is missing and
+generates the empty secrets (`PB_ENCRYPTION_KEY`, `PB_PASSWORD`). Values you
+set are never overwritten; `make env` runs only this step. `PB_ENCRYPTION_KEY`
+must stay secret and stable: changing it makes previously encrypted settings
+unreadable.
 
 `make start` runs `make up` (PocketBase in Docker), `make seed` (superuser +
 verified test user), then `bun dev`. Requires [Docker](https://docs.docker.com/get-docker/)
-and [Docker Compose](https://docs.docker.com/compose/install/). `PB_ENCRYPTION_KEY`
-must stay secret and stable — rotating it makes previously encrypted settings
-unreadable.
+with [Docker Compose](https://docs.docker.com/compose/install/), and
+[Bun](https://bun.sh) after `bun install`.
+
+`make app` runs the built app, Mailpit and RustFS in Docker with nothing
+mounted from the checkout, seeds it, and prints the address and login. See
+[local stacks](../deploy/LOCAL.md#self-contained-stacks).
 
 Other Makefile targets: `make up` / `make down` / `make logs` / `make health`
 run PocketBase alone; `make dev-solo` runs the frontend with
 `VITE_AUTH_BYPASS=true` for UI work without a backend
 (dev builds only — dead code in production).
-
-For a stack that keeps running independently of this checkout, use
-`make stack-up STACK=<name>` — see
-[self-contained stacks](../deploy/README.md#self-contained-stacks).
 
 ## Full stack: Mailpit (SMTP) + RustFS (S3)
 
@@ -36,11 +48,10 @@ make check-services
 services to be healthy, creates the RustFS bucket idempotently, and configures
 PocketBase through its authenticated settings API. It creates the superuser
 only on a fresh database; it does not reset an existing superuser password.
-Set `PB_EMAIL`, `PB_PASSWORD`, `PB_ENCRYPTION_KEY`, and matching
-`PB_PORT` / `VITE_PB_URL` in `.env` first.
+Keep `PB_PORT` and `VITE_PB_URL` in `.env` in step.
 
-- Mailpit inbox: http://127.0.0.1:8025
-- RustFS console: http://127.0.0.1:9001
+- Mailpit inbox: http://127.0.0.1:8025 (`MAILPIT_PORT`)
+- RustFS console: http://127.0.0.1:9001 (`RUSTFS_CONSOLE_PORT`)
 - PocketBase admin: the `VITE_PB_URL` address with `/_/` appended
 
 Mailpit captures messages locally; nothing is relayed to real recipients.
@@ -54,6 +65,8 @@ to `pocketbase`, configurable with `RUSTFS_BUCKET`. Console/API credentials use
 `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY`, both defaulting to `pocketbase` for local
 development. The S3 endpoint inside Docker is `http://rustfs:9000`, region
 `us-east-1`, with path-style addressing. Mailpit and RustFS ports bind to loopback.
+To run two checkouts at once, give the second one its own ports and container
+names in `.env`; `.env.example` lists the variables.
 The full editor uses this storage for [private note attachments and images](ATTACHMENTS.md).
 
 The setup script refuses to overwrite another enabled SMTP/S3 provider or change
@@ -84,10 +97,14 @@ PocketBase application URL to the public frontend address in each environment.
 and verify their credentials. Existing passwords, verification status and profile
 fields are preserved. A credential mismatch fails with a message instead of
 resetting the account. Supply the current local credentials to continue.
+`make seed` runs with Bun on the host; `make stack-seed` and `make app` run the
+same script in the stack's setup container.
 
 An intentional development password reset uses
 `make seed SEED_ARGS=--reset-passwords` (or the same option with `stack-seed`).
 Only the configured seed accounts are affected; profile/verification fields stay
 unchanged. Seeding refuses non-loopback URLs, and any superuser CLI write requires
-`PB_CONTAINER` to publish PocketBase on the configured loopback port. The entries
+`PB_CONTAINER` to publish PocketBase on the configured loopback port. In a
+self-contained stack the PocketBase service itself creates the superuser when
+it is absent, so resetting the superuser password there is a dashboard task. The entries
 seed command adds sample entries only to an empty existing seed account.

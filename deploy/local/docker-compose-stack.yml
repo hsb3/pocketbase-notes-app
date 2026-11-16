@@ -1,13 +1,25 @@
-# Self-contained stack: nothing is mounted from the checkout. Run from the repo root:
-# make stack-up STACK=<name>  (see deploy/README.md#self-contained-stacks)
+# Self-contained stack: nothing is mounted from the checkout, and setup runs in a
+# container, so the host needs only Docker. Run from the repo root:
+# make app   (or make stack-up STACK=<name>; see deploy/LOCAL.md)
 volumes:
   pb_data:
   certs:
   rustfs:
   mailpit:
 
+# Every service is capped; adjust here, never remove.
+x-app-limits: &app-limits
+  cpus: 2
+  mem_limit: 1g
+  pids_limit: 256
+x-helper-limits: &helper-limits
+  cpus: 1
+  mem_limit: 512m
+  pids_limit: 128
+
 services:
   pocketbase:
+    <<: *app-limits
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile
@@ -19,6 +31,8 @@ services:
         condition: service_healthy
     # PocketBase refuses SMTP auth without TLS, so it mints Mailpit's STARTTLS
     # certificate into the stack's own volume (Mailpit waits for this) and trusts it.
+    # The superuser is created only when absent: `create` never changes an
+    # existing account, and its failure on an existing one is expected.
     entrypoint: ["/bin/sh", "-ec"]
     command:
       - |
@@ -27,6 +41,8 @@ services:
           -subj "/CN=mailpit" -addext "subjectAltName = DNS:mailpit" 2>/dev/null
         cp /certs/cert.pem /usr/local/share/ca-certificates/mailpit.crt
         update-ca-certificates
+        /pb/pocketbase superuser create "$$PB_EMAIL" "$$PB_PASSWORD" \
+          --encryptionEnv=PB_ENCRYPTION_KEY >/dev/null 2>&1 || true
         exec /pb/pocketbase serve --http=0.0.0.0:8080 --encryptionEnv=PB_ENCRYPTION_KEY
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/api/health"]
@@ -37,12 +53,15 @@ services:
       - "127.0.0.1:${STACK_PORT:-8100}:8080"
     environment:
       - VITE_SIGNUP_ENABLED=${VITE_SIGNUP_ENABLED:-false}
-      - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:?Set PB_ENCRYPTION_KEY to a securely generated value in .env}
+      - PB_ENCRYPTION_KEY=${PB_ENCRYPTION_KEY:?Set PB_ENCRYPTION_KEY in .env (make env generates it)}
+      - PB_EMAIL=${PB_EMAIL:?Set PB_EMAIL in .env}
+      - PB_PASSWORD=${PB_PASSWORD:?Set PB_PASSWORD in .env (make env generates it)}
     volumes:
       - pb_data:/pb/pb_data
       - certs:/certs
 
   mailpit:
+    <<: *helper-limits
     image: axllent/mailpit@sha256:c96991d9bef73594c246d89ca81411d4e916f03e76a7d2d72fa2ab5dd3c9ce24
     restart: unless-stopped
     depends_on:
@@ -67,6 +86,7 @@ services:
       MP_SMTP_TLS_CERT: /certs/cert.pem
 
   rustfs:
+    <<: *app-limits
     image: rustfs/rustfs@sha256:9ca9559533b537d10482fe923288b676ad08f92a7069d9a17327fbae3cab688b
     restart: unless-stopped
     command: /data
@@ -87,6 +107,7 @@ services:
       retries: 20
 
   storage-init:
+    <<: *helper-limits
     image: rustfs/rc@sha256:ab024bfebee49a750ce886b4c70963ccd9ddaa03f491704a90710641d7a26699
     profiles: ["setup"]
     depends_on:
@@ -101,3 +122,32 @@ services:
       - |
         rc alias set local http://rustfs:9000 "$$RUSTFS_ACCESS_KEY" "$$RUSTFS_SECRET_KEY" >/dev/null
         rc bucket create --ignore-existing "local/$$RUSTFS_BUCKET"
+
+  # One-shot configure/seed runner (Bun + scripts/). It shares PocketBase's network
+  # namespace, so the scripts' loopback-only guards hold and no host Bun is needed.
+  setup:
+    <<: *helper-limits
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: tools
+    profiles: ["setup"]
+    network_mode: "service:pocketbase"
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    environment:
+      VITE_PB_URL: http://127.0.0.1:8080
+      PB_URL: http://127.0.0.1:8080
+      PB_EMAIL: ${PB_EMAIL:?Set PB_EMAIL in .env}
+      PB_PASSWORD: ${PB_PASSWORD:?Set PB_PASSWORD in .env (make env generates it)}
+      SEED_USER_EMAIL: ${SEED_USER_EMAIL:-user@example.com}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-user-changeme-123}
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-pocketbase}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-pocketbase}
+      RUSTFS_BUCKET: ${RUSTFS_BUCKET:-pocketbase}
+      # Links in emails point at the address the host browser uses.
+      DEV_APP_URL: http://127.0.0.1:${STACK_PORT:-8100}
+      PB_DATA_DIR: /pb_data
+    volumes:
+      - pb_data:/pb_data:ro

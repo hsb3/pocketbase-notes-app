@@ -6,13 +6,18 @@ import PocketBase, { ClientResponseError } from "pocketbase";
 if (existsSync("deploy/railway/.env")) loadEnvFile("deploy/railway/.env");
 export const deploymentURL = process.env.PB_URL;
 assert(deploymentURL, "Set PB_URL.");
+const target = new URL(deploymentURL);
 export const localDeployment = ["localhost", "127.0.0.1", "[::1]"].includes(
-  new URL(deploymentURL).hostname,
+  target.hostname,
 );
+// A remote target must be named twice: PB_URL selects it and DEPLOY_CONFIRM
+// repeats its hostname, so a stale or inherited PB_URL cannot be acted on.
 assert(
-  (localDeployment && process.env.DEPLOY_ALLOW_LOCAL === "true") ||
-    deploymentURL === "https://notes-staging.up.railway.app",
-  "Unexpected deployment target; local drills require DEPLOY_ALLOW_LOCAL=true.",
+  localDeployment
+    ? process.env.DEPLOY_ALLOW_LOCAL === "true"
+    : target.protocol === "https:" &&
+        process.env.DEPLOY_CONFIRM === target.hostname,
+  "Unexpected deployment target: set DEPLOY_CONFIRM to the PB_URL hostname of the HTTPS deployment; local drills require DEPLOY_ALLOW_LOCAL=true.",
 );
 
 export async function deploymentAdmin(url = deploymentURL!) {
