@@ -5,6 +5,7 @@ import {
   useLocation,
   getRouteApi,
   useRouter,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
@@ -138,9 +139,9 @@ export function WorkspacePending() {
     </div>
   );
 }
-export function WorkspaceError({ error }: { error: Error }) {
+export function WorkspaceError({ error }: ErrorComponentProps) {
   const router = useRouter();
-  const missing = "status" in error && error.status === 404;
+  const missing = (error as { status?: unknown } | null)?.status === 404;
   return (
     <Empty className="h-full">
       <EmptyHeader>
