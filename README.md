@@ -115,5 +115,6 @@ Other options: [deployment overview](deploy/README.md).
   [Changelog](CHANGELOG.md) · [License (MIT)](LICENSE)
 
 [![CI](https://github.com/hsb3/pocketbase-notes-app/actions/workflows/ci.yml/badge.svg)](https://github.com/hsb3/pocketbase-notes-app/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/hsb3/pocketbase-notes-app)](https://github.com/hsb3/pocketbase-notes-app/releases/latest)
 [![License: MIT](https://img.shields.io/github/license/hsb3/pocketbase-notes-app)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-site-blue)](https://hsb3.github.io/pocketbase-notes-app/)
