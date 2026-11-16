@@ -68,6 +68,10 @@ stacks and a Railway self-host guide.
 - Railway operator scripts take their target and sender address from the private
   `deploy/railway/.env` instead of a built-in instance; existing operator files
   need `PB_SENDER_ADDRESS`. ([#16])
+- `make railway-configure` makes rate limits count per visitor by trusting
+  Railway's `X-Real-IP` header (`PB_TRUSTED_PROXY_HEADERS`); before, every visitor
+  shared the edge's address. Check it once on a live instance; see
+  [deploy/OPERATIONS.md](deploy/OPERATIONS.md#client-addresses-and-rate-limits). ([#27])
 - Dependencies updated (React 19.3, TanStack Router 1.170.46, Biome 2.6, Vite 8.3,
   Playwright 1.65). ([#26])
 
@@ -103,4 +107,5 @@ stacks and a Railway self-host guide.
 [#24]: https://github.com/hsb3/pocketbase-notes-app/pull/24
 [#25]: https://github.com/hsb3/pocketbase-notes-app/pull/25
 [#26]: https://github.com/hsb3/pocketbase-notes-app/pull/26
+[#27]: https://github.com/hsb3/pocketbase-notes-app/pull/27
 [#28]: https://github.com/hsb3/pocketbase-notes-app/pull/28
