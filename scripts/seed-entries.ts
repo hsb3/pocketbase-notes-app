@@ -26,6 +26,7 @@ if (existing.totalItems === 0) {
       text: "I took a walk before opening my laptop. It made the rest of the morning feel less hurried.",
       reflection:
         "A little space at the beginning changes the shape of the day.",
+      tasks: [] as [string, boolean][],
     },
     {
       title: "Ideas for the reading nook",
@@ -34,6 +35,11 @@ if (existing.totalItems === 0) {
       favorite: false,
       text: "A lamp, a shelf, and room to pause. A corner that makes picking up a book the easiest thing to do.",
       reflection: "Start with what is already here.",
+      tasks: [
+        ["Measure the corner by the window", true],
+        ["Find a warm reading lamp", false],
+        ["Clear the bottom shelf", false],
+      ] as [string, boolean][],
     },
     {
       title: "Things worth keeping",
@@ -42,10 +48,11 @@ if (existing.totalItems === 0) {
       favorite: false,
       text: "A long conversation. The first cool morning. Finishing a book that I had set aside for months.",
       reflection: "Small things count, too.",
+      tasks: [["Return the library book", false]] as [string, boolean][],
     },
   ];
   for (const sample of samples) {
-    const { text, reflection, ...fields } = sample;
+    const { text, reflection, tasks, ...fields } = sample;
     await pb.collection("entries").create({
       ...fields,
       user: user.id,
@@ -54,6 +61,13 @@ if (existing.totalItems === 0) {
         type: "doc",
         content: [
           { type: "paragraph", content: [{ type: "text", text }] },
+          ...tasks.map(([task, checked]) => ({
+            type: "list",
+            attrs: { kind: "task", checked },
+            content: [
+              { type: "paragraph", content: [{ type: "text", text: task }] },
+            ],
+          })),
           {
             type: "heading",
             attrs: { level: 2 },

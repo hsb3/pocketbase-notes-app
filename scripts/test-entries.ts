@@ -145,10 +145,80 @@ try {
     ).totalItems,
     1,
   );
+  const task = (text: string, checked: boolean, ...nested: object[]) => ({
+    type: "list",
+    attrs: { kind: "task", checked },
+    content: [
+      { type: "paragraph", content: [{ type: "text", text }] },
+      ...nested,
+    ],
+  });
+  const tasky = await alice.collection("entries").create({
+    ...data,
+    kind: "note",
+    journal_date: "",
+    title: "Errands",
+    open_tasks: 99,
+    tasks: [{ path: [0], text: "forged" }],
+    body: {
+      type: "doc",
+      content: [
+        task("Buy stamps", false),
+        task("Done already", true, task("Nested open", false)),
+        { type: "list", attrs: { kind: "bullet" }, content: [body.content[0]] },
+      ],
+    },
+  });
+  assert.equal(tasky.open_tasks, 2, "Server derives the open-task count");
+  assert.deepEqual(tasky.tasks, [
+    { path: [0], text: "Buy stamps" },
+    { path: [1, 1], text: "Nested open" },
+  ]);
+  const index = await alice.collection("entries").getFullList({
+    filter: "open_tasks > 0",
+    fields: "id,title,revision,open_tasks,tasks",
+  });
+  assert.deepEqual(
+    index.map((item) => [item.id, item.body]),
+    [[tasky.id, undefined]],
+    "Open tasks index lists only entries with open items and no bodies",
+  );
+  const checked = structuredClone(tasky.body);
+  checked.content[0].attrs.checked = true;
+  const ticked = await alice.collection("entries").update(tasky.id, {
+    body: checked,
+    revision: tasky.revision,
+    open_tasks: 0,
+  });
+  assert.equal(ticked.open_tasks, 1);
+  assert.deepEqual(ticked.tasks, [{ path: [1, 1], text: "Nested open" }]);
+  await denied(
+    alice
+      .collection("entries")
+      .update(tasky.id, { body: tasky.body, revision: tasky.revision }),
+    409,
+  );
+  for (const client of [bob, anonymous]) {
+    assert.equal(
+      (
+        await client
+          .collection("entries")
+          .getList(1, 20, { filter: "open_tasks > 0" })
+      ).totalItems,
+      0,
+      "Other accounts see no tasks",
+    );
+    await denied(
+      client
+        .collection("entries")
+        .update(tasky.id, { open_tasks: 0, revision: ticked.revision }),
+    );
+  }
+  await alice.collection("entries").delete(tasky.id);
   await alice.collection("entries").delete(entry.id);
   await denied(alice.collection("entries").getOne(entry.id), 404);
   console.log(
-    "PASS: persistence, ownership, spoofing, validation, concurrent saves, filters and deletion",
+    "PASS: persistence, ownership, spoofing, validation, concurrent saves, filters, tasks and deletion",
   );
 } finally {
   for (const id of accounts) await admin.collection("users").delete(id);

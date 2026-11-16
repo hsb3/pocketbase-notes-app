@@ -70,4 +70,24 @@ function date(kind, value) {
     if (value !== "") throw new Error("Notes cannot have a journal date.");
   } else if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < "0001-01-01" || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value) throw new Error("Choose a valid journal date.");
 }
-module.exports = { body, date };
+// Unchecked task-list items: the count is exact, the list is capped for the Open tasks view.
+function tasks(doc) {
+  const open = [];
+  let count = 0;
+  function text(node) {
+    if (node.type === "text") return node.text;
+    if (node.type === "mention") return node.attrs.value;
+    if (node.type === "list") return "";
+    return (node.content || []).map(text).join(["paragraph", "heading"].includes(node.type) ? "" : " ");
+  }
+  function visit(node, path) {
+    if (node.type === "list" && node.attrs && node.attrs.kind === "task" && node.attrs.checked !== true) {
+      count++;
+      if (open.length < 100) open.push({ path, text: (node.content || []).map(text).join(" ").replace(/\s+/g, " ").trim().slice(0, 200) });
+    }
+    (node.content || []).forEach((child, i) => visit(child, path.concat(i)));
+  }
+  visit(doc, []);
+  return { count, open };
+}
+module.exports = { body, date, tasks };
