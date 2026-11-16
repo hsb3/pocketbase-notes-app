@@ -1,0 +1,38 @@
+# Load-test overlay for deploy/local/docker-compose-stack.yml. Used only by tests/load/run.sh:
+# it tightens the app's limits to a small-instance size and adds a k6 container on the stack's network.
+services:
+  pocketbase:
+    # No auto-restart: an out-of-memory kill must stay visible instead of being hidden.
+    restart: "no"
+    cpus: ${LOAD_APP_CPUS:-1}
+    mem_limit: ${LOAD_APP_MEMORY:-512m}
+    memswap_limit: ${LOAD_APP_MEMORY:-512m}
+    pids_limit: 256
+    environment:
+      GOMEMLIMIT: ${LOAD_APP_GOMEMLIMIT:-}
+
+  k6:
+    image: grafana/k6:2.4.0@sha256:3d8e5c7f1d53ec59408c2ffbd9943602a0985ffcbd4a2430ec00f3ffca89796e
+    profiles: ["load"]
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    cpus: 2
+    mem_limit: 2g
+    memswap_limit: 2g
+    pids_limit: 512
+    user: "${LOAD_UID:-12345}:${LOAD_GID:-12345}"
+    volumes:
+      - ./tests/load/k6:/load:ro
+      - ${LOAD_RESULTS:?run tests/load/run.sh instead of using this file directly}:/results
+    environment:
+      BASE_URL: http://pocketbase:8080
+      PB_EMAIL: ${PB_EMAIL:?Set PB_EMAIL in .env}
+      PB_PASSWORD: ${PB_PASSWORD:?Set PB_PASSWORD in .env}
+      STAGES: ${LOAD_STAGES:-}
+      STAGE_SECONDS: ${LOAD_STAGE_SECONDS:-}
+      USERS: ${LOAD_USERS:-}
+      ENTRIES_PER_USER: ${LOAD_ENTRIES_PER_USER:-}
+      RATE_LIMITS: ${LOAD_RATE_LIMITS:-}
+      LOGIN_SHARE: ${LOAD_LOGIN_SHARE:-}
+      K6_NO_USAGE_REPORT: "true"
