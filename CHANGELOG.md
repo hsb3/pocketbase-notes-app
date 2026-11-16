@@ -19,6 +19,11 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
   in place through the normal save-conflict check, with per-entry open counts.
   Counts are derived on the server and backfilled for existing entries.
 
+### Changed
+
+- README rewritten around what you get and how to run it, with fresh screenshots
+  and a short recording captured by `scripts/capture-screenshots.sh`.
+
 ## [0.1.0] - 2026-11-15
 
 First versioned state of the app: a private notes and journaling app on React,

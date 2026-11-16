@@ -1,76 +1,116 @@
 # PocketBase Notes
 
-A private notes and journaling app built with React, TanStack Router, PocketBase,
-shadcn/ui and ProseKit. Write a thought, save it, and return to it later.
+A private notes and journal app you run yourself. One Docker image holds the
+whole thing: the React frontend, the PocketBase API and database, and the
+server hooks. Your entries live on your server, readable only by your account.
 
-![PocketBase Notes on desktop](docs/images/notebook-desktop.png)
+![Writing a note, saving it, finding it by title and ticking its task off in Open tasks](docs/images/core-loop.gif)
 
-The interface at `/entries` uses shadcn’s `sidebar-09` and ProseKit’s full
-editor block. See [component sources and adaptations](docs/design/prebuilt-ui.md).
+## Why this exists
 
-## What works
+Most note apps either keep your writing on someone else's servers or ask you to
+assemble a backend, auth, file storage and an editor yourself. This is a small,
+complete app instead: a good rich-text editor, journal entries with dates, and
+a task view, on a backend that is a single binary with a SQLite file. Run it on
+your laptop with one command, or host your own instance on Railway.
 
-- Rich-text notes and journals with lists, tables, links, code, math and image uploads.
-- Private image/PDF/text attachments stored through PocketBase and RustFS, with protected downloads.
-- Title search, favorites, journal date filters and paginated lists. Filters stay in the URL.
-- Explicit Save, unsaved-change prompts and conflict detection when two tabs edit the same entry.
-- Private PocketBase records with server-side document validation and ownership rules.
-- Collapsible navigation and full-screen writing for new and saved entries.
-- Mobile list/editor navigation, keyboard formatting and Ctrl/Cmd+S.
-- Existing login, registration, verification and password-reset screens.
+There is deliberately no public demo: run it locally (below) to try it.
 
-[Mobile screenshot](docs/images/notebook-mobile.png) ·
-[Design and scope](docs/design/notes-journal.md) ·
-[Verification](docs/testing/verification.md)
+## What you get
 
-## Run locally
+- **Notes and dated journal entries** in one ProseKit editor: headings, lists,
+  checklists, tables, links, code blocks with highlighting, and KaTeX math.
+- **Open tasks**: every unchecked checklist item across your entries in one
+  list. Tick one off there and it is saved into its entry, with the same
+  conflict check as the editor. Each entry shows its open count.
+- **Find things**: title search, favorites, note/journal filters and journal
+  date filters; filters stay in the URL.
+- **Saving you can trust**: explicit Save (or Ctrl/Cmd+S), a prompt before
+  leaving unsaved changes, and conflict detection when two tabs edit one entry.
+- **Attachments**: private images, PDFs and text files with protected downloads.
+- **Light, dark or system theme**, from the login page or the user menu.
+- **Opt-in two-step sign-in**: after the password, a one-time code sent by
+  email. Turned on per account from Account security.
+- **Phone-friendly** list and editor, and a full-screen writing mode.
+
+| Notebook, light | Notebook, dark |
+| --- | --- |
+| ![Notebook with a note open: formatted text, a formula, a table, a code block and a checklist](docs/images/notebook-light.png) | ![The same note in the dark theme](docs/images/notebook-dark.png) |
+| **Open tasks** | **Full-screen writing** |
+| ![Open tasks: unchecked checklist items grouped by entry](docs/images/open-tasks.png) | ![A journal entry in full-screen mode with the sidebar hidden](docs/images/full-screen.png) |
+| **Sign in, with the theme control** | **Account security** |
+| ![Login form with the light, dark and system theme control](docs/images/login.png) | ![Account security page with the two-step sign-in switch](docs/images/account-security.png) |
+
+![On a phone: the entry list in the navigation drawer, a note with its checklist, and Open tasks](docs/images/mobile.png)
+
+All screenshots and the recording are captured from a running local stack with
+the sample data by [`scripts/capture-screenshots.sh`](scripts/capture-screenshots.sh).
+
+## Try it
+
+You need [Docker](https://docs.docker.com/get-docker/) with Compose.
 
 ```sh
-cp .env.example .env
-openssl rand -base64 24  # set PB_ENCRYPTION_KEY in .env
-make start
+git clone https://github.com/hsb3/pocketbase-notes-app.git && cd pocketbase-notes-app
+make app
 ```
 
-Set the superuser credentials and matching `PB_PORT` / `VITE_PB_URL` in `.env`.
-`make start` starts PocketBase, creates missing development accounts, and runs
-Vite. Existing passwords are preserved; intentional resets are described in
-[local seeding](docs/development/setup.md#seed-accounts-without-unintended-resets).
-The default development login is `user@example.com` / `user-changeme-123`;
-`SEED_USER_EMAIL` and `SEED_USER_PASSWORD` override it. Sample entries are added
-only when that account's notebook is empty.
+`make app` creates `.env` with generated secrets, builds the image, starts the
+app with local email (Mailpit) and file storage (RustFS), adds sample entries,
+and prints the address and login (`http://127.0.0.1:8100`,
+`user@example.com` / `user-changeme-123`). `make stack-down` stops it and keeps
+the data. More in [local stacks](deploy/LOCAL.md).
 
-For email and S3-backed file storage, use `make start-full` instead. It configures
-Mailpit and RustFS automatically; `make check-services` verifies both. See the
-[full-stack setup](docs/development/setup.md#full-stack-mailpit-smtp--rustfs-s3).
-
-## Checks
+## Develop
 
 ```sh
 bun install
-bun run test:install  # install the browsers configured by the test suite
-make up-full         # configure PocketBase, Mailpit and RustFS
-make smoke           # service checks + login/save/reload smoke test
-make e2e             # full API and desktop/mobile browser coverage
+make start   # PocketBase in Docker, sample account, Vite with hot reload
 ```
 
-Tests use disposable accounts against the local backend configured in `.env`.
-Playwright starts and stops a separate Vite server automatically. Reports, traces
-and screenshots stay in ignored test-output directories. No global Playwright
-installation or manually started frontend is required.
+`make start-full` adds Mailpit and RustFS for email and attachments. Setup,
+seed accounts and every Makefile target: [development setup](docs/development/setup.md).
+How the pieces fit: [tech stack](docs/architecture/tech-stack.md).
 
-Run `bun run lint` and `bun run build` for static checks, or `bun run test:report`
-to open the browser report. See [testing details](docs/testing/verification.md) and
-[CI and protected-branch policy](docs/ci/checks-and-rules.md).
+## Test
+
+```sh
+bun run lint && bun run knip && bun run build   # static checks
+bun run test:install                            # Playwright browsers, once
+make up-full && make e2e                        # API and browser tests, desktop and mobile
+```
+
+Tests create and delete their own accounts on the local backend. CI runs the
+same suite on Linux amd64 and arm64 for every pull request. Details:
+[verification](docs/testing/verification.md) and
+[CI and repository rules](docs/ci/checks-and-rules.md).
+
+## Deploy
+
+Every target runs the same [image](deploy/IMAGE.md). To host your own private
+instance, follow [self-host on Railway](deploy/RAILWAY.md): one service, one
+volume, real outgoing email and scheduled backups, with public signup off.
+Other options: [deployment overview](deploy/README.md).
 
 ## Boundaries
 
-Entries are private through application access rules, not end-to-end encryption.
-Drafts are in memory until Save; browser crashes can lose unsaved work. Conflict
-recovery offers a plain-text copy and a confirmed reload, not automatic merging.
-There is no sharing, AI or offline synchronization. See [attachments](docs/features/attachments.md)
-for file limits, private storage and cleanup behavior.
-OAuth providers and production email still require PocketBase configuration.
-Local email delivery is captured by Mailpit in full-stack mode.
+- Entries are private through PocketBase access rules, not end-to-end
+  encryption: whoever runs the server can read the database.
+- Drafts live in memory until you save; a browser crash can lose unsaved work.
+- Conflicts are detected, not merged: you get a plain-text copy of your draft
+  and a confirmed reload.
+- No sharing, AI features or offline sync.
+- Two-step sign-in and password resets need working email. Locally Mailpit
+  catches it; a real deployment needs an SMTP provider. OAuth providers need
+  PocketBase configuration ([sign-in](docs/features/auth.md)).
+- File limits, storage and cleanup: [attachments](docs/features/attachments.md).
 
-See [development setup](docs/development/setup.md), [deployment](deploy/README.md),
-and [root configuration](docs/development/root-files.md).
+## More
+
+- Documentation site: <https://hsb3.github.io/pocketbase-notes-app/>
+- [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) ·
+  [Changelog](CHANGELOG.md) · [License (MIT)](LICENSE)
+
+[![CI](https://github.com/hsb3/pocketbase-notes-app/actions/workflows/ci.yml/badge.svg)](https://github.com/hsb3/pocketbase-notes-app/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/hsb3/pocketbase-notes-app)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-site-blue)](https://hsb3.github.io/pocketbase-notes-app/)
