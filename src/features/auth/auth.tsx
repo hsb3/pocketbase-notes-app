@@ -54,11 +54,11 @@ const SocialAuth = ({
 
           if (meta?.name && !record.name) formData.append("name", meta.name);
 
-          if (meta?.avatarUrl && !record.avatar)
-            formData.append(
-              "avatar",
-              await fetch(meta.avatarUrl).then((res) => res.blob()),
-            );
+          if (meta?.avatarUrl && !record.avatar) {
+            const res = await fetch(meta.avatarUrl);
+            if (!res.ok) throw new Error("Avatar unavailable");
+            formData.append("avatar", await res.blob());
+          }
 
           if (formData.has("name") || formData.has("avatar"))
             await pb.collection("users").update(record.id, formData);
