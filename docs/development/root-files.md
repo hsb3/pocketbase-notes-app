@@ -100,7 +100,7 @@ The docs site. VitePress renders the repository's own Markdown (`docs/`, `deploy
 
 Product purpose, boundaries and links to the notes/journal design.
 
-Agent-skill examples under `.agents/skills/` are excluded from Biome because they are vendored references, not application source. CLI scripts may report status through the console; application console warnings remain enabled.
+Agent skills under `.agents/skills/` and `.claude/skills/` (the latter only exists when a tool such as skillshare syncs skills locally) are excluded from Biome because they are vendored references, not application source. CLI scripts may report status through the console; application console warnings remain enabled.
 
 The adopted prebuilt UI imports the ProseKit registry’s Tailwind icon plugin in
 `src/styles/globals.css`; its Lucide icon data and React icons are installed dependencies.

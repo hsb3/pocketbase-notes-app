@@ -19,6 +19,7 @@
       "!src/services/pocketbase-types.ts",
       "!src/styles/globals.css",
       "!**/.agents/skills/**",
+      "!**/.claude/skills/**",
       "!**/test-results/**",
       "!**/playwright-report/**"
     ]
