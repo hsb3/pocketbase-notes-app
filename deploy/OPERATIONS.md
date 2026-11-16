@@ -47,6 +47,9 @@ changes its edge:
 
 `make railway-configure` reads the setting back and fails if it did not apply.
 
+Last checked 2026-11-16: Railway's edge replaced the forged value, so **userIP**
+was the real client address.
+
 ## Updates
 
 1. Run `bun run lint`, `bun run build` and the relevant tests locally.
