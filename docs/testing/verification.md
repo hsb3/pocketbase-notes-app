@@ -49,14 +49,16 @@ The backend stays running; tests never seed or reset existing development accoun
 | `make smoke` / `bun run test:smoke` | Mailpit verification/reset emails and token use; real RustFS upload/download bytes; browser login, private note save and reload |
 | `make e2e` / `bun run test:e2e` | All API checks and default-disabled browser scenarios, including smoke |
 | `bun run test:accounts` | Create-only seeding, explicit resets, fixture cleanup, existing-account protection, local email delivery, account-neutral configuration and isolated archive restore |
-| `bun run test:api` | Services, entry validation, account isolation, concurrent saves, protected files, attachment cleanup, admin capabilities, two-step sign-in and automatic-backup health |
+| `bun run test:api` | Services, entry validation, account isolation, concurrent saves, protected files, attachment cleanup, admin capabilities, two-step sign-in, automatic-backup health and private folder/note records |
 | `bunx playwright test` | Browser scenarios only |
 | `make load-test` / `tests/load/run.sh` | Capacity of one capped instance under k6 load, entirely in Docker; see [load testing](load-testing.md) |
 | `bun run lint` | Formatting and lint |
 | `bun run build` | Application/config TypeScript checks and production frontend build |
 | `bunx tsc -p scripts/tsconfig.json` | Backend verification/setup script types |
 
-The notebook scenario covers notes, journals, formatting, undo/redo, search,
+The [private folders and notes](../features/notes.md) checks in `scripts/test-notes.ts` exercise default-folder provisioning and rollback, owner and signed-out access, Unicode name collisions and searches, derived fields, stable create IDs and concurrent edits. Owner filters can match the internal search key while create, detail, expanded and list responses omit it. `scripts/test-attachments.ts` checks deletion protection for files referenced only by an entry or only by a note, rejects foreign file references and downloads, and tests the cleanup query with old referenced files, an old orphan and a fresh upload. On the disposable stack it backdates three fixture uploads, runs the hourly job and checks that only the aged orphan disappears. Both referenced files still download with their original bytes.
+
+The notebook browser scenario still uses `entries`. It covers notes, journals, formatting, undo/redo, search,
 favorites, date filters, navigation guards, failed saves, concurrent edits,
 reauthentication with draft preservation, confirmed deletion, collapsible navigation,
 full-screen writing, compact spacing and the bottom information rail on desktop/mobile.

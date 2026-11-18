@@ -157,6 +157,7 @@ export default defineConfig({
         items: [
           ...page("Authentication", "docs/features/auth.md"),
           ...page("Attachments", "docs/features/attachments.md"),
+          ...page("Private folders and notes", "docs/features/notes.md"),
           ...page("Tasks", "docs/features/tasks.md"),
         ],
       },

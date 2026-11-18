@@ -13,6 +13,8 @@ export const Collections = {
 	Superusers: "_superusers",
 	Attachments: "attachments",
 	Entries: "entries",
+	Folders: "folders",
+	Notes: "notes",
 	Users: "users",
 } as const
 export type Collections = typeof Collections[keyof typeof Collections]
@@ -125,6 +127,33 @@ export type EntriesRecord<Tbody = unknown, Ttasks = unknown> = {
 	user: RecordIdString
 }
 
+export type FoldersRecord = {
+	created: IsoAutoDateString
+	id: string
+	is_default?: boolean
+	name: string
+	name_key: string
+	updated: IsoAutoDateString
+	user: RecordIdString
+}
+
+export type NotesRecord<Tbody = unknown, Ttasks = unknown> = {
+	attachments?: RecordIdString[]
+	body: null | Tbody
+	created: IsoAutoDateString
+	deleted?: IsoDateString
+	folder?: RecordIdString
+	id: string
+	open_tasks?: number
+	revision: number
+	search_key?: string
+	tasks?: null | Ttasks
+	text?: string
+	title?: string
+	updated: IsoAutoDateString
+	user: RecordIdString
+}
+
 export type UsersRecord = {
 	avatar?: FileNameString
 	created: IsoAutoDateString
@@ -147,6 +176,8 @@ export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemF
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
 export type AttachmentsResponse<Texpand = unknown> = Required<AttachmentsRecord> & BaseSystemFields<Texpand>
 export type EntriesResponse<Tbody = unknown, Ttasks = unknown, Texpand = unknown> = Required<EntriesRecord<Tbody, Ttasks>> & BaseSystemFields<Texpand>
+export type FoldersResponse<Texpand = unknown> = Required<FoldersRecord> & BaseSystemFields<Texpand>
+export type NotesResponse<Tbody = unknown, Ttasks = unknown, Texpand = unknown> = Required<NotesRecord<Tbody, Ttasks>> & BaseSystemFields<Texpand>
 export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSystemFields<Texpand>
 
 // Types containing all Records and Responses, useful for creating typing helper functions
@@ -159,6 +190,8 @@ export type CollectionRecords = {
 	_superusers: SuperusersRecord
 	attachments: AttachmentsRecord
 	entries: EntriesRecord
+	folders: FoldersRecord
+	notes: NotesRecord
 	users: UsersRecord
 }
 
@@ -170,6 +203,8 @@ export type CollectionResponses = {
 	_superusers: SuperusersResponse
 	attachments: AttachmentsResponse
 	entries: EntriesResponse
+	folders: FoldersResponse
+	notes: NotesResponse
 	users: UsersResponse
 }
 

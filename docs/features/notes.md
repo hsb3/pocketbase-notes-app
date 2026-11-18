@@ -1,0 +1,32 @@
+# Private folders and notes
+
+The redesigned notebook stores documents in the PocketBase `folders` and `notes` collections. R1 exposes them through the records API. The current notebook, journal, search and Open tasks screens still read and write `entries`. Folder navigation, autosave, moving notes and trash recovery belong to later increments.
+
+## Folders and ownership
+
+Creating an ordinary account also creates its permanent **Notes** folder in the same transaction. If the folder cannot be saved, account creation fails. Owners can create and delete empty custom folders. R1 prevents renaming folders, changing ownership, deleting the default folder and deleting a folder that contains notes. Deleting the account removes its folders and notes.
+
+Custom folder names keep their display spelling after trimming and allow 1–80 Unicode code points. Within one account, names must have a unique comparison key. The server normalizes the name to NFC, uppercases it without a locale, then normalizes to NFC again. For example, `Café`, `CAFÉ` and a decomposed spelling share a key. Unaccented `Cafe` has its own key. The reserved names are Notes, All Notes, Pinned, Journal, Open Tasks and Recently Deleted.
+
+## Saving a document
+
+Create a note with the authenticated user's ID in `user`, an owned `folder`, a rich-text `body` and any ordered `attachments`. The encoded document limit is 102400 bytes. Whitespace alone is rejected. An owned attachment can make an otherwise empty document valid. Up to 20 files can be attached, and every embedded private image must appear in that list. A saved reference from either a note or an entry protects the file from direct deletion and hourly orphan cleanup.
+
+Only the owner can list or read the note. Its owner and folder are fixed in R1. The server keeps `deleted` empty and rejects an ordinary request to delete the note permanently. On each save it derives the following fields from the full document.
+
+| Field | Stored value |
+| --- | --- |
+| `title` | First logical line, capped at 160 Unicode code points. A blank first line yields **Untitled note**, even when later lines have text. |
+| `text` | Full original visible text, including mention labels. Adjacent styled runs join without spaces. Hard breaks and block boundaries separate lines. |
+| `search_key` | Searchable text transformed with the folder comparison rule, including the fallback title when used. Owners can filter on it. PocketBase omits this internal field from returned notes, including expanded records and realtime events. |
+| `open_tasks`, `tasks` | Exact unchecked count, plus the first 100 unchecked items in document order. Each item has a child-index path and a label of up to 200 characters. |
+
+New notes start at revision 1. Send the current numeric `revision` with each update. PocketBase checks it and saves the next revision in a single write transaction. If two edits use the same revision, one succeeds and the other receives HTTP 409. A missing or stale revision also returns 409 and preserves the stored document.
+
+## Recovering an uncertain save in R3
+
+The API accepts a client-selected ID of exactly 15 lowercase ASCII letters or digits. Creating the same ID again returns HTTP 400 (`validation_not_unique`) and preserves the first record. The planned R3 client uses this contract when a save response is lost.
+
+1. Keep the submitted snapshot, stable ID and expected resulting revision separate from edits made while the request was in flight.
+2. Fetch the ID as the same owner. Compare the ID, owner, folder, ordered attachments, full body and resulting revision. An exact match acknowledges the submitted snapshot. Send queued edits against the confirmed revision.
+3. If the owned record differs, preserve the draft for conflict handling. If an ambiguous create has no visible record, retry with the same ID. A confirmed collision with no matching readable record requires an explicit failure. Neither HTTP 400 nor 409 alone acknowledges a save.

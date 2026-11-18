@@ -9,6 +9,8 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Added
 
+- The [private folders and notes API](docs/features/notes.md) gives each new account a permanent Notes folder and supports revision-checked saves. Attachments stay protected while either a note or an entry references them. The current notebook still uses entries.
+
 - Run the API or Chromium/WebKit suite in a disposable Docker stack with
   `make test-api-contained` or `make test-browser-contained`.
 
