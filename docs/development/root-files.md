@@ -86,7 +86,7 @@ Template for `.env`, including backend credentials, local URLs, seed users, Rust
 
 ### `Makefile`
 
-Task runner tying everything together. `make help` opens with which entry point to use: `make app` (whole app in Docker, seeded, no Bun), `make start` (backend up + seed + dev server) or `make start-full` (adds Mailpit and RustFS). Also `up`/`up-full`/`down`/`logs`/`health`/`seed`/`codegen`/`dev-solo`, `smoke`/`e2e`/`load-test`, the `stack-*` targets, and `railway-*` operator targets split into read-only checks and mutating ones that refuse to run without `CONFIRM=<deployment hostname>`. Loads `.env` automatically and runs the compose files in `deploy/local/` with the repo root as project directory.
+Task runner tying everything together. `make help` opens with which entry point to use: `make app` (whole app in Docker, seeded, no Bun), `make start` (backend up + seed + dev server) or `make start-full` (adds Mailpit and RustFS). Also `up`/`up-full`/`down`/`logs`/`health`/`seed`/`codegen`/`dev-solo`, `smoke`/`e2e`/`load-test`, the `stack-*` targets, and `railway-*` operator targets split into read-only checks and mutating ones that refuse to run without `CONFIRM=<deployment hostname>`. The `test-api-contained` and `test-browser-contained` targets create disposable, port-free stacks for [verification](../testing/verification.md#disposable-docker-gates). Loads `.env` automatically and runs the compose files in `deploy/local/` with the repo root as project directory.
 
 ### `.gitignore`
 

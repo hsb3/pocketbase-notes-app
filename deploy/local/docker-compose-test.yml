@@ -1,0 +1,67 @@
+# Overlay for docker-compose-stack.yml. The runner supplies fresh credentials and project name.
+networks:
+  default:
+    internal: true
+  downloads: {}
+
+volumes:
+  workspace: {}
+  server: {}
+
+x-test-limits: &test-limits
+  cpus: 2
+  mem_limit: 4g
+  pids_limit: 512
+
+services:
+  prepare:
+    <<: *test-limits
+    image: ${TEST_BUN_IMAGE:?}
+    networks: [downloads]
+    working_dir: /app
+    volumes:
+      - workspace:/app
+      - server:/pb
+
+  pocketbase:
+    image: ${TEST_BROWSER_IMAGE:?}
+    build: !reset null
+    ports: !reset []
+    working_dir: /pb
+    volumes:
+      - server:/pb
+
+  mailpit:
+    ports: !reset []
+
+  rustfs:
+    ports: !reset []
+
+  setup:
+    <<: *test-limits
+    image: ${TEST_BUN_IMAGE:?}
+    build: !reset null
+    network_mode: container:${COMPOSE_PROJECT_NAME}-pocketbase
+    working_dir: /app
+    environment:
+      DEV_APP_URL: http://127.0.0.1:8080
+      MAILPIT_URL: http://mailpit:8025
+      CONTAINED_TEST: "1"
+    volumes:
+      - workspace:/app
+
+  browser:
+    <<: *test-limits
+    image: ${TEST_BROWSER_IMAGE:?}
+    init: true
+    network_mode: container:${COMPOSE_PROJECT_NAME}-pocketbase
+    working_dir: /app
+    volumes:
+      - workspace:/app
+    environment:
+      CI: "true"
+      TEST_APP_URL: http://127.0.0.1:8080
+      VITE_PB_URL: http://127.0.0.1:8080
+      MAILPIT_URL: http://mailpit:8025
+      PB_EMAIL: ${PB_EMAIL:?}
+      PB_PASSWORD: ${PB_PASSWORD:?}

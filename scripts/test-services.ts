@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import PocketBase from "pocketbase";
+import { assertStorageObject } from "./test-storage-object";
 
 const url = process.env.VITE_PB_URL;
 assert(
@@ -86,30 +87,8 @@ try {
   assert(download.ok, "PocketBase file download must succeed");
   assert.deepEqual(Buffer.from(await download.arrayBuffer()), png);
   const objectKey = `${updated.collectionId}/${updated.id}/${updated.avatar}`;
-  const probe = Bun.spawnSync(
-    [
-      "docker",
-      "compose",
-      "--project-directory",
-      ".",
-      "-f",
-      process.env.COMPOSE_FILE || "deploy/local/docker-compose-full.yml",
-      "run",
-      "--rm",
-      "--no-deps",
-      "--entrypoint",
-      "/bin/sh",
-      "storage-init",
-      "-ec",
-      'rc alias set local http://rustfs:9000 "$RUSTFS_ACCESS_KEY" "$RUSTFS_SECRET_KEY" >/dev/null; rc object stat "local/$RUSTFS_BUCKET/$1" >/dev/null',
-      "probe",
-      objectKey,
-    ],
-    { stdout: "pipe", stderr: "pipe" },
-  );
-  assert.equal(
-    probe.exitCode,
-    0,
+  await assertStorageObject(
+    objectKey,
     "Uploaded object must exist in RustFS, not just local PocketBase storage",
   );
   console.log(
