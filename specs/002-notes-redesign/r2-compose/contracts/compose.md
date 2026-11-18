@@ -1,0 +1,19 @@
+# Library routes and record traffic
+
+| Authenticated URL | Display and navigation |
+|---|---|
+| `/folders` | Folders, New folder and Account. A created folder opens its list. Validation errors leave the dialog open, preserve typed text and associate the message with the input. Cancel restores focus to the opener. |
+| `/folders/all` or `/folders/$folderId?page=N` | List of active notes in All Notes or the selected real folder. The reserved literal `all` cannot be a 15-character record ID. Page defaults to 1. Authenticated `/` and `/dashboard` redirect to `/folders/all`. |
+| `/notes/$noteId` | Stable address for both Compose and saved detail. The originating list and page live in router history state. Without history, Back goes to the owned note's real folder. During same-session Compose the draft already exists locally, so do not GET the nonexistent record. Returning from a selected note restores page, scroll offset and focus in the originating list. A direct missing, deleted or inaccessible record gives the same unavailable view. |
+| `/account` | Existing account security screen. Place a labeled Account link and the existing user menu at the foot of Folders. Preserve sign-out, themes and capability-gated admin access. |
+
+At 390px use a full-width pushed region and safe-area bottom-right Compose button. At 768px and up, use a grid with independently scrolling panes, shrinking columns and wrapping document text. Round 1 widths are about 170/220px for folders/list at 810 and 255/340px at 1440. Keep the rest for the editor. Show a selection prompt in the last pane when empty. Changing width changes CSS visibility without remounting the note. Use Sidebar primitives in the folder pane and a titled shadcn Dialog for creation. Phone Folders is a navigable region, not a desktop-sidebar toggle. Use visible keyboard focus, theme tokens and an announced save status.
+
+| Operation | Wire contract |
+|---|---|
+| Folder create | Standard `folders` records POST with authenticated owner and name. Server derives the comparison key and enforces reserved names and per-owner uniqueness. Select by returned ID. |
+| List | Standard `notes` records GET with `page`, `perPage=20`, `sort=-updated,-id`, `fields=id,folder,title,updated,excerpt`. Build one active predicate (`deleted = ""`) and bind real folder IDs via `pb.filter`. Use R1 owner rules on every read. No full document, full text, internal search key, task projection, per-row detail fetch or file request to render a page. Single-line notes have an empty excerpt. R4 will supply query-relative snippets independently of this fixed list preview. |
+| Open | Make one detail read for the selected note. Include `deleted` for the active check, `id,user,folder,title,body,attachments,revision,updated` for the editor. Discard late responses to a superseded selection or auth identity. Keep the full JSON, including supported rich nodes and private image references. |
+| First valid save | POST `notes` with `id,user,folder,body,attachments`. New drafts use an empty attachment array. The server returns revision 1 and derives title/text. A response with a validation or collision error never counts as an acknowledgement. |
+| Later saves | PATCH the same ID with the last acknowledged numeric `revision` and submitted `body`. Preserve unchanged attachments by omission. Expect revision + 1. No overlapping POST/PATCH for one note, including router Back versus debounce. Update/refetch list summaries on success while keeping newer local editing state intact. |
+| Navigation | Use the router blocker for Back, links and programmatic navigation. Cancel debounce and join any in-flight request. Drain and acknowledge the latest valid generation before releasing the transition. Never send an unchanged snapshot twice. A pristine or new whitespace-only draft leaves immediately. On failure keep the route, text and visible error. R3 extends this with retry, discard and account/session recovery. |
