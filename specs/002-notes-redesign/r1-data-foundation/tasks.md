@@ -3,12 +3,12 @@
 ## Phase 1 — Setup
 
 - [ ] T001 In `deploy/local/docker-compose.yml` and `deploy/local/docker-compose-full.yml`, verify effective Compose config without printing secrets; prepare the disposable environment described in `quickstart.md`. Record inherited CPU, memory, PID limits, deadlines, auto-removal and cleanup. Establish how the old full suite and admin browser will run within these constraints; report any blocked gate.
-- [ ] T002 Baseline the existing `scripts/test-entries.ts`, `scripts/test-attachments.ts` and `tests/e2e/notebook.spec.cjs` on the unchanged stack. Preserve the results and a disposable pre-R1 schema fixture containing synthetic entries for upgrade verification.
+- [ ] T002 Baseline the existing `scripts/test-entries.ts`, `scripts/test-attachments.ts` and `tests/e2e/notebook.spec.cjs` on the unchanged stack. Preserve the results. No upgrade fixture: the owner confirmed no user data and no backward compatibility (2026-11-18).
 
 ## Phase 2 — Foundational tests and schema
 
 - [ ] T003 In `scripts/test-notes.ts` build the local-only A/B/anonymous harness, independent clients with auto-cancellation disabled, unique synthetic records and finally cleanup. Add named positive/negative tests from `contracts/records.md` and `research.md`. Run on the pre-change backend and record red evidence; for hook-specific assertions also capture failures after schema creation but before installing the hook.
-- [ ] T004 Create new admin-generated migrations in `pb/migrations/` for folders and notes with list/view/create/update/delete rules from `contracts/records.md`. Both have IDs of exactly 15 lowercase ASCII letters/digits, immutable required single user and server timestamps. Folders have trimmed name (1–80 Unicode code points), computed name_key unique per owner, boolean is_default and a unique partial index on owner where default is true. Do not edit existing migrations.
+- [ ] T004 Hand-write new migrations in `pb/migrations/` for folders and notes with list/view/create/update/delete rules from `contracts/records.md`. Both have IDs of exactly 15 lowercase ASCII letters/digits, immutable required single user and server timestamps. Folders have trimmed name (1–80 Unicode code points), computed name_key unique per owner, boolean is_default and a unique partial index on owner where default is true. Do not edit existing migrations.
 - [ ] T005 Complete the new notes schema in `pb/migrations/`: single non-cascading, schema-optional folder; required full body (maximum encoded size 102400 bytes); 0–20 unique attachments; positive integral revision starting at 1; empty protected deleted date; title up to 160 Unicode code points; original text and normalized search_key sized for all valid documents; exact nonnegative open_tasks and tasks JSON (first 100, path and label up to 200 characters). No pinned or journal_date columns.
 
 ## Phase 3 — US1 (P1): store private notes safely
@@ -26,7 +26,7 @@
 
 - [ ] T012 Use `scripts/codegen.ts` via the codegen workflow against the seeded R1 database; commit generated `src/services/pocketbase-types.ts`. Check a second generation has no diff. In `package.json` include `scripts/test-notes.ts` in test:api, preserving every existing command; update `docs/development/root-files.md`.
 - [ ] T013 Document R1 backend behavior in `docs/features/notes.md`, add its link in `.vitepress/config.ts`, update `docs/testing/verification.md` and `CHANGELOG.md`. Distinguish live backend capabilities from the existing entries UI.
-- [ ] T014 Follow `quickstart.md` on fresh and upgraded disposable stacks, verify the synthetic pre-R1 entry still opens. Run lint, knip, scripts type-check, build, docs build, context check and existing live API/browser regressions plus R1 tests. Retain red/green exits and inspect cleanup. Do not mark acceptance with a blocked gate. Prepare the R1 evidence for the single eventual increment PR.
+- [ ] T014 Follow `quickstart.md` on a fresh disposable stack. Run lint, knip, scripts type-check, build, docs build, context check and existing live API/browser regressions plus R1 tests. Retain red/green exits and inspect cleanup. Do not mark acceptance with a blocked gate. Prepare the R1 evidence for the single eventual increment PR.
 
 ## Dependencies, parallel opportunities and delivery
 
