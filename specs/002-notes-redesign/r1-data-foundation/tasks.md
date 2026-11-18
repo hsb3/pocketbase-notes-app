@@ -2,8 +2,10 @@
 
 ## Phase 1 — Setup
 
-- [ ] T001 In `deploy/local/docker-compose.yml` and `deploy/local/docker-compose-full.yml`, verify effective Compose config without printing secrets; prepare the disposable environment described in `quickstart.md`. Record inherited CPU, memory, PID limits, deadlines, auto-removal and cleanup. Establish how the old full suite and admin browser will run within these constraints; report any blocked gate.
-- [ ] T002 Baseline the existing `scripts/test-entries.ts`, `scripts/test-attachments.ts` and `tests/e2e/notebook.spec.cjs` on the unchanged stack. Preserve the results. No upgrade fixture: the owner confirmed no user data and no backward compatibility (2026-11-18).
+- [x] T001 In `deploy/local/docker-compose.yml` and `deploy/local/docker-compose-full.yml`, verify effective Compose config without printing secrets; prepare the disposable environment described in `quickstart.md`. Record inherited CPU, memory, PID limits, deadlines, auto-removal and cleanup. Establish how the old full suite and admin browser will run within these constraints; report any blocked gate.
+- [x] T002 Baseline the existing `scripts/test-entries.ts`, `scripts/test-attachments.ts` and `tests/e2e/notebook.spec.cjs` on the unchanged stack. Preserve the results. No upgrade fixture: the owner confirmed no user data and no backward compatibility (2026-11-18).
+
+_T001–T002 were satisfied by the contained runner (#36, PR #49) and the W2 pre-change baseline run (all six existing suites green on the unchanged schema)._
 
 ## Phase 2 — Foundational tests and schema
 
