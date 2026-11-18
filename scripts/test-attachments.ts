@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import PocketBase from "pocketbase";
+import { assertStorageObject } from "./test-storage-object";
 import { Database } from "bun:sqlite";
 import { createRequire } from "node:module";
 const cleanupSQL = createRequire(import.meta.url)(
@@ -60,30 +61,8 @@ try {
   upload.set("name", "photo.png");
   upload.set("file", new File([png], "photo.png", { type: "image/png" }));
   const asset = await alice.collection("attachments").create(upload);
-  const storageProbe = Bun.spawnSync(
-    [
-      "docker",
-      "compose",
-      "--project-directory",
-      ".",
-      "-f",
-      process.env.COMPOSE_FILE || "deploy/local/docker-compose-full.yml",
-      "run",
-      "--rm",
-      "--no-deps",
-      "--entrypoint",
-      "/bin/sh",
-      "storage-init",
-      "-ec",
-      'rc alias set local http://rustfs:9000 "$RUSTFS_ACCESS_KEY" "$RUSTFS_SECRET_KEY" >/dev/null; rc object stat "local/$RUSTFS_BUCKET/$1" >/dev/null',
-      "probe",
-      `${asset.collectionId}/${asset.id}/${asset.file}`,
-    ],
-    { stdout: "pipe", stderr: "pipe" },
-  );
-  assert.equal(
-    storageProbe.exitCode,
-    0,
+  await assertStorageObject(
+    `${asset.collectionId}/${asset.id}/${asset.file}`,
     "Attachment object must exist in RustFS",
   );
   const baseURL = alice.files.getURL(asset, asset.file);

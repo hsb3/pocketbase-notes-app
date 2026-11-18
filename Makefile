@@ -32,7 +32,7 @@ RAILWAY_RUN  = RAILWAY_ENV=$(RAILWAY_ENV) ./deploy/railway/run.sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help env app start start-full check-services smoke e2e load-test up up-full dev-cert down down-full logs health seed dev dev-solo install codegen lint build clean \
+.PHONY: help env app start start-full check-services smoke e2e test-api-contained test-browser-contained load-test up up-full dev-cert down down-full logs health seed dev dev-solo install codegen lint build clean \
 	stack-build stack-up stack-seed stack-check stack-down stack-destroy stack-logs \
 	railway-check-backups railway-verify-restore railway-configure railway-backup \
 	railway-verify-app railway-verify-signup railway-verify-email
@@ -174,6 +174,12 @@ smoke: ## fast live service + browser smoke checks (backend must be running)
 
 e2e: ## API + desktop/mobile browser suite (backend must be running)
 	bun run test:e2e
+
+test-api-contained: ## run the API suite in a fresh, capped Docker stack
+	scripts/run-contained.sh api
+
+test-browser-contained: ## run Chromium and WebKit in a fresh, capped Docker stack
+	scripts/run-contained.sh browser
 
 load-test: ## measure one instance under load, entirely in Docker (about 9 minutes)
 	tests/load/run.sh

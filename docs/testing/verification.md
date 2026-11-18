@@ -1,8 +1,31 @@
 # Testing PocketBase Notes
 
+## Disposable Docker gates
+
+```sh
+make test-api-contained
+make test-browser-contained
+```
+
+Run either command from the repository root with Docker Compose v2.24.4 or later,
+Bash, Python 3, OpenSSL and GNU `timeout` available. Each run generates its own
+credentials and Compose project. A capped preparation container downloads the
+checksum-pinned PocketBase binary, installs the frozen Bun lockfile and builds the
+frontend. It exits before the tests begin.
+
+The API target runs `test:api` against fresh PocketBase, Mailpit and RustFS data.
+The browser target runs the default Playwright suite against the built app using
+the Chromium and WebKit versions from the locked Playwright image. It keeps the
+suite’s desktop and mobile viewports and its default signup-disabled configuration.
+The runners reach PocketBase over shared loopback on an internal network. All
+containers have CPU, memory and PID limits, publish zero ports and auto-remove.
+Teardown starts by minute 29 and checks the project label for leftover containers,
+networks and volumes. A failed browser suite saves its report and traces under
+`test-results/<project>/` before teardown.
+
 ## Setup
 
-Requirements: Bun, Node.js 22 or later, Docker Compose, and `.env` configured from
+For an existing development stack, the requirements are Bun, Node.js 22 or later, Docker Compose, and `.env` configured from
 `.env.example` with matching backend URL/port and local superuser credentials.
 
 ```sh
