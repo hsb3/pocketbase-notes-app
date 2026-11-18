@@ -9,6 +9,9 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Added
 
+- Run the API or Chromium/WebKit suite in a disposable Docker stack with
+  `make test-api-contained` or `make test-browser-contained`.
+
 - Spec Kit drives feature work: specs live under `specs/`, the `speckit-*` skills are
   installed for Claude Code and Codex, and GitHub issues stay the inbox ([#33] is the
   first backlog item).
