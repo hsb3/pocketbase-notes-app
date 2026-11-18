@@ -259,6 +259,367 @@ async function folderNames(a: Account, b: Account) {
   );
 }
 
+const textNode = (text: string) => ({ type: "text", text });
+const paragraph = (text: string) => ({
+  type: "paragraph",
+  content: text ? [textNode(text)] : [],
+});
+const doc = (...content: unknown[]) => ({ type: "doc", content });
+const newId = () => crypto.randomUUID().replaceAll("-", "").slice(0, 15);
+async function draft(a: Account) {
+  return {
+    id: newId(),
+    user: a.id,
+    folder: (await defaultFolder(a.id)).id,
+    body: doc(paragraph("First draft")),
+    attachments: [] as string[],
+  };
+}
+
+async function noteAccess(a: Account, b: Account) {
+  const notes = a.pb.collection("notes");
+  const data = await draft(a);
+  const note = await notes.create({ ...data, revision: 1 });
+  const filter = a.pb.filter('id = {:id} && deleted = ""', data);
+  assert.equal((await notes.getList(1, 1, { filter })).totalItems, 1);
+  assert.equal((await notes.getOne(note.id)).user, a.id);
+  for (const other of [b.pb, anonymous]) {
+    const foreign = other.collection("notes");
+    assert.equal((await foreign.getList(1, 1, { filter })).totalItems, 0);
+    await denied(foreign.getOne(note.id), 404);
+    await denied(foreign.create({ ...data, id: newId(), revision: 1 }), 400);
+    await denied(
+      foreign.update(note.id, { revision: 1, body: doc(paragraph("Edit")) }),
+      404,
+    );
+    await denied(foreign.delete(note.id), 404);
+  }
+  const otherFolder = await a.pb
+    .collection("folders")
+    .create({ user: a.id, name: "Second folder" });
+  for (const change of [
+    { user: b.id },
+    { "user+": b.id },
+    { folder: otherFolder.id },
+    { "folder+": otherFolder.id },
+    { deleted: "2026-01-01 00:00:00.000Z" },
+  ])
+    await denied(notes.update(note.id, { revision: 1, ...change }), 404);
+  const saved = await notes.update(note.id, {
+    revision: 1,
+    body: doc(paragraph("Owner edit")),
+  });
+  await denied(notes.delete(note.id), 400);
+  assert.deepEqual(await notes.getOne(note.id), saved);
+  assert.deepEqual(
+    [saved.user, saved.folder, saved.deleted, saved.revision],
+    [a.id, data.folder, "", 2],
+  );
+}
+
+async function noteFolder(a: Account, b: Account) {
+  const data = { ...(await draft(a)), revision: 1 };
+  const notes = a.pb.collection("notes");
+  for (const folder of ["", newId(), (await defaultFolder(b.id)).id]) {
+    await denied(notes.create({ ...data, folder }), 400);
+  }
+  await denied(
+    notes.create({ ...data, deleted: "2026-01-01 00:00:00.000Z" }),
+    400,
+  );
+  await denied(notes.getOne(data.id), 404);
+}
+
+async function noteSearch(a: Account, b: Account) {
+  const notes = a.pb.collection("notes");
+  const body = doc(
+    {
+      type: "heading",
+      attrs: { level: 2 },
+      content: [
+        textNode("Ма"),
+        { ...textNode("як ca"), marks: [{ type: "bold" }] },
+        {
+          ...textNode("fé"),
+          marks: [
+            { type: "link", attrs: { href: "https://example.test/invisible" } },
+          ],
+        },
+        { type: "hardBreak" },
+        { type: "mention", attrs: { id: "internal", value: "Straße" } },
+      ],
+    },
+    {
+      type: "blockquote",
+      content: [paragraph("line\nend"), paragraph("last")],
+    },
+  );
+  const note = await notes.create({
+    ...(await draft(a)),
+    revision: 12,
+    body,
+    title: "fake",
+    text: "fake",
+    search_key: "fake",
+    open_tasks: 9,
+    tasks: ["fake"],
+  });
+  const saved = await notes.getOne(note.id);
+  assert.deepEqual(
+    [
+      saved.title,
+      saved.text,
+      saved.search_key,
+      saved.revision,
+      saved.open_tasks,
+      saved.tasks,
+    ],
+    [
+      "Маяк café",
+      "Маяк café\nStraße\nline\nend\nlast",
+      "МАЯК CAFÉ\nSTRASSE\nLINE\nEND\nLAST",
+      1,
+      0,
+      [],
+    ],
+  );
+  for (const [term, matches] of [
+    ["маЯК", true],
+    ["CaFe\u0301", true],
+    ["sTrAsSe", true],
+    ["Cafe", false],
+    ["invisible", false],
+    ["heading", false],
+    ["internal", false],
+  ] as const) {
+    const filter = a.pb.filter(
+      'deleted = "" && id = {:id} && search_key ~ {:key}',
+      {
+        id: note.id,
+        key: term.normalize("NFC").toUpperCase().normalize("NFC"),
+      },
+    );
+    const list = await notes.getList(1, 1, { filter });
+    assert.deepEqual(
+      list.items.map((r) => r.id),
+      matches ? [note.id] : [],
+      term,
+    );
+    if (matches)
+      assert.equal(Object.hasOwn(list.items[0], "search_key"), false);
+    assert.equal(
+      (await b.pb.collection("notes").getList(1, 1, { filter })).totalItems,
+      0,
+    );
+  }
+}
+
+async function noteLines(a: Account) {
+  const data = await draft(a);
+  const notes = a.pb.collection("notes");
+  const long = "🥕".repeat(164);
+  for (const [body, text, title] of [
+    [doc(paragraph(""), paragraph("second")), "\nsecond", "Untitled note"],
+    [doc(paragraph("   \r\nsecond")), "   \r\nsecond", "Untitled note"],
+    [doc(paragraph("one\rtwo")), "one\rtwo", "one"],
+    [doc(paragraph(long)), long, "🥕".repeat(160)],
+  ] as const) {
+    const note = await notes.create({
+      ...data,
+      id: newId(),
+      revision: 1,
+      body,
+    });
+    assert.deepEqual([note.body, note.text, note.title], [body, text, title]);
+    if (title === "Untitled note")
+      assert.ok(note.search_key.includes("UNTITLED NOTE"));
+  }
+}
+
+async function noteTasks(a: Account) {
+  const data = await draft(a);
+  const notes = a.pb.collection("notes");
+  const note = await notes.create({ ...data, revision: 1 });
+  const list = (label: string, checked = false) => ({
+    type: "list",
+    attrs: { kind: "task", checked },
+    content: [paragraph(label)],
+  });
+  const items = Array.from({ length: 101 }, (_, i) =>
+    list(i === 0 ? "x".repeat(210) : `Task ${i}`),
+  );
+  const body = doc(list("Done", true), { type: "blockquote", content: items });
+  const saved = await notes.update(note.id, {
+    revision: 1,
+    body,
+    title: "forged",
+    search_key: "forged",
+    text: "forged",
+    open_tasks: 42,
+    tasks: ["forged"],
+  });
+  assert.equal(saved.open_tasks, 101);
+  assert.deepEqual(
+    saved.tasks,
+    items.slice(0, 100).map((_, i) => ({
+      path: [1, i],
+      text: i === 0 ? "x".repeat(200) : `Task ${i}`,
+    })),
+  );
+  assert.equal(saved.title, "Done");
+  assert.ok(saved.text.endsWith("Task 100"));
+  assert.ok(saved.search_key.endsWith("TASK 100"));
+}
+
+async function noteBody(a: Account) {
+  const notes = a.pb.collection("notes");
+  const data = await draft(a);
+  // The JSON field limit counts UTF-8 bytes, including document structure.
+  const overhead = Buffer.byteLength(JSON.stringify(doc(paragraph("x")))) - 1;
+  const room = 102400 - overhead;
+  const boundary = "ß".repeat(Math.floor(room / 2)) + "x".repeat(room % 2);
+  const body = doc(paragraph(boundary));
+  assert.equal(Buffer.byteLength(JSON.stringify(body)), 102400);
+  const saved = await notes.create({ ...data, revision: 1, body });
+  assert.ok(
+    saved.search_key === boundary.toUpperCase(),
+    "Full boundary text must be searchable",
+  );
+  for (const invalid of [
+    doc(paragraph(" \t")),
+    doc({ type: "unknown" }),
+    doc(paragraph(boundary + "x")),
+  ]) {
+    await denied(notes.update(saved.id, { body: invalid, revision: 1 }), 400);
+  }
+  assert.deepEqual(await notes.getOne(saved.id), saved);
+}
+
+async function noteFiles(a: Account, b: Account) {
+  const data = await draft(a);
+  const notes = a.pb.collection("notes");
+  const upload = (owner: Account) =>
+    owner.pb.collection("attachments").create({
+      user: owner.id,
+      name: "fixture.txt",
+      file: new File(["fixture"], "fixture.txt", { type: "text/plain" }),
+    });
+  const own = await upload(a);
+  const foreign = await upload(b);
+  const saved = await notes.create({
+    ...data,
+    revision: 1,
+    body: doc(paragraph("")),
+    attachments: [own.id],
+  });
+  assert.deepEqual(
+    [saved.attachments, saved.text, saved.title, saved.search_key],
+    [[own.id], "", "Untitled note", "UNTITLED NOTE"],
+  );
+  const body = doc({ type: "image", attrs: { src: `attachment:${own.id}` } });
+  const image = await notes.update(data.id, { revision: 1, body });
+  assert.deepEqual(image.body, body);
+  for (const attachments of [[], [foreign.id], [newId()]]) {
+    await denied(notes.update(data.id, { revision: 2, attachments }), 400);
+  }
+  await denied(
+    notes.update(data.id, {
+      revision: 2,
+      body: data.body,
+      attachments: [foreign.id],
+    }),
+    400,
+  );
+  assert.deepEqual(await notes.getOne(data.id), image);
+}
+
+function raceWinner<T>(results: PromiseSettledResult<T>[], status: number) {
+  const winners = results.filter((r) => r.status === "fulfilled");
+  const errors = results.filter((r) => r.status === "rejected");
+  assert.equal(winners.length, 1);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].reason instanceof ClientResponseError);
+  assert.equal(errors[0].reason.status, status);
+  return winners[0].value;
+}
+
+async function noteIdentity(a: Account, b: Account) {
+  const notes = a.pb.collection("notes");
+  const submitted = await draft(a);
+  await notes.create(submitted); // Discard the acknowledgement, as if the response was lost.
+  await assert.rejects(notes.create(submitted), (e) => {
+    assert.ok(e instanceof ClientResponseError);
+    assert.equal(e.status, 400);
+    assert.ok(e.response.data.id.code);
+    console.log("Duplicate note ID", e.status, e.response.data.id);
+    return true;
+  });
+  const snapshot = async () => {
+    const { id, user, folder, body, attachments, revision } =
+      await notes.getOne(submitted.id);
+    return { id, user, folder, body, attachments, revision };
+  };
+  assert.deepEqual(await snapshot(), { ...submitted, revision: 1 });
+  const next = { ...submitted, body: doc(paragraph("Queued edit")) };
+  // At the same revision a different submitted body is a conflict, even for the owner.
+  assert.notDeepEqual(await snapshot(), { ...next, revision: 1 });
+  await notes.update(next.id, { body: next.body, revision: 1 });
+  assert.deepEqual(await snapshot(), { ...next, revision: 2 });
+  assert.notDeepEqual(await snapshot(), { ...submitted, revision: 1 });
+  const raced = await draft(a);
+  const bodies = [doc(paragraph("A")), doc(paragraph("B"))];
+  const winner = raceWinner(
+    await Promise.allSettled(
+      bodies.map((body) => notes.create({ ...raced, body })),
+    ),
+    400,
+  );
+  const stored = await notes.getOne(raced.id);
+  assert.deepEqual(
+    [stored.body, stored.revision, stored.id],
+    [winner.body, 1, raced.id],
+  );
+  for (const item of [submitted, raced]) {
+    const filter = a.pb.filter("id = {:id}", item);
+    assert.equal((await notes.getList(1, 2, { filter })).totalItems, 1);
+  }
+  await denied(
+    b.pb.collection("notes").create({ ...(await draft(b)), id: submitted.id }),
+    400,
+  );
+  await denied(b.pb.collection("notes").getOne(submitted.id), 404);
+  assert.deepEqual(await snapshot(), { ...next, revision: 2 });
+  for (const id of ["a".repeat(14), "a".repeat(16), "A".repeat(15)]) {
+    await denied(notes.create({ ...submitted, id }), 400);
+  }
+}
+
+async function noteRevisions(a: Account) {
+  const data = await draft(a);
+  const notes = a.pb.collection("notes");
+  await notes.create({ ...data, revision: 1 });
+  const bodies = [doc(paragraph("Left")), doc(paragraph("Right"))];
+  const winner = raceWinner(
+    await Promise.allSettled(
+      bodies.map((body) => notes.update(data.id, { body, revision: 1 })),
+    ),
+    409,
+  );
+  assert.equal(winner.revision, 2);
+  assert.ok(["Left", "Right"].includes(winner.title));
+  assert.deepEqual(winner.body, doc(paragraph(winner.title)));
+  for (const revision of [1, undefined, "2", 2.5, 3]) {
+    await denied(
+      notes.update(data.id, {
+        revision,
+        body: doc(paragraph("Rejected edit")),
+      }),
+      409,
+    );
+  }
+  assert.deepEqual(await notes.getOne(data.id), winner);
+}
+
 try {
   const a = await account();
   const b = await account();
@@ -268,6 +629,15 @@ try {
     ["folder access", () => folderAccess(a, b)],
     ["nonempty folder", () => nonemptyFolder(a)],
     ["folder names", () => folderNames(a, b)],
+    ["note access", () => noteAccess(a, b)],
+    ["note folder", () => noteFolder(a, b)],
+    ["note search", () => noteSearch(a, b)],
+    ["note lines", () => noteLines(a)],
+    ["note tasks", () => noteTasks(a)],
+    ["note body", () => noteBody(a)],
+    ["note files", () => noteFiles(a, b)],
+    ["note identity", () => noteIdentity(a, b)],
+    ["note revisions", () => noteRevisions(a)],
     ["default provisioning", () => provisioning(a)],
     ...(process.env.CONTAINED_TEST === "1"
       ? [["default rollback", rollback] as const]
@@ -275,6 +645,7 @@ try {
   ] as const) {
     try {
       await run();
+      console.log(`PASS ${label}`);
     } catch (error) {
       failures.push(label);
       console.error(
@@ -286,6 +657,16 @@ try {
     }
   }
   assert.deepEqual(failures, []);
+
+  const note = await a.pb.collection("notes").getFirstListItem('deleted = ""');
+  await users.delete(a.id);
+  accounts.splice(accounts.indexOf(a.id), 1);
+  // Superuser read-back distinguishes a real cascade from an invisible orphan.
+  await denied(admin.collection("notes").getOne(note.id), 404);
+  await denied(admin.collection("folders").getOne(note.folder), 404);
+  console.log(
+    "PASS account deletion cascades to owned note and folder (204, then 404 as superuser)",
+  );
 } finally {
   for (const id of accounts) await users.delete(id);
 }

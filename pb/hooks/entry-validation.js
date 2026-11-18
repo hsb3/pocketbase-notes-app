@@ -90,4 +90,12 @@ function tasks(doc) {
   visit(doc, []);
   return { count, open };
 }
-module.exports = { body, date, tasks };
+// Called only after body() has validated the node types and nesting.
+function visibleText(node) {
+  if (node.type === "text") return node.text;
+  if (node.type === "mention") return node.attrs.value;
+  if (node.type === "hardBreak") return "\n";
+  const inlineContent = ["paragraph", "heading", "codeBlock", "mathBlock", "mathInline"].includes(node.type);
+  return (node.content || []).map(visibleText).join(inlineContent ? "" : "\n");
+}
+module.exports = { body, date, tasks, visibleText };
