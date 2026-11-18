@@ -330,6 +330,14 @@ async function noteFolder(a: Account, b: Account) {
   await denied(notes.getOne(data.id), 404);
 }
 
+async function assertStoredSearchKey(id: string, key: string) {
+  assert.match(id, /^[a-z0-9]{15}$/);
+  const result = await admin.sql.run(
+    `SELECT search_key FROM notes WHERE id = '${id}'`,
+  );
+  assert.deepEqual(result.rows, [[key]]);
+}
+
 async function noteSearch(a: Account, b: Account) {
   const notes = a.pb.collection("notes");
   const body = doc(
@@ -365,23 +373,24 @@ async function noteSearch(a: Account, b: Account) {
     tasks: ["fake"],
   });
   const saved = await notes.getOne(note.id);
+  const folder = await a.pb.collection("folders").getOne(note.folder, {
+    expand: "notes_via_folder",
+  });
+  const expanded = folder.expand?.notes_via_folder.find(
+    (item: { id: string }) => item.id === note.id,
+  );
+  assert.ok(expanded, "The owner must see the saved note in its folder");
   assert.deepEqual(
-    [
-      saved.title,
-      saved.text,
-      saved.search_key,
-      saved.revision,
-      saved.open_tasks,
-      saved.tasks,
-    ],
-    [
-      "Маяк café",
-      "Маяк café\nStraße\nline\nend\nlast",
-      "МАЯК CAFÉ\nSTRASSE\nLINE\nEND\nLAST",
-      1,
-      0,
-      [],
-    ],
+    [note, saved, expanded].map((record) =>
+      Object.hasOwn(record, "search_key"),
+    ),
+    [false, false, false],
+    "Create, detail and expanded notes must omit the search key",
+  );
+  await assertStoredSearchKey(note.id, "МАЯК CAFÉ\nSTRASSE\nLINE\nEND\nLAST");
+  assert.deepEqual(
+    [saved.title, saved.text, saved.revision, saved.open_tasks, saved.tasks],
+    ["Маяк café", "Маяк café\nStraße\nline\nend\nlast", 1, 0, []],
   );
   for (const [term, matches] of [
     ["маЯК", true],
@@ -432,7 +441,10 @@ async function noteLines(a: Account) {
     });
     assert.deepEqual([note.body, note.text, note.title], [body, text, title]);
     if (title === "Untitled note")
-      assert.ok(note.search_key.includes("UNTITLED NOTE"));
+      await assertStoredSearchKey(
+        note.id,
+        `UNTITLED NOTE\n${text.toUpperCase()}`,
+      );
   }
 }
 
@@ -468,7 +480,8 @@ async function noteTasks(a: Account) {
   );
   assert.equal(saved.title, "Done");
   assert.ok(saved.text.endsWith("Task 100"));
-  assert.ok(saved.search_key.endsWith("TASK 100"));
+  await assertStoredSearchKey(saved.id, saved.text.toUpperCase());
+  assert.equal(Object.hasOwn(saved, "search_key"), false);
 }
 
 async function noteBody(a: Account) {
@@ -481,10 +494,7 @@ async function noteBody(a: Account) {
   const body = doc(paragraph(boundary));
   assert.equal(Buffer.byteLength(JSON.stringify(body)), 102400);
   const saved = await notes.create({ ...data, revision: 1, body });
-  assert.ok(
-    saved.search_key === boundary.toUpperCase(),
-    "Full boundary text must be searchable",
-  );
+  await assertStoredSearchKey(saved.id, boundary.toUpperCase());
   for (const invalid of [
     doc(paragraph(" \t")),
     doc({ type: "unknown" }),
@@ -513,9 +523,10 @@ async function noteFiles(a: Account, b: Account) {
     attachments: [own.id],
   });
   assert.deepEqual(
-    [saved.attachments, saved.text, saved.title, saved.search_key],
-    [[own.id], "", "Untitled note", "UNTITLED NOTE"],
+    [saved.attachments, saved.text, saved.title],
+    [[own.id], "", "Untitled note"],
   );
+  await assertStoredSearchKey(saved.id, "UNTITLED NOTE");
   const body = doc({ type: "image", attrs: { src: `attachment:${own.id}` } });
   const image = await notes.update(data.id, { revision: 1, body });
   assert.deepEqual(image.body, body);

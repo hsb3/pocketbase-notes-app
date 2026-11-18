@@ -77,7 +77,7 @@ onRecordDeleteRequest((e) => {
   e.next();
 }, "notes");
 
-onRecordsListRequest((e) => {
-  for (const note of e.records) note.hide("search_key");
+onRecordEnrich((e) => {
+  e.record.hide("search_key");
   e.next();
 }, "notes");

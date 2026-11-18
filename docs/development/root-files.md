@@ -8,6 +8,8 @@ What each file at the repo root does and why it exists.
 
 Declares dependencies (React 19, TanStack Router, PocketBase SDK, Tailwind) and scripts (`dev`, `build`, `lint`, `knip`, `docs:dev`/`docs:build`, `pb:codegen`, `test:*`). It also carries the app version (`0.1.0`, checked by the release workflow) and the MIT `license` field. Its `trustedDependencies` field whitelists which packages may run postinstall scripts under Bun (`@biomejs/biome`, `esbuild`) — everything else is blocked. Necessary: it is the package manifest; nothing installs or builds without it.
 
+`test:api` includes `scripts/test-notes.ts` alongside the existing suites. It exercises private folders, note projections and revision-checked saves against PocketBase.
+
 ### `bun.lock`
 
 Bun's lockfile pinning the exact resolved version of every dependency. Necessary for reproducible installs — `bun install --frozen-lockfile` in the Dockerfile fails if it drifts from `package.json`.
