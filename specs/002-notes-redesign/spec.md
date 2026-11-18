@@ -119,12 +119,12 @@
 - **SC-003** — In the failed-save, lost acknowledgement, retry-after-further-typing, expiry and two-device conflict scenarios, zero latest drafts are silently lost, zero newer saved versions overwritten and zero duplicate notes created.
 - **SC-004** — With 100 active notes across five folders, a unique body-only term returns the correct note and matching snippet within two seconds on a healthy connection in at least 19 of 20 searches. Another account’s notes and deleted notes yield zero matches.
 - **SC-005** — At 390, 810 and 1440 CSS pixels, the capture-and-find journey completes with zero horizontal page scrolling. Using only a keyboard, a writer can create a folder, compose, search, move, restore focus after dialogs and open Account. Verify the phone bar and reading transition on a physical phone with its software keyboard open and dismissed.
-- **SC-006** — At least four of five first-time participants can complete the Garden → Seed order → desktop body-search journey unaided within two minutes, starting signed in on both devices.
+- **SC-006** — The owner completes the Garden → Seed order → desktop body-search journey unaided within two minutes on a physical phone and a desktop browser, starting signed in on both devices.
 
 ## Assumptions
 
 - **Starting state and delivery.** The app holds no user data. The approved scope requires no backward compatibility or backfill. Responsive web ships first. Future native iPhone and iPad clients should share these folder, note, search and save behaviors. Building those clients is outside this release.
-- **Recovery policy (proposed).** Retain deleted notes for 30 elapsed days from deletion. Permit restore before the deadline and expire at the deadline. Deleted folders themselves are not restored. The default Notes folder receives notes whose original folder is gone.
+- **Recovery policy (owner-confirmed).** Retain deleted notes for 30 elapsed days from deletion. Permit restore before the deadline and expire at the deadline. Deleted folders themselves are not restored. The default Notes folder receives notes whose original folder is gone.
 - **Ordering and defaults (proposed).** Within each pinned or unpinned group, show the most recently edited note first. Compose in a real folder files there. Compose from All Notes files in Notes. Journal dates use the writer’s local calendar.
 - **Dependencies.** Existing account authentication, security settings, supported document formats and file restrictions continue to apply. This feature revises manual saving, title-only search and flat library navigation described in the [previous design](../../docs/design/notes-journal.md). Physical-device and cross-device acceptance is still pending.
 - **Outside scope.** Collaboration or sharing, handwriting, scanning or OCR, attachment-content search, offline synchronization, crash recovery beyond the in-session draft, and locked notes.
