@@ -617,3 +617,53 @@ test("a late first selection cannot replace the second note", async ({
   await expect(page).toHaveURL(new RegExp(`/notes/${second.id}$`));
   await expect(editor(page)).toContainText("Current detail");
 });
+
+test("Back history after abandoning a new draft", async ({ page, session }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, session);
+  await page.getByRole("link", { name: "Folders", exact: true }).click();
+  await page.getByRole("link", { name: "Notes", exact: true }).click();
+  await expect(page).toHaveURL(/\/folders\/[a-z0-9]{15}$/);
+  const origin = page.url();
+  await compose(page);
+  await back(page).click();
+  await expect(page).toHaveURL(origin);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/folders\/?$/);
+});
+
+test("typing while a cold Compose editor warms retains the caret", async ({
+  page,
+  session,
+}) => {
+  let release;
+  const hold = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/assets\/editor-[\w-]+\.js$/, async (route) => {
+    await hold;
+    await route.continue();
+  });
+  await login(page, session);
+  await page.getByRole("button", { name: "Compose", exact: true }).click();
+  await expect(page).toHaveURL(/\/notes\/[a-z0-9]{15}$/);
+  release();
+  await expect(editor(page)).toBeFocused();
+  await page.keyboard.insertText(gardenTitle);
+  await expect(saved(page)).toBeVisible();
+  const beforeCaret = await editor(page).evaluate((el) => {
+    const selection = getSelection();
+    if (!el.contains(selection.anchorNode)) return null;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.setEnd(selection.anchorNode, selection.anchorOffset);
+    return range.toString();
+  });
+  expect(beforeCaret).toBe(gardenTitle);
+  await lines(page, "", gardenBody);
+  await expect(saved(page)).toBeVisible();
+  await expect(editor(page).locator(":scope > p")).toHaveText([
+    gardenTitle,
+    gardenBody,
+  ]);
+});
