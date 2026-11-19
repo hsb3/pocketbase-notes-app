@@ -1,0 +1,43 @@
+# R4 search contract
+
+## Records list
+
+Use the singleton PocketBase JS client. Read `GET /api/collections/notes/records` through `getList(page, 20, options)`. Extract the active predicate from inside `listNotes` in `src/features/notes/data.ts`. Both the ordinary and search paths use this same value. The folder predicate belongs only to the ordinary folder path. The server’s existing notes list rule restricts the authenticated collection to users and the record owner to that authenticated ID.
+
+| Search option | Exact value |
+|---|---|
+| filter | Shared `deleted = ""` followed by ` && ` and `pb.filter("search_key ~ {:pattern}", { pattern })`, with the escaped pattern defined in the [model](../data-model.md). |
+| sort and paging | `-updated,-id`, page size 20, normal PocketBase total counts. Previous/Next page through every match. |
+| fields | `id,folder,title,updated,snippet` |
+| query parameter | `searchTerm` carries the trimmed original query for server-side snippet selection. Use the SDK’s query option. |
+| request | Independent request key (`requestKey: null`), `cache: "no-store"`. No expand, folder restriction, body request, detail fetch or attachment download to display a row. |
+
+Within the existing notes list hook, branch on presence of `searchTerm` in `e.requestInfo().query`. Validate marked requests before enriching their rows. Require the nonempty trimmed single-line term (reject embedded controls including NUL and line breaks), at most 160 code points, page size 20, canonical filter, exact fields and sort above, and no expand or skipped totals. An invalid marked request returns 400. To check the filter reproduce the fixed active predicate and the SDK’s JSON-string quoting of the escaped bound value; test parity on punctuation. Never run a second records query from the hook. Core applies the ordinary list rule and runs the query before the list hook. This validation constrains the search response contract, not the general records API or its database query cost.
+
+For each marked row derive `snippet: {before, match, after}` from the original source selected by the [key and snippet rules](../data-model.md#comparison-key-on-every-validated-save). The comparison key uses LF for every NUL after title-prefix selection. An ordinary word after a stored NUL must match, and a single-line term cannot join the two sides. A title-only or body hit returns the original spelling. The one-for-one substitution preserves the folded offsets used to locate the original contributing characters. Clip context in the original source, including any adjacent NUL. Count at most 226 original/displayed code points across the three strings, ellipses included. Enable custom-data export as R2 does for excerpt. Extend the enrich hook’s virtual-field allowlist to the server-populated snippet and existing excerpt, while continuing to hide the search key and arbitrary other virtual fields on all records. Ordinary list/detail, relation expansions, realtime and editor reads keep their existing shapes.
+
+On the contained pinned server, verify the page index against the actual SQL of this marked owner request, including the owner rule, compiled empty-date disjunction and both descending sort keys. [Staged proof](../quickstart.md#staged-upgrade)
+
+The projection for the search request excludes full `text`, body, tasks, attachments, user and comparison key. There is no new collection, public route or change to the five access rules.
+
+A normal search returns HTTP 200 with PocketBase’s list envelope. A mapped hit has a nonempty marked string. Under the owner ruling 2026-11-19, matching and highlighting beyond the 30th consecutive combining mark are best effort. If the server selected a row but its stream-safe fold has no original span for the hit, return that row with a plain snippet. Set `before` to the first 32 code points of the original note text, appending one ellipsis if clipped, and set both `match` and `after` to `""`. Render this snippet as plain text, omitting the mark element. Other words in the note retain normal search behavior. A first-page miss reports totalItems zero and an empty items array. A caller with B’s valid token and an anonymous caller get the same empty result for A’s unique term. Opening an authorized active note still uses the ordinary detail reader and R3 session checks.
+
+## Navigation and focus
+
+On `/folders/$folderId` validate `page`, `q` and `sp`. Keep positive safe-integer pages, omitting defaults. Drop `sp` without a query. Accept a single string, trim and cap by Unicode code points, discard controls/newlines and structured values. Accept finite numeric/boolean scalar values as their spelling if the router has parsed a direct query string. Generate URLs through TanStack search serialization so a submitted string such as “001” round-trips. Treat invalid values as absent. A normal search uses all active folders regardless of path. A genuine empty page beyond the last result page returns to the last valid result page using replace; page 1 with zero results is the empty state.
+Keep one labeled search form. Typing, including IME composition, edits only the field. Enter on a focused result opens it. The destination folder in this table is the origin folder, with its original ordinary page preserved.
+
+| Action | From the folder list | From a note in the wide layout |
+|---|---|---|
+| Submit a nonempty query | REPLACE with the submitted query, result page 1 | Guarded PUSH to that folder search, result page 1 |
+| Previous or Next | REPLACE only `sp`, retaining submitted `q` | Guarded PUSH to that folder with the old submitted `q` and requested `sp` |
+| Clear, empty Submit, Escape in the search field | REPLACE with the ordinary folder page, focus Search | Guarded PUSH to the ordinary folder page without `q` or `sp` |
+| Open a result | PUSH `/notes/$noteId` with the list position in history state | Guarded REPLACE of the current detail, updating origin row focus and retaining the folder-search entry beneath it |
+
+**While a detail departure is pending.** Keep its URL, history state, submitted result page, selection and draft. A clean leave proceeds. A dirty leave flushes first. On failure, Keep editing cancels the intent, restores the submitted field value and page, and focuses the editor with unsaved text intact. Save and continue waits for acknowledgement. Discard releases the intended departure without overwriting the saved version. Use the existing blocker for links and programmatic transitions. Change selection, dispose the outgoing draft and fetch a new document only after acceptance.
+
+**After an accepted detail-to-folder PUSH.** Deselect the note, focus Search and display the requested folder state. One browser Back returns to the previous note with its original query/page in the wide list. With a list origin, editor Back from that note restores the earlier folder-search entry. Each accepted action makes exactly one history change.
+
+**Returning to a list.** The note URL carries only the ID. Its history state supplies the wide list's query and page, scroll offset, focused row and whether a folder-search entry underlies it. Browser or editor Back *from a result to its list* restores the submitted field, pages, scroll and focused row once the matching rows load. If a saved edit removed that row, focus Search. Restore only once per return and match folder, query and both pages. Use the query-bearing folder destination when traversal is unavailable but an explicit origin exists. A detail refresh may reuse its history state. A pasted bare detail falls back to the note's real folder. Choosing another folder opens its ordinary list.
+
+**List states and layout.** A query change starts a loading state, an error gives an announced error with Retry for that query, and only a completed zero-hit search shows “No matching notes” with Clear. Announce the result count politely without stealing focus. Preserve ordinary “No notes yet.” At 390 px put one search form and Compose in the list footer above the safe area, outside its scrollport; remove absolute-button overlap. At the existing 768 px breakpoint put Search above the scrollport and keep Compose in the header. Only one focusable instance of each control is visible. Folder names, long unbroken snippets and mark spans wrap without widening the grid. Use the app’s semantic accent/foreground pair on mark, native link semantics, visible keyboard focus, and both themes.

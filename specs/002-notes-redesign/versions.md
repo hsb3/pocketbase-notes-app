@@ -80,8 +80,8 @@ Browser checks run at 390, 810 and 1440 px unless stated.
 
 - **Goal.** A body-only word finds its note from any folder, with folder name and highlighted snippet.
 - **Covers.** Story 1.2 second half; FR-004; SC-004; empty-results edge; Story 7.2 Search placement.
-- **Backend.** Index for `(user, deleted, updated)`; no new field (`text` exists since R1). Filter `title ~ q || text ~ q` through `pb.filter()` *(inferred; see section 4)*.
-- **Frontend.** Search field at the bottom of the list on phone, above it on wide; results list (title, folder, snippet built client-side from `text`); Back restores query and results; "No matching notes" with clear.
+- **Backend.** The [R4 plan](r4-search/plan.md) supersedes the inferred title/text filter and index order. Bind the substring against the existing derived `search_key`. Repair affected stored keys while preserving original writing, revision and dates. Index `user, updated DESC, id DESC, deleted`.
+- **Frontend.** Search field at the bottom of the list on phone, above it on wide; results list (title, folder, bounded original-text snippet projected by the server and highlighted by the client); Back restores query and results; "No matching notes" with clear.
 - **Reuses.** URL-held search state pattern from `parseSearch()` in the old `src/features/entries/data.ts`.
 - **Exit.** API test: B and anonymous get zero matches for A's unique term; JSON keys such as "paragraph" do not match every note. Browser test: 100 notes in five folders, unique body term returns the right note and snippet; 20 runs, at least 19 under 2 s.
 - **Not here.** Attachment-content search (out of scope); folder-only filter.
@@ -171,13 +171,13 @@ Decisions R1 must get right so later increments only add fields:
 1. **New `notes` collection, not a reshaped `entries`.** The old UI keeps working during R1, and `kind` (immutable in the `entries` update rule, `pb/migrations/1792384947_created_entries.js`) disappears without a data migration.
 2. **`folder` is not schema-required.** Deleting a folder must leave its deleted notes without one (Story 3.3). A hook enforces "active note has an owned folder". Making the relation required now would force a rule change in R5.
 3. **`deleted` exists from R1 and every list query filters on it** through one shared helper. Otherwise R5 has to revisit list, search and later every smart view.
-4. **`text`, `title`, `open_tasks`, `tasks` are server-derived from R1.** Search (R4) and Open Tasks (R10) then need no backfill migration like `pb/migrations/1794796300_backfill_entry_tasks.js`.
+4. **`text`, `title`, `open_tasks`, `tasks` are server-derived from R1.** The earlier expectation of no R4 data repair is superseded by the authorized [comparison-key repair](r4-search/data-model.md#upgrade-and-rollback). Open Tasks (R10) still expects no backfill like `pb/migrations/1794796300_backfill_entry_tasks.js`.
 5. **The document format is the full existing one from R1** (validator unchanged), so R9 is UI only and no note is ever migrated.
 
 Risks:
 
 - **Duplicate note on a lost create acknowledgement** (SC-003). A first autosave whose response is lost would be retried as a second create. *(inferred)* Mitigation: client-supplied record id; a repeated create fails as "id exists" and the client continues as an update. The mirror case, a lost acknowledgement on update, returns 409 against our own save; the client must fetch and compare before showing a conflict. Both belong in the R2/R3 plan and are the most likely source of gate failures.
-- **Search in PocketBase.** `~` on the JSON `body` would match node names, hence the derived `text` field. SQLite `LIKE` folds case for ASCII only, so "case-insensitively" (FR-004) is unproven for accented and non-Latin text; test it in R4 and, if it fails, store a lower-cased copy rather than adopt FTS. Snippets need `text` in list responses (up to 100 KB per note); cap results per page.
+- **Search in PocketBase.** `~` on the JSON `body` would match node names, hence the derived `text` field. The [R4 contract](r4-search/contracts/search.md) supersedes the early client-built snippet and raw LIKE proposals. R4 folds title and visible body text for literal matching, including accented and non-Latin writing, and returns a bounded three-part snippet on each of 20 rows. Full note text stays out of the search projection.
 - **Editor weight and SC-001.** The editor bundle is about 2.3 MB uncompressed and took about 17 s cold on the simulated phone ([verification.md](../../docs/testing/verification.md) baseline). SC-001 is warm-start only, but R2 should preload the editor chunk from the list and measure.
 - **Title as first line of a ProseKit document** is new behaviour (today there is a separate input, `entry-editor.tsx`). Unverified: whether the first block should be forced to a heading. R2 plan decides; the server derives the title either way.
 - **Folder-name uniqueness** via `COLLATE NOCASE` is also ASCII-only. Same test as search.
