@@ -1,5 +1,78 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync, readlinkSync } from "node:fs";
+import { seedNotes } from "./seed-notes";
 import PocketBase, { ClientResponseError } from "pocketbase";
+
+function localCLI(target: URL) {
+  if (process.env.CONTAINED_SEED_CLI === "1") {
+    const database = [
+      "--dir=/tmp/seed-data",
+      "--hooksDir=/pb/pb_hooks",
+      "--migrationsDir=/pb/pb_migrations",
+      "--encryptionEnv=PB_ENCRYPTION_KEY",
+    ];
+    const args = [
+      "/pb/pocketbase",
+      "serve",
+      "--http=127.0.0.1:18082",
+      ...database,
+    ];
+    assert(
+      process.env.CONTAINED_TEST === "1" &&
+        existsSync("/.dockerenv") &&
+        target.href === "http://127.0.0.1:18082/" &&
+        readlinkSync("/proc/1/exe") === args[0] &&
+        readFileSync("/proc/1/cmdline", "utf8") === args.join("\0") + "\0" &&
+        process.env.PB_ENCRYPTION_KEY &&
+        readFileSync("/proc/1/environ", "utf8")
+          .split("\0")
+          .includes(`PB_ENCRYPTION_KEY=${process.env.PB_ENCRYPTION_KEY}`),
+      "Seed CLI requires the isolated local PocketBase server and its matching database and encryption key.",
+    );
+    return ["/pb/pocketbase", ...database];
+  }
+  // The stack's setup container has no Docker CLI; its PocketBase service
+  // already created the superuser, so a failed login means bad credentials.
+  assert(
+    Bun.which("docker"),
+    "Superuser credentials do not match. Check PB_EMAIL and PB_PASSWORD in .env.",
+  );
+  const container = process.env.PB_CONTAINER || "pocketbase";
+  const inspect = Bun.spawnSync(
+    [
+      "docker",
+      "inspect",
+      "--format",
+      "{{json .NetworkSettings.Ports}}",
+      container,
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+  assert.equal(
+    inspect.exitCode,
+    0,
+    "Cannot inspect the local PocketBase container.",
+  );
+  const ports = JSON.parse(inspect.stdout.toString()) as Record<
+    string,
+    { HostIp: string; HostPort: string }[] | null
+  >;
+  assert(
+    ports["8080/tcp"]?.some(
+      (port) =>
+        ["127.0.0.1", "::1"].includes(port.HostIp) &&
+        port.HostPort === (target.port || "80"),
+    ),
+    "PB_CONTAINER must publish its PocketBase port on the configured loopback URL.",
+  );
+  return [
+    "docker",
+    "exec",
+    container,
+    "/pb/pocketbase",
+    "--encryptionEnv=PB_ENCRYPTION_KEY",
+  ];
+}
 
 async function main() {
   const args = process.argv.slice(2);
@@ -28,53 +101,10 @@ async function main() {
       error instanceof ClientResponseError && error.status === 400,
       "Cannot reach/authenticate the local backend; no CLI write attempted.",
     );
-    // The stack's setup container has no Docker CLI; its PocketBase service
-    // already created the superuser, so a failed login means bad credentials.
-    assert(
-      Bun.which("docker"),
-      "Superuser credentials do not match. Check PB_EMAIL and PB_PASSWORD in .env.",
-    );
-    const container = process.env.PB_CONTAINER || "pocketbase";
-    const inspect = Bun.spawnSync(
-      [
-        "docker",
-        "inspect",
-        "--format",
-        "{{json .NetworkSettings.Ports}}",
-        container,
-      ],
-      { stdout: "pipe", stderr: "pipe" },
-    );
-    assert.equal(
-      inspect.exitCode,
-      0,
-      "Cannot inspect the local PocketBase container.",
-    );
-    const ports = JSON.parse(inspect.stdout.toString()) as Record<
-      string,
-      { HostIp: string; HostPort: string }[] | null
-    >;
-    assert(
-      ports["8080/tcp"]?.some(
-        (port) =>
-          ["127.0.0.1", "::1"].includes(port.HostIp) &&
-          port.HostPort === (target.port || "80"),
-      ),
-      "PB_CONTAINER must publish its PocketBase port on the configured loopback URL.",
-    );
+    const cli = localCLI(target);
     const operation = reset ? "upsert" : "create";
     const create = Bun.spawnSync(
-      [
-        "docker",
-        "exec",
-        container,
-        "/pb/pocketbase",
-        "superuser",
-        operation,
-        email,
-        password,
-        "--encryptionEnv=PB_ENCRYPTION_KEY",
-      ],
+      [...cli, "superuser", operation, email, password],
       { stdout: "pipe", stderr: "pipe" },
     );
     assert.equal(create.exitCode, 0, "Local superuser CLI failed.");
@@ -104,22 +134,15 @@ async function main() {
       passwordConfirm: userPassword,
     });
   }
+  const owner = new PocketBase(url);
   try {
-    await new PocketBase(url)
-      .collection("users")
-      .authWithPassword(userEmail, userPassword);
+    await owner.collection("users").authWithPassword(userEmail, userPassword);
   } catch {
     throw new Error(
       "Seed user credentials do not match. Supply the current password or explicitly use --reset-passwords.",
     );
   }
-  Object.assign(process.env, {
-    VITE_PB_URL: url,
-    PB_EMAIL: email,
-    PB_PASSWORD: password,
-    SEED_USER_EMAIL: userEmail,
-  });
-  await import("./seed-entries");
+  await seedNotes(owner);
   console.log(
     reset
       ? "Seed logins verified; explicit password reset applied."

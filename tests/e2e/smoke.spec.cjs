@@ -9,21 +9,27 @@ test("@smoke login, save and reload a private note", async ({
   await page.locator('input[name="identity"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: "Login", exact: true }).click();
-  await page.waitForURL("**/entries**");
-  await page.getByRole("link", { name: "New note", exact: true }).click();
-  await page.getByLabel("Entry title").fill("Smoke test note");
-  const body = page.getByRole("textbox", { name: "Entry body" });
-  await body.fill("A saved thought survives a reload.");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.waitForURL(/\/entries\/[a-z0-9]{15}/);
+  await expect(page).toHaveURL("/folders/all");
+  await page.getByRole("button", { name: "Compose", exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Note", exact: true });
+  await expect(editor).toBeFocused();
+  await page.keyboard.insertText("Smoke test note");
+  await editor.press("Enter");
+  await page.keyboard.insertText("A saved thought survives a reload.");
+  await expect(
+    page.getByRole("status").filter({ hasText: /^Saved$/ }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/notes\/[a-z0-9]{15}$/);
   const id = new URL(page.url()).pathname.split("/").pop();
   await page.reload();
-  await expect(page.getByLabel("Entry title")).toHaveValue("Smoke test note");
-  await expect(body).toHaveText("A saved thought survives a reload.");
-  const record = await api(`collections/entries/records/${id}`, admin.token);
+  await expect(editor.locator("p")).toHaveText([
+    "Smoke test note",
+    "A saved thought survives a reload.",
+  ]);
+  const record = await api(`collections/notes/records/${id}`, admin.token);
   expect(record.user).toBe(session.account.id);
   const anonymous = await fetch(
-    `${process.env.VITE_PB_URL}/api/collections/entries/records/${id}`,
+    `${process.env.VITE_PB_URL}/api/collections/notes/records/${id}`,
   );
   expect(anonymous.status).toBe(404);
 });

@@ -81,6 +81,9 @@ async function provisioning(a: Awaited<ReturnType<typeof account>>) {
     await denied(signup, 403);
     console.log("PASS public signup disabled (403)");
   }
+}
+
+async function seedProvisioning() {
   const seed = credentials();
   try {
     const run = Bun.spawn(["bun", "scripts/seed.ts"], {
@@ -105,9 +108,7 @@ async function provisioning(a: Awaited<ReturnType<typeof account>>) {
       await users.delete(user.id);
     }
   }
-  console.log(
-    "PASS seeded and administrative accounts receive one protected Notes folder",
-  );
+  console.log("PASS seeded account receives one protected Notes folder");
 }
 
 // The contained runner gives this schema fault its own disposable database.
@@ -448,15 +449,139 @@ async function noteLines(a: Account) {
   }
 }
 
-async function noteTasks(a: Account) {
+async function noteList(a: Account, b: Account) {
+  const notes = a.pb.collection("notes");
+  const folder = await a.pb
+    .collection("folders")
+    .create({ user: a.id, name: "Page fixture" });
+  const filter = a.pb.filter('folder = {:folder} && deleted = ""', {
+    folder: folder.id,
+  });
+  const fields = "id,folder,title,updated,excerpt";
+  const query = { filter, sort: "-updated,-id" };
+  const write = (text: string) =>
+    notes.create({
+      user: a.id,
+      folder: folder.id,
+      body: doc(paragraph(text)),
+      excerpt: "forged",
+    });
+  const long = "🥕".repeat(3000);
+  const expected = "🥕".repeat(120);
+  for (let i = 0; i < 20; i++) await write(`Title ${i}\r\n${long}`);
+
+  async function measure(projection?: string) {
+    const params = new URLSearchParams({ ...query, page: "1", perPage: "20" });
+    if (projection) params.set("fields", projection);
+    const start = performance.now();
+    const res = await fetch(`${url}/api/collections/notes/records?${params}`, {
+      headers: { Authorization: a.pb.authStore.token },
+    });
+    assert.equal(res.status, 200);
+    const raw = await res.text();
+    const elapsed = performance.now() - start;
+    const bytes = Buffer.byteLength(raw, "utf8");
+    console.log(
+      `List page ${projection ? "projected" : "default"}: ${bytes} decoded UTF-8 bytes, ${elapsed.toFixed(2)} ms`,
+    );
+    const page = JSON.parse(raw);
+    assert.equal(page.totalItems, 20);
+    assert.equal(page.items.length, 20);
+    return { bytes, items: page.items as Record<string, string>[] };
+  }
+  const full = await measure();
+  const projected = await measure(fields);
+  assert.ok(projected.bytes < full.bytes);
+  for (const [i, row] of projected.items.entries()) {
+    assert.equal(
+      full.items[i].excerpt,
+      expected,
+      "Default list must return the computed preview",
+    );
+    assert.equal(Object.hasOwn(full.items[i], "search_key"), false);
+    assert.deepEqual(Object.keys(row).sort(), fields.split(",").sort());
+    assert.deepEqual(
+      row,
+      Object.fromEntries(fields.split(",").map((k) => [k, full.items[i][k]])),
+    );
+  }
+  const row = projected.items[0];
+  const detail = await notes.getOne(row.id);
+  assert.deepEqual(detail.body, doc(paragraph(`${row.title}\r\n${long}`)));
+  assert.equal(Object.hasOwn(detail, "excerpt"), false);
+  for (const pb of [b.pb, anonymous]) {
+    assert.equal(
+      (await pb.collection("notes").getList(1, 20, { ...query, fields }))
+        .totalItems,
+      0,
+    );
+    await denied(pb.collection("notes").getOne(row.id), 404);
+  }
+  let revision = detail.revision;
+  for (const [text, expected] of [
+    ["Single line only", ""],
+    ["Title\n  ", ""],
+    ["\nBody only", "Body only"],
+    ["Title\r  Fold\t  spaces", "Fold spaces"],
+    ["Title\u2028New\u2029line", "New line"],
+    ["Title\u2029Next", "Next"],
+  ]) {
+    const updated = await notes.update(row.id, {
+      revision,
+      body: doc(paragraph(text)),
+      excerpt: "forged",
+    });
+    revision = updated.revision;
+    const preview = await notes.getFirstListItem(
+      a.pb.filter("id = {:id}", row),
+      { fields },
+    );
+    assert.equal(preview.excerpt, expected);
+    assert.equal(Object.hasOwn(updated, "excerpt"), false);
+  }
+  if (process.env.CONTAINED_TEST === "1") {
+    assert.match(row.id, /^[a-z0-9]{15}$/);
+    const aged = await admin.sql.run(
+      `UPDATE notes SET deleted = '2026-01-01 00:00:00.000Z' WHERE id = '${row.id}'`,
+    );
+    assert.equal(aged.affectedRows, 1);
+    assert.ok((await notes.getOne(row.id)).deleted);
+    const active = await notes.getList(1, 20, { ...query, fields });
+    assert.equal(active.totalItems, 19);
+    assert.ok(active.items.every((r) => r.id !== row.id));
+  }
+}
+
+async function noteTasks(a: Account, b: Account) {
   const data = await draft(a);
   const notes = a.pb.collection("notes");
-  const note = await notes.create({ ...data, revision: 1 });
   const list = (label: string, checked = false) => ({
     type: "list",
     attrs: { kind: "task", checked },
     content: [paragraph(label)],
   });
+  const parent = list("Done", true);
+  const bodyWithChild = doc({
+    ...parent,
+    content: [...parent.content, list("Still open")],
+  });
+  const note = await notes.create({
+    ...data,
+    body: bodyWithChild,
+    open_tasks: 0,
+    tasks: [],
+  });
+  assert.equal(note.open_tasks, 1);
+  assert.deepEqual(note.tasks, [{ path: [0, 1], text: "Still open" }]);
+  const openTasks = (pb: PocketBase) =>
+    pb.collection("notes").getFullList({
+      filter: pb.filter("id = {:id} && open_tasks > 0", { id: note.id }),
+      fields: "id,tasks",
+    });
+  assert.deepEqual(await openTasks(a.pb), [{ id: note.id, tasks: note.tasks }]);
+  for (const client of [b.pb, anonymous]) {
+    assert.deepEqual(await openTasks(client), []);
+  }
   const items = Array.from({ length: 101 }, (_, i) =>
     list(i === 0 ? "x".repeat(210) : `Task ${i}`),
   );
@@ -482,6 +607,13 @@ async function noteTasks(a: Account) {
   assert.ok(saved.text.endsWith("Task 100"));
   await assertStoredSearchKey(saved.id, saved.text.toUpperCase());
   assert.equal(Object.hasOwn(saved, "search_key"), false);
+  const checked = await notes.update(note.id, {
+    revision: saved.revision,
+    body: doc(list("Finished", true)),
+  });
+  assert.equal(checked.open_tasks, 0);
+  assert.deepEqual(checked.tasks, []);
+  assert.deepEqual(await openTasks(a.pb), []);
 }
 
 async function noteBody(a: Account) {
@@ -497,6 +629,7 @@ async function noteBody(a: Account) {
   await assertStoredSearchKey(saved.id, boundary.toUpperCase());
   for (const invalid of [
     doc(paragraph(" \t")),
+    doc({ type: "paragraph" }),
     doc({ type: "unknown" }),
     doc(paragraph(boundary + "x")),
   ]) {
@@ -631,6 +764,17 @@ async function noteRevisions(a: Account) {
   assert.deepEqual(await notes.getOne(data.id), winner);
 }
 
+if (process.argv[2] === "--seed-codegen") {
+  assert.equal(process.env.CONTAINED_TEST, "1", "Requires the contained stack");
+  const owner = await account();
+  const notes = owner.pb.collection("notes");
+  const data = await draft(owner);
+  await notes.create(data);
+  assert.deepEqual((await notes.getOne(data.id)).body, data.body);
+  console.log("Seeded a codegen account, default folder and note");
+  process.exit(0);
+}
+
 try {
   const a = await account();
   const b = await account();
@@ -644,12 +788,14 @@ try {
     ["note folder", () => noteFolder(a, b)],
     ["note search", () => noteSearch(a, b)],
     ["note lines", () => noteLines(a)],
-    ["note tasks", () => noteTasks(a)],
+    ["list projection", () => noteList(a, b)],
+    ["note tasks", () => noteTasks(a, b)],
     ["note body", () => noteBody(a)],
     ["note files", () => noteFiles(a, b)],
     ["note identity", () => noteIdentity(a, b)],
     ["note revisions", () => noteRevisions(a)],
     ["default provisioning", () => provisioning(a)],
+    ["seed provisioning", seedProvisioning],
     ...(process.env.CONTAINED_TEST === "1"
       ? [["default rollback", rollback] as const]
       : []),
@@ -667,8 +813,6 @@ try {
       );
     }
   }
-  assert.deepEqual(failures, []);
-
   const note = await a.pb.collection("notes").getFirstListItem('deleted = ""');
   await users.delete(a.id);
   accounts.splice(accounts.indexOf(a.id), 1);
@@ -678,6 +822,7 @@ try {
   console.log(
     "PASS account deletion cascades to owned note and folder (204, then 404 as superuser)",
   );
+  assert.deepEqual(failures, []);
 } finally {
   for (const id of accounts) await users.delete(id);
 }

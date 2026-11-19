@@ -8,7 +8,7 @@ test("ordinary accounts never see the admin shortcut", async ({
   await page.locator('input[name="identity"]').fill(session.email);
   await page.locator('input[name="password"]').fill(session.password);
   await page.getByRole("button", { name: "Login", exact: true }).click();
-  await page.waitForURL("**/entries**");
+  await expect(page).toHaveURL("/folders/all");
   await page.getByRole("button", { name: new RegExp(session.email) }).click();
   await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
   await expect(
@@ -36,7 +36,7 @@ test("account menu opens the separate PocketBase admin login", async ({
     await page.locator('input[name="identity"]').fill(session.email);
     await page.locator('input[name="password"]').fill(session.password);
     await page.getByRole("button", { name: "Login", exact: true }).click();
-    await page.waitForURL("**/entries**");
+    await expect(page).toHaveURL("/folders/all");
     await page
       .getByRole("button", {
         name: new RegExp(session.email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
@@ -56,7 +56,7 @@ test("account menu opens the separate PocketBase admin login", async ({
     await admin.waitForLoadState("domcontentloaded");
     await expect(admin).toHaveURL(new RegExp("/_/"));
     await expect(admin.locator('input[type="password"]')).toBeVisible();
-    await expect(page).toHaveURL(/\/entries/);
+    await expect(page).toHaveURL("/folders/all");
     await admin.close();
     await page.route("**/api/notes/capabilities", (route) => route.abort());
     await page.reload();
@@ -91,7 +91,7 @@ test("account menu opens the separate PocketBase admin login", async ({
         },
       );
       const second = await context.newPage();
-      await second.goto("/entries");
+      await second.goto("/folders/all");
       await second.evaluate(
         (auth) =>
           localStorage.setItem(

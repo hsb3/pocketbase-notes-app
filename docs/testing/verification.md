@@ -13,69 +13,48 @@ credentials and Compose project. A capped preparation container downloads the
 checksum-pinned PocketBase binary, installs the frozen Bun lockfile and builds the
 frontend. It exits before the tests begin.
 
-The API target runs `test:api` against fresh PocketBase, Mailpit and RustFS data.
-The browser target runs the default Playwright suite against the built app using
-the Chromium and WebKit versions from the locked Playwright image. It keeps the
-suite’s desktop and mobile viewports and its default signup-disabled configuration.
-The runners reach PocketBase over shared loopback on an internal network. All
-containers have CPU, memory and PID limits, publish zero ports and auto-remove.
-Teardown starts by minute 29 and checks the project label for leftover containers,
-networks and volumes. A failed browser suite saves its report and traces under
-`test-results/<project>/` before teardown.
+The default API target compares two fresh generations of PocketBase types with the checkout, runs the loopback guards and staged upgrade, then exercises mail, storage, account isolation, protected attachments, MFA, backup health and note records. The upgrade fixture checks that replay preserves default-folder IDs and that R1 notes and folders survive removal of entries.
 
-## Setup
+The default browser target serves the production build on shared loopback and runs Chromium and WebKit with signup disabled. Both engines exercise Compose and reopen at 390, 810 and 1440 CSS pixels, delayed writes, blocked navigation on failure, page restoration, caret retention and projected list traffic. The warm Compose timing check logs 20 single-key trials per engine and requires at least 19 focused insertions within one second.
 
-For an existing development stack, the requirements are Bun, Node.js 22 or later, Docker Compose, and `.env` configured from
-`.env.example` with matching backend URL/port and local superuser credentials.
+The runtime network is internal. Services have CPU, memory and PID limits and publish no ports. Each command has a 29-minute deadline plus one minute for teardown. The runner checks that no project-labeled containers, networks or volumes remain. On browser failure it copies the report and traces to `test-results/<project>/`.
 
-```sh
-bun install
-bun run test:install
-make up-full
-make smoke
-make e2e
-```
+### Additional profiles
 
-Playwright is a project dev dependency pinned by `bun.lock`. `test:install` installs
-its Chromium and WebKit versions. Linux hosts may need
-`bunx playwright install --with-deps chromium webkit`.
-The backend stays running; tests never seed or reset existing development accounts.
-`make up-full` initializes a fresh backend and configures Mailpit and RustFS.
+Choose one profile per invocation, for example `make test-api-contained CONTAINED_PROFILE=restore`.
+
+| Target | `CONTAINED_PROFILE` | Checks or output |
+| --- | --- | --- |
+| `test-api-contained` | `accounts` | Seed bootstrap and explicit reset on a private local database. Verify credentials, stable sample IDs and preservation of existing records. |
+| `test-api-contained` | `restore` | Extract a backup, boot a second server with the matching key, verify its disabled jobs, compare records and protected file bytes. |
+| `test-api-contained` | `load` | Short k6 smoke of list, create, update and download. [Capacity testing](load-testing.md) uses a separate workload. |
+| `test-browser-contained` | `operator` | Run the operator commands against local services, including autosave, file access, failed-write cleanup, signup policy and Mailpit email. |
+| `test-browser-contained` | `signup`, `signup-disabled` | Exercise registration with the selected policy in Chromium and WebKit. Enabled signup sets both the frontend build flag and the backend runtime flag. |
+| `test-browser-contained` | `performance` | Short Chromium production benchmark. Copies the report under `test-results/<project>/performance/`. |
+| `test-browser-contained` | `screenshots` | Seed a notebook and capture the responsive workspace. Copies images and video under `test-results/<project>/screenshots/`. Host FFmpeg renders the phone strip and GIF. |
+
+To regenerate the checked-in PocketBase types, run `scripts/run-contained.sh codegen`. This uses a seeded disposable stack, compares two generations and copies the result to `src/services/pocketbase-types.ts`. The default API gate only compares.
 
 ## Commands and coverage
 
 | Command | Coverage |
 | --- | --- |
-| `make smoke` / `bun run test:smoke` | Mailpit verification/reset emails and token use; real RustFS upload/download bytes; browser login, private note save and reload |
-| `make e2e` / `bun run test:e2e` | All API checks and default-disabled browser scenarios, including smoke |
-| `bun run test:accounts` | Create-only seeding, explicit resets, fixture cleanup, existing-account protection, local email delivery, account-neutral configuration and isolated archive restore |
-| `bun run test:api` | Services, entry validation, account isolation, concurrent saves, protected files, attachment cleanup, admin capabilities, two-step sign-in, automatic-backup health and private folder/note records |
-| `bunx playwright test` | Browser scenarios only |
-| `make load-test` / `tests/load/run.sh` | Capacity of one capped instance under k6 load, entirely in Docker; see [load testing](load-testing.md) |
-| `bun run lint` | Formatting and lint |
-| `bun run build` | Application/config TypeScript checks and production frontend build |
-| `bunx tsc -p scripts/tsconfig.json` | Backend verification/setup script types |
+| `bun test tests/unit` | `tests/unit/note-draft.test.cjs` checks debounce, write order, retained edits, stable IDs, revision handling and record requests. Runs without a server. |
+| `bun run lint` / `bun run knip` | Biome formatting/lint and unused code or dependencies |
+| `bun run build` / `bun x tsc -p scripts/tsconfig.json` | Application and config type checks, production build and operational script types |
+| `python3 scripts/ai-context.py check` / `bun run docs:build` | Topic paths and budgets, documentation render and dead links |
+| `make smoke` / `bun run test:smoke` | Existing disposable full stack. Mailpit verification/reset, RustFS bytes, browser login and private note reload. |
+| `bun run test:e2e` / `bun run test:accounts` | Hosted-runner commands for the API/browser suite and account/operator/restore drills. [CI setup](../ci/checks-and-rules.md) |
 
-The [private folders and notes](../features/notes.md) checks in `scripts/test-notes.ts` exercise default-folder provisioning and rollback, owner and signed-out access, Unicode name collisions and searches, derived fields, stable create IDs and concurrent edits. Owner filters can match the internal search key while create, detail, expanded and list responses omit it. `scripts/test-attachments.ts` checks deletion protection for files referenced only by an entry or only by a note, rejects foreign file references and downloads, and tests the cleanup query with old referenced files, an old orphan and a fresh upload. On the disposable stack it backdates three fixture uploads, runs the hourly job and checks that only the aged orphan disappears. Both referenced files still download with their original bytes.
-
-The notebook browser scenario still uses `entries`. It covers notes, journals, formatting, undo/redo, search,
-favorites, date filters, navigation guards, failed saves, concurrent edits,
-reauthentication with draft preservation, confirmed deletion, collapsible navigation,
-full-screen writing, compact spacing and the bottom information rail on desktop/mobile.
-
-The attachment scenario covers uploads before first Save, private image reloads,
-download bytes, underline, slash/table insertion, removal, rejected file types and
-mobile width. API tests additionally check anonymous/cross-account denial, unsafe
-URLs, file limits, reference-safe deletion and orphan selection. Files travel through
-PocketBase to the actual RustFS bucket. Mailpit captures mail locally.
+`scripts/test-notes.ts` compares the decoded bytes of full and projected lists on the same records. The list returns only ID, folder, title, update time and body excerpt. Tests check limits, hidden fields, account isolation and revision conflicts. `scripts/test-attachments.ts` runs the orphan job and verifies that an aged referenced file and a fresh orphan survive while an aged orphan is removed.
 
 ## Frontend and credentials
 
-By default Playwright owns a Vite server at `http://127.0.0.1:4173`, with the auth
+Without `TEST_APP_URL`, Playwright starts a Vite development server at `http://127.0.0.1:4173`, with the auth
 bypass disabled. The port must be free; an unrelated server is never silently reused.
-Set `TEST_APP_URL` to use an already-running local frontend instead. The configured
+The default full browser suite requires a production editor chunk for its timing check. Use the contained target or point `TEST_APP_URL` at the built loopback app. The configured
 backend is `VITE_PB_URL`. Browser tests reject remote URLs before sending credentials.
-`TEST_PB_URL` applies only to the standalone entries API script.
+`TEST_PB_URL` applies only to the standalone notes API script.
 
 Fixtures create unique synthetic users and delete them in teardown, including when
 a test fails. Browser contexts are isolated and managed by Playwright. Tests run
@@ -97,20 +76,11 @@ test runs do not overwrite `docs/images/`. Treat traces as private: they can con
 synthetic credentials and authenticated requests. `DEBUG_BROWSER=1` prints browser
 console errors from the full scenarios. Each new browser run replaces prior outputs.
 
-The README images in `docs/images/` come from
-[`scripts/capture-screenshots.sh`](../../scripts/capture-screenshots.sh), which drives
-`tests/screenshots/capture.cjs` against a fresh `make app` stack in a limited
-Playwright container. Review every image before copying it in.
+The checked-in README media are historical. To capture the current notebook, run `scripts/capture-screenshots.sh` with no arguments. It invokes the screenshots profile and prints the output directory. Review images there before publishing.
 
 ## Limits
 
-Chromium and WebKit projects run the same desktop/mobile-viewport
-scenarios. A configured project is not a passing result; see the recorded run below.
-Actual Safari, physical-phone keyboards, screen readers, OAuth and production
-deployment still require separate verification. Firefox is not in the matrix. The
-entry title grows with its text through CSS `field-sizing`, which Playwright's
-Firefox 159 supports (checked once at 390px); a browser without it shows a one-row
-title that wraps and scrolls instead of growing. [GitHub Actions](../ci/checks-and-rules.md) runs the same suite on Linux amd64 and arm64.
+Chromium and WebKit run on emulated viewports. Actual Safari, physical keyboards, screen readers, OAuth and deployment still need separate verification. GitHub Actions configures Linux amd64 and arm64 jobs. [CI configuration](../ci/checks-and-rules.md)
 
 ## Production editor performance
 
@@ -120,13 +90,12 @@ only the existing loopback backend URL, creating and deleting synthetic users.
 It does not change user notes. Run it alone, without other browser/test workloads.
 
 The Chromium benchmark repeats cold-cache and warm-cache direct editor navigation
-five times for empty drafts, representative entries, large entries below the
-100 KB document limit, ten-image notes and the app shell. It records time until the editor is editable, confirmation
+five times for title-only, representative, large and ten-image notes, plus the All Notes list. It records time until the editor is editable, confirmation
 of typed input, resource transfers, long tasks and completion of private-image loading.
 The input/ready times include Playwright polling overhead; they are observed upper
 bounds, not exact event timestamps. Editor parse time is not isolated by this benchmark. Warm means a same-context reload, not
 client-side reopening. For the app shell, the readiness marker is the visible
-New note link, and input confirmation is null. Image requests may still be loading
+Compose button, and input confirmation is null. Image requests may still be loading
 when the editor becomes editable; `imagesReadyMs` separately waits for all ten
 images to decode successfully.
 
@@ -146,9 +115,8 @@ the baseline is reviewed. Do not optimize solely to silence Vite's chunk warning
 
 Record browser/device/OS, date, evidence and pass/fail/not-tested for:
 
-- Actual Safari: login, formatting, table/image insertion, save/reload and downloads.
-- Keyboard and VoiceOver: tab order, visible focus, toolbar/slash menus, dialogs,
-  login errors, save feedback and conflict recovery; include zoom/reflow and contrast.
+- Actual Safari: login, Compose, autosave, reload and existing private images.
+- Keyboard and VoiceOver: tab order, visible focus, folder dialog, login errors, save feedback and failed navigation; include zoom/reflow and contrast.
 - Physical iOS and Android keyboards: caret visibility, viewport resizing, selection,
   composition/autocorrect, save/navigation guards and external keyboard shortcuts.
 - Selected OAuth providers: success, cancellation, denied access, popup blocking,
@@ -157,6 +125,8 @@ Record browser/device/OS, date, evidence and pass/fail/not-tested for:
 These checks are not satisfied by mobile viewport screenshots or a WebKit pass.
 
 ## Measured baseline — 2026-10-19
+
+Historical measurements of the retired entries interface follow. The notes benchmark uses different routes and fixtures.
 
 100 samples passed on Apple M2 Pro, macOS/Darwin 27 arm64, Chromium 156.0.8078.4.
 Five repetitions per fixture/profile/cache combination. Values below are median
@@ -203,7 +173,7 @@ and OAuth remain separate open verification items.
 
 ## Railway smoke and registration checks — 2026-10-19
 
-The live staging app passed browser login, note save/reload, private attachment
+These results predate R2. The live staging app passed browser login, note save/reload, private attachment
 bytes, anonymous/cross-account denials, restart persistence, and a portable backup
 restore in an isolated local instance. Resend reported verification/reset emails
 delivered and their tokens were accepted. See [Operations](../../deploy/OPERATIONS.md) for the runbook.

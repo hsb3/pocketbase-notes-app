@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { chromium } = require("@playwright/test");
+const { chromium, expect } = require("@playwright/test");
 
 const app = process.env.APP_URL;
 const out = process.env.OUT_DIR;
@@ -34,6 +34,7 @@ const richTitle = "Notes on compound interest";
 const richBody = {
   type: "doc",
   content: [
+    para(text(richTitle)),
     para(
       text("Working through the basics before choosing a savings account. "),
       text("Small rate differences add up", "bold"),
@@ -73,10 +74,17 @@ const richBody = {
   ],
 };
 
-async function newPage(browser, viewport, colorScheme = "light", video) {
+async function newPage(
+  browser,
+  viewport,
+  colorScheme = "light",
+  video,
+  storageState,
+) {
   // Video at 1x: 2x frames get dropped under the container CPU cap.
   const context = await browser.newContext({
     viewport,
+    storageState,
     deviceScaleFactor: video ? 1 : 2,
     colorScheme,
     ...(video ? { recordVideo: { dir: video, size: viewport } } : {}),
@@ -84,12 +92,7 @@ async function newPage(browser, viewport, colorScheme = "light", video) {
   const page = await context.newPage();
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
   page.on("console", (m) => {
-    // The stack is reached as http://pocketbase, which Chromium calls untrustworthy.
-    if (
-      m.type() === "error" &&
-      !m.text().includes("Cross-Origin-Opener-Policy")
-    )
-      errors.push(`console: ${m.text()}`);
+    if (m.type() === "error") errors.push(`console: ${m.text()}`);
   });
   return page;
 }
@@ -99,15 +102,17 @@ async function login(page) {
   await page.locator('input[name="identity"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: "Login", exact: true }).click();
-  await page.waitForURL("**/entries**");
+  await page.waitForURL("**/folders/all");
 }
 
 const row_ = (page, title) =>
-  page.locator('a[href*="/entries/"]').filter({ hasText: title }).first();
+  page.locator('a[href^="/notes/"]').filter({ hasText: title }).first();
 async function open(page, title) {
   await row_(page, title).click();
-  await page.getByRole("textbox", { name: "Entry body" }).waitFor();
-  await page.waitForTimeout(800);
+  await page.getByRole("textbox", { name: "Note", exact: true }).waitFor();
+  await expect(
+    page.getByRole("textbox", { name: "Note", exact: true }),
+  ).toContainText(title);
 }
 async function shot(page, name) {
   await page.mouse.move(0, 0);
@@ -116,7 +121,7 @@ async function shot(page, name) {
   console.log(`captured ${name}.png`);
 }
 
-async function ensureRichEntry() {
+async function ensureRichNote() {
   const api = async (p, init = {}, token = "") => {
     const r = await fetch(`${app}/api/${p}`, {
       ...init,
@@ -131,21 +136,25 @@ async function ensureRichEntry() {
   });
   const filter = encodeURIComponent(`title = "${richTitle}"`);
   const found = await api(
-    `collections/entries/records?filter=${filter}`,
+    `collections/notes/records?filter=${filter}`,
     {},
     auth.token,
   );
   if (found.totalItems) return;
+  const defaults = await api(
+    "collections/folders/records?filter=is_default%3Dtrue",
+    {},
+    auth.token,
+  );
+  assert.equal(defaults.totalItems, 1);
   await api(
-    "collections/entries/records",
+    "collections/notes/records",
     {
       method: "POST",
       body: JSON.stringify({
         user: auth.record.id,
-        kind: "note",
-        title: richTitle,
+        folder: defaults.items[0].id,
         body: richBody,
-        revision: 1,
       }),
     },
     auth.token,
@@ -154,103 +163,80 @@ async function ensureRichEntry() {
 
 async function main() {
   fs.mkdirSync(out, { recursive: true });
-  await ensureRichEntry();
+  await ensureRichNote();
   const browser = await chromium.launch();
 
-  // Signed out: login with the theme control.
-  let page = await newPage(browser, desktop);
-  await page.goto(`${app}/auth/login`);
-  await page.getByRole("radiogroup", { name: "Theme" }).waitFor();
-  await shot(page, "login");
-  await page.context().close();
-
-  // Desktop notebook in light and dark, rich editor, open tasks, full screen.
-  for (const scheme of ["light", "dark"]) {
-    page = await newPage(browser, desktop, scheme);
-    await login(page);
-    await open(page, richTitle);
-    await shot(page, `notebook-${scheme}`);
-    if (scheme === "light") {
-      await page.getByRole("link", { name: "Open tasks", exact: true }).click();
-      await page
-        .getByRole("heading", { name: "Open tasks", level: 1 })
-        .waitFor();
-      await shot(page, "open-tasks");
-      await open(page, "A slower start");
-      await page.getByRole("button", { name: "Enter full screen" }).click();
-      await page.waitForTimeout(500);
-      await shot(page, "full-screen");
-      await page.goto(`${app}/account`);
-      await page.getByRole("button", { name: /Turn on two-step/ }).waitFor();
-      await shot(page, "account-security");
-    }
+  try {
+    // Signed out: login with the theme control.
+    let page = await newPage(browser, desktop);
+    await page.goto(`${app}/auth/login`);
+    await page.getByRole("radiogroup", { name: "Theme" }).waitFor();
+    await shot(page, "login");
     await page.context().close();
+
+    let storageState;
+    for (const scheme of ["light", "dark"]) {
+      page = await newPage(browser, desktop, scheme);
+      await login(page);
+      await open(page, richTitle);
+      await shot(page, `notebook-${scheme}`);
+      await page.setViewportSize({ width: 810, height: 900 });
+      await shot(page, `tablet-${scheme}`);
+      if (scheme === "light") {
+        storageState = await page.context().storageState();
+        await page.getByRole("link", { name: "Account", exact: true }).click();
+        await page.getByRole("button", { name: /Turn on two-step/ }).waitFor();
+        await shot(page, "account-security");
+      }
+      await page.context().close();
+
+      page = await newPage(browser, mobile, scheme, undefined, storageState);
+      await page.goto(`${app}/folders`);
+      const suffix = scheme === "light" ? "" : "-dark";
+      const notes = page.getByRole("link", { name: "Notes", exact: true });
+      await notes.waitFor();
+      await shot(page, `mobile-folders${suffix}`);
+      await notes.click();
+      await row_(page, "Ideas for the reading nook").waitFor();
+      await shot(page, `mobile-list${suffix}`);
+      await open(page, "Ideas for the reading nook");
+      await shot(page, `mobile-editor${suffix}`);
+      await page.context().close();
+    }
+
+    const videoDir = path.join(out, "video");
+    page = await newPage(
+      browser,
+      { width: 1024, height: 640 },
+      "light",
+      videoDir,
+      storageState,
+    );
+    await page.goto(`${app}/folders/all`);
+    await page.getByRole("button", { name: "Compose" }).click();
+    const editor = page.getByRole("textbox", { name: "Note", exact: true });
+    await editor.pressSequentially("Garden plans", { delay: 65 });
+    await editor.press("Enter");
+    await page.keyboard.type("Tomatoes go by the south fence this year.", {
+      delay: 45,
+    });
+    await expect(page.getByRole("status")).toHaveText("Saved");
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await open(page, "Garden plans");
+    await expect(editor).toContainText(
+      "Tomatoes go by the south fence this year.",
+    );
+    await page.waitForTimeout(1000);
+    const video = page.video();
+    await page.context().close();
+    fs.renameSync(await video.path(), path.join(out, "core-loop.webm"));
+    fs.rmSync(videoDir, { recursive: true, force: true });
+    console.log("captured core-loop.webm");
+  } finally {
+    await browser.close();
   }
-
-  // Mobile list, editor and open tasks (joined into mobile.png by the shell script).
-  page = await newPage(browser, mobile);
-  await login(page);
-  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
-  await row_(page, "Ideas for the reading nook").waitFor();
-  await page.evaluate(() => document.activeElement?.blur()); // hide focus tooltip
-  await page.waitForTimeout(600);
-  await shot(page, "mobile-list");
-  await open(page, "Ideas for the reading nook");
-  await shot(page, "mobile-editor");
-  await page.goto(`${app}/entries/tasks`);
-  await page.getByRole("heading", { name: "Open tasks", level: 1 }).waitFor();
-  await shot(page, "mobile-tasks");
-  await page.context().close();
-
-  // Recording: write, save, find, tick a task.
-  const videoDir = path.join(out, "video");
-  page = await newPage(
-    browser,
-    { width: 1024, height: 640 },
-    "light",
-    videoDir,
-  );
-  await login(page);
-  await page.waitForTimeout(600);
-  await page.getByRole("link", { name: "New note", exact: true }).click();
-  await page.getByLabel("Entry title").pressSequentially("Garden plans", {
-    delay: 60,
-  });
-  const editor = page.getByRole("textbox", { name: "Entry body" });
-  await editor.click();
-  await page.keyboard.type("Tomatoes go by the south fence this year.", {
-    delay: 25,
-  });
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("[ ] ", { delay: 60 });
-  await page.keyboard.type("Buy seedlings", { delay: 40 });
-  await page.waitForTimeout(400);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: /Saved/ }).waitFor();
-  await page.waitForTimeout(900);
-  await page.getByLabel("Search titles").pressSequentially("garden", {
-    delay: 80,
-  });
-  await page.getByRole("button", { name: "Search", exact: true }).click();
-  await page.waitForTimeout(700);
-  await open(page, "Garden plans");
-  await page.waitForTimeout(800);
-  await page.getByRole("link", { name: "Open tasks", exact: true }).click();
-  const box = page.getByRole("checkbox", { name: "Buy seedlings" });
-  await box.waitFor();
-  await page.waitForTimeout(2000);
-  await box.click();
-  await box.waitFor({ state: "detached" });
-  await page.waitForTimeout(1500);
-  const video = page.video();
-  await page.context().close();
-  fs.renameSync(await video.path(), path.join(out, "core-loop.webm"));
-  fs.rmSync(videoDir, { recursive: true, force: true });
-  console.log("captured core-loop.webm");
-
-  await browser.close();
   console.log(`console_errors: ${errors.length}`);
-  for (const e of errors) console.log(`  ${e}`);
+  assert.deepEqual(errors, []);
 }
 
 main().catch((error) => {

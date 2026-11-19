@@ -1,8 +1,6 @@
 # Adopted prebuilt UI
 
-The prebuilt interface is the sole UI at `/entries`. The earlier implementation is
-preserved only in Git checkpoint `7c91b47`; there is no UI switch or alternate editor.
-Existing entries use the same schema and require no migration.
+The current workspace reuses shadcn primitives and the ProseKit editor schema. The selection notes below record the original entries interface. See [folders, note editing and historical source](../features/notes.md).
 
 ## Findings
 
@@ -21,34 +19,13 @@ focused reuse comparison, not a benchmark of the other editors.
 
 ## What came from blocks
 
-- `src/components/app-sidebar.tsx` and `nav-user.tsx`: installed from `sidebar-09`.
-  Retains its nested sidebar composition, icon navigation, list row layout and account dropdown.
-  Sample email data became PocketBase entries; router links replace demo actions. Billing,
-  upgrades and notifications were removed because the product does not support them.
-- `src/features/entries/workspace.tsx`: the `sidebar-09` page composition, with the
-  existing route outlet replacing placeholder rectangles. The breadcrumb header appears
-  only in the library; an open entry uses one compact editor header to avoid duplicate controls.
-- `src/components/editor/examples/full/` and `src/components/editor/ui/`: installed
-  from ProseKit's full example, including its toolbar/button/tooltip behavior.
-  Added initial JSON, change callbacks and read-only state to connect to existing persistence.
-  Responsive content padding and semantic surface colors adapt the example to this app.
-- The full schema is validated server-side. The real uploader uses protected PocketBase
-  attachments; demo content, people and tag datasets are omitted. See [attachment design](../features/attachments.md).
+The original sidebar used shadcn’s `sidebar-09` block. The current folder pane lives in `src/features/folders/` and its account menu uses `src/components/nav-user.tsx`. The note list, route workspace and autosave logic live in `src/features/notes/`.
 
-Save, validation, authentication recovery, conflict and deletion logic remains
-in `EntryEditor`. These are application-specific behavior rather than registry features.
-The later full-editor integration adds protected attachments and expands document validation.
-
-The ProseKit registry installs its icon CSS plugin and icon set; the shadcn block uses its
-upstream Lucide icons. Application controls retain Tabler. These extra dependencies
-are specific to keeping the prebuilt examples close to upstream. No preset or theme reset was run.
+The editor uses `src/components/editor/examples/full/` and `src/components/editor/ui/`. It can reopen stored rich content and protected images. Formatting and upload controls are deferred. The [attachment contract](../features/attachments.md) describes file handling.
 
 ## Checks
 
-The browser suite runs against `/entries` and checks editing round trips, saving,
-journal dates, filtering, favorites, draft guards, conflicts, session recovery,
-full-screen mode, sidebar collapse, mobile navigation, undo/redo and deletion.
-API checks cover the unchanged backend.
+The [verification guide](../testing/verification.md) covers Compose, autosave, private reads, keyboard focus and responsive navigation.
 
 ## Source notices
 

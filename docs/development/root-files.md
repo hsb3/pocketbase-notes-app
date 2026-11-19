@@ -8,7 +8,7 @@ What each file at the repo root does and why it exists.
 
 Declares dependencies (React 19, TanStack Router, PocketBase SDK, Tailwind) and scripts (`dev`, `build`, `lint`, `knip`, `docs:dev`/`docs:build`, `pb:codegen`, `test:*`). It also carries the app version (`0.1.0`, checked by the release workflow) and the MIT `license` field. Its `trustedDependencies` field whitelists which packages may run postinstall scripts under Bun (`@biomejs/biome`, `esbuild`) — everything else is blocked. Necessary: it is the package manifest; nothing installs or builds without it.
 
-`test:api` includes `scripts/test-notes.ts` alongside the existing suites. It exercises private folders, note projections and revision-checked saves against PocketBase.
+`test:api` exercises private folders, note projections and revision-checked saves in `scripts/test-notes.ts`. The attachment and MFA suites also use live notes to check protected files and sign-in access. The standalone draft tests run with `bun test tests/unit`. The journal date picker and its dependency were removed from the app and lockfile.
 
 ### `bun.lock`
 
@@ -82,7 +82,7 @@ Keeps secrets (`.env`, `*.pem`, keys/certs), `node_modules`, `pb/data`, and buil
 
 ### `.env.example`
 
-Template for `.env`, including backend credentials, local URLs, seed users, RustFS settings, port/container overrides and test overrides. Comments describe defaults and consumers. Secrets are left empty on purpose: `scripts/init-env.sh` (run by `make app`, `make start`, `make up*` and `make env`) copies the template when `.env` is missing and generates empty secrets without touching values that are set. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
+Template for `.env`, including backend credentials, local URLs, seed users, RustFS settings, port/container overrides and test overrides. `TEST_PB_URL` overrides the backend for `scripts/test-notes.ts`. Secrets are left empty on purpose: `scripts/init-env.sh` (run by `make app`, `make start`, `make up*` and `make env`) copies the template when `.env` is missing and generates empty secrets without touching values that are set. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
 
 `VITE_AUTH_BYPASS` skips the frontend guard only in development. `VITE_SIGNUP_ENABLED` controls the registration UI at build time and public account creation in the backend at runtime; only the exact value `true` enables it. Sharing, collaboration, AI and offline sync are not implemented and have no enable switch. SMTP/S3 enablement lives in persisted PocketBase settings; `make up-full` configures local providers. Editor capabilities and attachment limits live in code/schema; see [attachment behavior](../features/attachments.md).
 
@@ -100,13 +100,13 @@ The docs site. VitePress renders the repository's own Markdown (`docs/`, `deploy
 
 ### `docs/architecture/spec.md`
 
-Product purpose, boundaries and links to the notes/journal design.
+Product purpose, boundaries, current notebook behavior and the superseded entries design.
 
 Agent skills under `.agents/skills/` and `.claude/skills/` (the latter only exists when a tool such as skillshare syncs skills locally) are excluded from Biome because they are vendored references, not application source. CLI scripts may report status through the console; application console warnings remain enabled.
 
 The adopted prebuilt UI imports the ProseKit registry’s Tailwind icon plugin in
 `src/styles/globals.css`; its Lucide icon data and React icons are installed dependencies.
-Application controls retain their existing Tabler icons.
+The notebook also uses Lucide icons for navigation and Compose.
 
 ## Full-stack development integration
 
@@ -119,8 +119,7 @@ email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_UR
 ### `playwright.config.ts`
 
 Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium and WebKit execution,
-a managed Vite server and failure artifacts. `.env` supplies the local backend;
-`TEST_APP_URL` can select an existing local frontend. See [testing](../testing/verification.md).
+failure traces and screenshots. `TEST_APP_URL` selects the built app for the contained suite and the hosted default E2E phase. If unset, Playwright starts Vite for development scenarios. See [testing](../testing/verification.md).
 
 ### `.github/`
 
@@ -219,10 +218,7 @@ that is set. The Makefile runs it before `env`, `app`, `start`, `start-full`, `u
 
 ### `scripts/capture-screenshots.sh`
 
-Refreshes the README images in `docs/images/` from a running stack: drives
-`tests/screenshots/capture.cjs` in a resource-limited Playwright container and uses
-ffmpeg on the host for the GIF and the phone strip. Use a fresh stack: each run adds
-one sample note.
+With no arguments, runs the contained screenshots profile against a fresh seeded stack. Captures go to `test-results/<project>/screenshots/`. Host FFmpeg renders the GIF and phone strip. Publishing reviewed images is a separate step.
 
 ### `scripts/seed.sh` and `scripts/seed.ts`
 
@@ -230,4 +226,4 @@ The shell entry point forwards arguments to Bun. `make stack-seed` and `make app
 local target, creates missing accounts, verifies logins and seeds an empty notebook.
 `--reset-passwords` explicitly permits changes to the configured seed passwords;
 normal `make start`/`make seed` runs preserve them. `SEED_ARGS` forwards this option
-through the Makefile. `scripts/seed-entries.ts` no longer creates accounts itself.
+through the Makefile. `scripts/seed-notes.ts` uses the signed-in seed account to add sample documents to its default Notes folder only when the account has no notes.

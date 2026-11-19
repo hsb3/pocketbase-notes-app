@@ -117,6 +117,9 @@ jobs:
       - name: Build and start full stack
         run: make up-full
       - name: Run API and browser tests
+        # The built app served by PocketBase: compose-timing needs production editor chunks.
+        env:
+          TEST_APP_URL: http://127.0.0.1:8080
         run: bun run test:e2e
       - name: Verify account lifecycle and deployment drills
         run: bun run test:accounts

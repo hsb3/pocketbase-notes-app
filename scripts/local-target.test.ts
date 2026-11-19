@@ -3,12 +3,7 @@ import { mkdtempSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-for (const script of [
-  "test-entries.ts",
-  "test-attachments.ts",
-
-  "seed-entries.ts",
-]) {
+for (const script of ["test-notes.ts", "test-attachments.ts", "seed.ts"]) {
   test(`${script} rejects non-loopback targets before authentication`, async () => {
     let requests = 0;
     const server = Bun.serve({

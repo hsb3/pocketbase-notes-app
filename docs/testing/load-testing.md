@@ -1,9 +1,22 @@
 # Load testing
 
-What one instance of the app can handle, measured with a repeatable test that runs
-entirely in Docker.
+## Check the current notes workload
 
-## Answer
+Run the short functional check from the repository root.
+
+```sh
+make test-api-contained CONTAINED_PROFILE=load
+```
+
+The contained profile creates two accounts with three notes each. One k6 user exercises
+all operations in a 15-second stage. The gate requires a successful request for every
+operation, correct summary fields, a stable create ID, an incremented revision and the
+expected protected download size. The runner removes its private Docker project afterward.
+
+For a capacity campaign on a disposable machine, use the configuration below. The
+measurements on this page predate the switch from entries to folders and notes.
+
+## Historical capacity of the entries workload
 
 Measured 2026-11-15 on one app container limited to **1 CPU and 512 MB**, with the
 local stack's settings (rate limiting off, files in RustFS):
@@ -26,7 +39,7 @@ writing notes. If a real active user averages one request every 5 to 10 seconds,
 requests/second is roughly 1,200 to 2,400 people active at the same moment. That
 conversion is an assumption, not a measurement.
 
-## Run it
+## Run a capacity campaign
 
 Needs only Docker. From the repo root:
 
@@ -34,9 +47,10 @@ Needs only Docker. From the repo root:
 tests/load/run.sh
 ```
 
-One pass takes about 9 minutes. It builds the self-contained stack as `pbn-load`,
+The default campaign schedules seven one-minute stages with six ten-second gaps, plus
+setup and teardown. It builds the self-contained stack as `pbn-load`,
 caps the app, configures it the same way `make app` does, creates 200 accounts with
-40 entries each, runs k6 in its own container on the stack's network, samples
+40 notes each, runs k6 in its own container on the stack's network, samples
 container resources, prints a results table and removes every container, volume,
 network and image it created. Raw output stays in `tests/load/test-results/<run>/`
 (ignored by git). It exits non-zero if the app was killed or k6 failed.
@@ -53,12 +67,34 @@ the stack's volumes at the end.
 | `LOAD_LOGIN_SHARE` | `0.05` | Share of actions that are a fresh login |
 | `LOAD_RATE_LIMITS` | `off` | `on` enables PocketBase's default rate limit rules after seeding |
 | `LOAD_APP_GOMEMLIMIT` | unset | Go soft memory limit for the app, for example `400MiB` |
-| `LOAD_USERS`, `LOAD_ENTRIES_PER_USER` | `200`, `40` | Seeded data |
+| `LOAD_USERS`, `LOAD_ENTRIES_PER_USER` | `200`, `40` | Accounts and notes per account (legacy variable name) |
 | `KEEP` | `0` | `1` leaves the stack running for inspection |
 
 After `KEEP=1`, remove the stack with `docker compose -p pbn-load down -v`.
 
-## What is measured
+## Current workload
+
+Each simulated user shares an ordinary account with other users and pauses 0.5–1.5
+seconds between actions. With the default 5% fresh-login share, the remaining actions
+use these weights.
+
+| Action | Share of remaining actions | Requests |
+| --- | ---: | --- |
+| Browse All Notes | 47% | Request 20 active summaries ordered by update time and ID. Sometimes request page two or open a full note. |
+| Browse a folder | 16% | List folders, then request the same projection within the owned Notes folder. |
+| Write | 26.5% | Create a rich document at a client-selected ID, or read a previously created note and PATCH its body with the current revision. |
+| Attach | 10.5% | Upload a private text or PDF file, create a note referencing it, read file metadata, issue an owner token and download the bytes. |
+
+The separate Chromium editor benchmark measures navigation to a saved note on a cold
+and warm HTTP cache. Its contained smoke runs one repetition per fixture and device
+profile. The full benchmark runs five. SC-001 measures touch-to-input after the list
+has preloaded the editor and has its own timing test.
+
+```sh
+make test-browser-contained CONTAINED_PROFILE=performance
+```
+
+## Historical measurement setup
 
 **Machine.** Apple M4 Max laptop (16 cores, 48 GB), macOS 27.0.1, Docker Desktop
 29.9.3 with 16 CPUs and 12.5 GB given to its Linux VM. Other builds and browser tests
@@ -76,8 +112,8 @@ The app's auto-restart is turned off so a memory kill stays visible. k6 is kille
 watchdog if it runs longer than the planned stages plus four minutes, and never longer
 than 18 minutes.
 
-**Workload.** `tests/load/k6/script.js` sends the same requests as the frontend. Each
-simulated user repeats: one action, then 0.5–1.5 s of think time. Several simulated
+**Historical workload.** The entries client sent the requests below. Each
+simulated user repeated: one action, then 0.5–1.5 s of think time. Several simulated
 users share each of the 200 accounts.
 
 | Action | Share | Requests |
@@ -101,7 +137,7 @@ from the lightest stage on. Those responses (1.2% of requests) are reported on t
 own row, not in the stage percentiles. A user typing a search that matches nothing can
 meet this delay.
 
-## Results
+## Historical results
 
 Two passes of the default run on commit `75e001a` (main at `73524fb` plus the test),
 rate limiting off. Each cell is pass 1 / pass 2.

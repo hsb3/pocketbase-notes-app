@@ -165,6 +165,22 @@ try {
     404,
     "Another user cannot set the flag even with their own password",
   );
+  const folder = await owner.client
+    .collection("folders")
+    .getFirstListItem("is_default = true");
+  const note = await owner.client.collection("notes").create({
+    user: owner.id,
+    folder: folder.id,
+    body: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Private note" }],
+        },
+      ],
+    },
+  });
   const enabled = await users(owner.client).update(owner.id, {
     mfaEnabled: true,
     currentPassword: owner.password,
@@ -173,19 +189,10 @@ try {
 
   // A partial sign-in is not a session: the mfaId opens nothing.
   const pending = await mfaId(owner.email, owner.password);
-  for (const path of [
-    `collections/users/records/${owner.id}`,
-    "collections/entries/records",
-  ]) {
-    const response: Response = await fetch(`${url}/api/${path}`, {
-      headers: { Authorization: pending },
-    });
-    const body = (await response.json()) as { totalItems?: number };
-    assert(
-      response.status === 404 || (response.ok && body.totalItems === 0),
-      `${path} must not be readable with an mfaId (got ${response.status})`,
-    );
-  }
+  const partial = new PocketBase(url);
+  partial.authStore.save(pending);
+  assert.equal(await status(users(partial).getOne(owner.id)), 404);
+  assert.equal((await partial.collection("notes").getList(1, 1)).totalItems, 0);
 
   // Code step: wrong code fails, right code signs in, codes are single use.
   const second = new PocketBase(url);
@@ -202,6 +209,9 @@ try {
     .collection("users")
     .authWithOTP(otpId, value, { mfaId: pending });
   assert.equal(second.authStore.record?.id, owner.id);
+  const visible = await second.collection("notes").getList(1, 1);
+  assert.equal(visible.totalItems, 1);
+  assert.equal(visible.items[0].id, note.id);
   assert.equal(
     await status(
       new PocketBase(url).collection("users").authWithOTP(otpId, value, {

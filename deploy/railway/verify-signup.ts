@@ -56,7 +56,8 @@ async function main() {
     await page.getByLabel("Email", { exact: true }).fill(fixture.email);
     await page.getByLabel("Password", { exact: true }).fill(fixture.password);
     await page.getByRole("button", { name: "Login", exact: true }).click();
-    await page.waitForURL("**/entries**");
+    await page.waitForURL("**/folders/all");
+    await expect(page.getByRole("button", { name: "Compose" })).toBeEnabled();
     await Bun.write(
       `${evidenceDirectory}/signup-check.json`,
       JSON.stringify({

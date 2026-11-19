@@ -19,12 +19,10 @@ async function login(page, { email, password }) {
   await page.locator('input[name="identity"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: "Login", exact: true }).click();
-  await page.waitForURL("**/entries**");
+  await expect(page).toHaveURL("/folders/all");
 }
 
-async function openUserMenu(page, mobile) {
-  if (mobile)
-    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+async function openUserMenu(page) {
   await page.getByRole("button", { name: /Jamie/ }).click();
   return page.getByRole("group", { name: "Theme" });
 }
@@ -125,7 +123,9 @@ for (const [name, viewport] of Object.entries(viewports)) {
       await login(page, session);
       await expectTheme(page, "light");
 
-      let theme = await openUserMenu(page, mobile);
+      if (mobile)
+        await page.getByRole("link", { name: "Folders", exact: true }).click();
+      let theme = await openUserMenu(page);
       await expect(
         theme.getByRole("menuitemradio", { name: "System" }),
       ).toBeChecked();
@@ -153,7 +153,7 @@ for (const [name, viewport] of Object.entries(viewports)) {
 
       await page.reload();
       await expectTheme(page, "dark");
-      theme = await openUserMenu(page, mobile);
+      theme = await openUserMenu(page);
       await expect(
         theme.getByRole("menuitemradio", { name: "Dark" }),
       ).toBeChecked();

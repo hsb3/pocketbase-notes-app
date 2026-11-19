@@ -23,7 +23,7 @@ async function main() {
   const digest = (value: unknown) =>
     createHash("sha256").update(JSON.stringify(value)).digest("hex");
   const checks = [];
-  for (const collection of ["users", "entries", "attachments"]) {
+  for (const collection of ["users", "folders", "notes", "attachments"]) {
     const original = await source
       .collection(collection)
       .getFullList({ sort: "id" });

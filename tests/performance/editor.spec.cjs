@@ -28,34 +28,43 @@ test("production editor loading baseline", async ({
       },
     ],
   };
+  const repeats = process.env.PERF_SMOKE === "1" ? 1 : 5;
+  const folders = await api(
+    "collections/folders/records?filter=is_default%3Dtrue",
+    auth.token,
+  );
+  expect(folders.totalItems).toBe(1);
+  const folder = folders.items[0].id;
   const fixtures = [];
   for (const [name, paragraphs] of [
-    ["empty", 0],
+    ["title-only", 0],
     ["representative", 20],
     ["large", 200],
   ]) {
     const body = {
       type: "doc",
-      content: paragraphs
-        ? Array.from({ length: paragraphs }, (_, i) => ({
-            type: "paragraph",
-            content: [
-              {
-                type: "text",
-                text: `Paragraph ${i}. ${"A measured thought with enough detail to edit. ".repeat(8)}`,
-              },
-            ],
-          }))
-        : [{ type: "paragraph" }],
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: `Performance ${name}` }],
+        },
+        ...Array.from({ length: paragraphs }, (_, i) => ({
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: `Paragraph ${i}. ${"A measured thought with enough detail to edit. ".repeat(8)}`,
+              marks: [{ type: "bold" }],
+            },
+          ],
+        })),
+      ],
     };
-    const record = paragraphs
-      ? await api("collections/entries/records", auth.token, "POST", {
-          user: session.account.id,
-          title: `Performance ${name}`,
-          kind: "note",
-          body,
-        })
-      : { id: "new" };
+    const record = await api("collections/notes/records", auth.token, "POST", {
+      user: session.account.id,
+      folder,
+      body,
+    });
     fixtures.push({
       name,
       paragraphs,
@@ -121,21 +130,15 @@ test("production editor loading baseline", async ({
       { type: "paragraph" },
     ],
   };
-  const imageEntry = await api(
-    "collections/entries/records",
-    auth.token,
-    "POST",
-    {
-      user: session.account.id,
-      title: "Performance attachments",
-      kind: "note",
-      body: imageBody,
-      attachments,
-    },
-  );
+  const imageNote = await api("collections/notes/records", auth.token, "POST", {
+    user: session.account.id,
+    folder,
+    body: imageBody,
+    attachments,
+  });
   fixtures.push({
     name: "attachments",
-    id: imageEntry.id,
+    id: imageNote.id,
     images: 10,
     imageBytes: png.length * 10,
     bytes: Buffer.byteLength(JSON.stringify(imageBody)),
@@ -144,7 +147,7 @@ test("production editor loading baseline", async ({
   const runs = [];
   for (const profile of ["desktop", "simulated-mobile"]) {
     for (const fixture of fixtures) {
-      for (let repetition = 1; repetition <= 5; repetition++) {
+      for (let repetition = 1; repetition <= repeats; repetition++) {
         const context = await browser.newContext({
           storageState,
           viewport:
@@ -177,13 +180,16 @@ test("production editor loading baseline", async ({
           });
           for (const cache of ["cold", "warm"]) {
             if (cache === "cold") await cdp.send("Network.clearBrowserCache");
-            await page.goto(`${origin}/entries/${fixture.id}`, {
-              waitUntil: "domcontentloaded",
-            });
+            await page.goto(
+              `${origin}${fixture.id ? "/notes/" + fixture.id : "/folders/all"}`,
+              {
+                waitUntil: "domcontentloaded",
+              },
+            );
             const shell = fixture.name === "app-shell";
             const editor = shell
-              ? page.getByRole("link", { name: "New note", exact: true })
-              : page.getByRole("textbox", { name: "Entry body" });
+              ? page.getByRole("button", { name: "Compose", exact: true })
+              : page.getByRole("textbox", { name: "Note", exact: true });
             if (shell) await expect(editor).toBeVisible({ timeout: 60_000 });
             else await expect(editor).toBeEditable({ timeout: 60_000 });
             const editableMs = await page.evaluate(() => performance.now());
@@ -234,7 +240,11 @@ test("production editor loading baseline", async ({
               `${profile} ${fixture.name} ${cache} run ${repetition}: ${editableMs.toFixed(0)}ms`,
             );
             // Undo the probe so reloading does not discard an unsaved user edit.
-            if (!shell) await editor.press("ControlOrMeta+z");
+            if (!shell) {
+              await editor.press("ControlOrMeta+z");
+              await expect(editor).not.toContainText("baseline-input");
+              await expect(page.getByRole("status")).toHaveText("Saved");
+            }
           }
         } finally {
           await context.close();
@@ -244,12 +254,17 @@ test("production editor loading baseline", async ({
   }
   const report = {
     capturedAt: new Date().toISOString(),
-    commit: execFileSync("git", ["rev-parse", "HEAD"], {
-      encoding: "utf8",
-    }).trim(),
-    workingTree: execFileSync("git", ["status", "--short"], {
-      encoding: "utf8",
-    }).trim(),
+    repetitions: repeats,
+    commit:
+      process.env.PERF_COMMIT ||
+      execFileSync("git", ["rev-parse", "HEAD"], {
+        encoding: "utf8",
+      }).trim(),
+    workingTree:
+      process.env.PERF_WORKTREE ??
+      execFileSync("git", ["status", "--short"], {
+        encoding: "utf8",
+      }).trim(),
     platform: `${os.platform()} ${os.release()} ${os.arch()}`,
     cpu: os.cpus()[0].model,
     browser: browser.version(),
@@ -278,7 +293,7 @@ test("production editor loading baseline", async ({
           .map((r) => r.editableMs)
           .sort((a, b) => a - b);
         console.log(
-          `${profile} ${fixture.name} ${cache}: median ${values[2].toFixed(0)}ms, range ${values[0].toFixed(0)}–${values[4].toFixed(0)}ms`,
+          `${profile} ${fixture.name} ${cache}: median ${values[Math.floor(values.length / 2)].toFixed(0)}ms, range ${values[0].toFixed(0)}–${values.at(-1).toFixed(0)}ms`,
         );
       }
 });
