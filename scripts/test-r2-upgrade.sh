@@ -5,6 +5,7 @@ set -eu
 exec python3 - <<'PY'
 from contextlib import closing, contextmanager
 from pathlib import Path
+import hashlib
 import json
 import os
 import re
@@ -28,8 +29,12 @@ def api(path, data=None, token=None, method=None):
     if data is not None:
         request.data = json.dumps(data).encode()
     with urlopen(request, timeout=5) as response:
+        raw = response.read()
+        if response.status == 204:
+            assert raw == b"", (path,raw)
+            return None
         assert response.status == 200, (path,response.status)
-        return json.load(response)
+        return json.loads(raw)
 
 def login(collection, email):
     return api(f"collections/{collection}/auth-with-password", {"identity": email, "password": password})["token"]
@@ -422,6 +427,23 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
             assert row["revision"] == expected_rev
             assert api("collections/notes/records/" + row["id"], token=token) == row
         check_hits(token, "UNDERSTORY", {edit:"Understory"})
+        custom = create("folders", token, user=current, name="Post up")
+        member = create("notes", token, user=current, folder=folder["id"], body=body("Folder survivor"))
+        mid = member["id"]
+        for verb, rev, args in [("move",1,{"folder":custom["id"]}), ("delete",2,{}), ("restore",3,{})]:
+            changed = api(f"notebook/notes/{mid}/{verb}", {"revision":rev, **args}, token)
+            assert changed["revision"] == rev+1 and changed["folder"] == custom["id"]
+        fid = custom["id"]
+        digest = hashlib.sha256(json.dumps([fid,[[mid,4,""]]],separators=(",",":")).encode()).hexdigest()
+        path = f"collections/folders/records/{fid}?snapshot={digest}"
+        preview = api(f"notebook/folders/{fid}/delete-preview", token=token)
+        assert preview == {"id":fid,"name":"Post up","activeCount":1,"snapshot":digest}
+        assert api(path, token=token, method="DELETE") is None
+        after_member = api(f"collections/notes/records/{mid}", token=token)
+        assert after_member["folder"] == "" and after_member["revision"] == 5 and after_member["deleted"]
+        with closing(sqlite3.connect(dbfile)) as db:
+            assert not db.execute("SELECT id FROM folders WHERE id=?", (fid,)).fetchall()
+        print("Confirmed folder removed", fid, "surviving tombstone", mid, after_member["deleted"], flush=True)
         retained_date = "2026-03-01 01:02:03.456Z"
         created_id = created["id"]
         assert re.fullmatch("[a-z0-9]{15}",created_id)
@@ -431,7 +453,7 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
     saved_rows, saved_schema, saved_history = snapshot()
     saved = saved_rows[0]
     assert saved_schema == r5_schema and saved_history == r5_history
-    assert set(saved) == set(post) | {created_id}
+    assert set(saved) == set(post) | {created_id,mid}
     assert saved[edit]["search_key"] == "R5 EDIT\nUNDERSTORY" and saved[created_id]["search_key"] == "R5 CREATE"
     assert saved[created_id]["deleted"] == retained_date
     assert all(saved[i] == r for i,r in post.items() if i != edit)
@@ -445,7 +467,7 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
     scan_hook.write_text("""
     onBootstrap((e) => {
       e.next();
-      const [owner, expired, retained, invalid, expiredDate, retainedDate] = FIXTURES;
+      const [owner, expired, retained, invalid, expiredDate, retainedDate, folderMember] = FIXTURES;
       const cutoff = "2026-02-01 00:00:00.000Z";
       const valid = "(deleted <> '0001-01-01 00:00:00.000Z' AND COALESCE(strftime('%Y-%m-%d %H:%M:%fZ',deleted,'+0 days') = deleted COLLATE BINARY, 0))";
       function query(sql, params, shape) {
@@ -473,12 +495,12 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
       }
       const where = " FROM notes WHERE user={:owner} AND deleted>{:cutoff} AND " + valid;
       const params = {owner,cutoff};
-      equal(query("SELECT count(*) AS n" + where, params, {n:0})[0].n, 1);
+      equal(query("SELECT count(*) AS n" + where, params, {n:0})[0].n, 2);
       const page = query("SELECT id,folder,title,revision,deleted" + where + " ORDER BY deleted DESC,id DESC LIMIT 20",
         params, {id:"",folder:"",title:"",revision:0,deleted:""});
-      equal(page.map(r => [r.id,r.deleted]), [[retained,retainedDate]]);
+      equal(page.map(r => [r.id,r.deleted]), [folderMember,[retained,retainedDate]]);
       console.log("PASS R5 bound plans and valid trash count/page");
-    });""".replace("FIXTURES",json.dumps([current,deleted,created_id,boundary,date,retained_date])))
+    });""".replace("FIXTURES",json.dumps([current,deleted,created_id,boundary,date,retained_date,[mid,after_member["deleted"]]])))
     offset = trace.stat().st_size
     try:
         with server():
@@ -517,7 +539,7 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
     assert snapshot() == (saved_rows, r5_schema, r5_history)
     with server():
         token = login("users", "r1@example.test")
-        assert listed(token) == sorted(set(saved) - {deleted,created_id})
+        assert listed(token) == sorted(set(saved) - {deleted,created_id,mid})
         check_hits(token, "UNDERSTORY", {edit:"Understory"})
     print("R5 post-write down/up:", len(saved), "complete rows, edit revision", updated["revision"],
           "retained", created_id, retained_date, "unexpected index refusal exit", failed.returncode)

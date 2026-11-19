@@ -568,4 +568,152 @@ async function transitions(
     ids.push(...page.items.map((r: RecordModel) => r.id));
   }
   assert.deepEqual(ids, [removed.id, ...tied].sort().reverse());
+
+  const folders = owner.collection("folders");
+  const custom = await folders.create({ user, name: "Confirm garden" });
+  const preview = (folder = custom.id, pb = owner) =>
+    pb.send(`/api/notebook/folders/${folder}/delete-preview`, {
+      method: "GET",
+      fetch: privateRequest,
+    });
+  const remove = (snapshot: string) =>
+    folders.delete(custom.id, { query: { snapshot } });
+  await rejected(preview(source), 400);
+  await rejected(folders.delete(source), 400);
+  await rejected(preview(custom.id, other), 404);
+  await rejected(preview(custom.id, guest), 401);
+  const empty = await folders.create({ user, name: "Empty custom" });
+  await rejected(
+    folders.delete(empty.id, { query: { snapshot: "0".repeat(64) } }),
+    409,
+  );
+  assert.equal(await folders.delete(empty.id), true);
+  const members: RecordModel[] = [];
+  for (let i = 0; i < 4; i++)
+    members.push(await notes.create({ user, folder: custom.id, body: rich }));
+  const [a, b, c, d] = members;
+  await markRetained(admin, c.id);
+  assert.match(d.id, /^[a-z0-9]{15}$/);
+  await admin.sql.run(
+    `UPDATE notes SET deleted='2000-01-01 00:00:00.000Z' WHERE id='${d.id}'`,
+  );
+  const membership = async () => {
+    const rows = [];
+    for (const member of members) rows.push(await stored(admin, member.id));
+    return rows;
+  };
+  const before = await membership();
+  const digest = (rows: typeof before) =>
+    new Bun.CryptoHasher("sha256")
+      .update(
+        JSON.stringify([
+          custom.id,
+          rows
+            .filter((r) => r.folder === custom.id)
+            .sort((x, y) => String(x.id).localeCompare(String(y.id), "en"))
+            .map((r) => [r.id, Number(r.revision), r.deleted]),
+        ]),
+      )
+      .digest("hex");
+  const first = await preview();
+  assert.deepEqual(first, {
+    id: custom.id,
+    name: custom.name,
+    activeCount: 2,
+    snapshot: digest(before),
+  });
+  await rejected(folders.delete(custom.id), 400);
+  assert.deepEqual(await membership(), before);
+  async function stale(previous: string) {
+    const rows = await membership();
+    await rejected(remove(previous), 409);
+    assert.deepEqual(await membership(), rows);
+    assert.deepEqual(await folders.getOne(custom.id), custom);
+    const current = await preview();
+    assert.equal(current.activeCount, 2);
+    assert.equal(current.snapshot, digest(rows));
+    assert.notEqual(current.snapshot, previous);
+    console.log(
+      "PASS stale folder confirmation",
+      custom.id,
+      previous,
+      current.snapshot,
+    );
+    return current.snapshot;
+  }
+  await notes.update(a.id, { revision: 1, body: rich });
+  const edited = await stale(first.snapshot);
+  await send("move", { revision: 2, folder: source }, owner, a.id);
+  const swap = await notes.create({ user, folder: custom.id, body: rich });
+  members.push(swap);
+  const swapped = await stale(edited);
+  await send("delete", { revision: 1 }, owner, b.id);
+  await send("restore", { revision: 2 }, owner, b.id);
+  const snapshot = await stale(swapped);
+  const confirmedRows = await membership();
+  assert.match(custom.id, /^[a-z0-9]{15}$/);
+  await admin.sql.run(
+    `CREATE TRIGGER stop_fixture_folder BEFORE DELETE ON folders WHEN OLD.id='${custom.id}' AND NOT EXISTS(SELECT 1 FROM notes WHERE folder=OLD.id) BEGIN SELECT RAISE(ABORT,'fixture folder rollback'); END`,
+  );
+  try {
+    assert.match(
+      await rejected(remove(snapshot), 400),
+      /Failed to delete record/,
+    );
+    assert.deepEqual(await membership(), confirmedRows);
+    assert.deepEqual(await folders.getOne(custom.id), custom);
+    console.log("PASS final DELETE rolled back folder and members", custom.id);
+  } finally {
+    await admin.sql.run("DROP TRIGGER stop_fixture_folder");
+  }
+  for (const invalid of ["0001-01-01 00:00:00.000Z", "zz-invalid"]) {
+    await admin.sql.run(
+      `UPDATE notes SET deleted='${invalid}' WHERE id='${d.id}'`,
+    );
+    const malformed = await membership();
+    await rejected(preview(), 500);
+    await rejected(remove(snapshot), 500);
+    assert.deepEqual(await membership(), malformed);
+    assert.deepEqual(await folders.getOne(custom.id), custom);
+  }
+  await admin.sql.run(
+    `UPDATE notes SET deleted='2000-01-01 00:00:00.000Z' WHERE id='${d.id}'`,
+  );
+  assert.equal(await remove(snapshot), true);
+  await rejected(remove(snapshot), 404);
+  const finalRows = await membership();
+  const folderStamp = finalRows[1].deleted;
+  assert.match(String(folderStamp), stampShape);
+  for (const [i, row] of confirmedRows.entries()) {
+    assert.deepEqual(
+      finalRows[i],
+      row.folder !== custom.id
+        ? row
+        : {
+            ...row,
+            folder: "",
+            deleted: row.deleted || folderStamp,
+            revision: String(Number(row.revision) + 1),
+          },
+    );
+    if (row.folder === custom.id && row.id !== d.id) {
+      const result = await send(
+        "restore",
+        { revision: Number(row.revision) + 1 },
+        owner,
+        String(row.id),
+      );
+      assert.equal(result.folder, source);
+      assert.equal((await notes.getOne(String(row.id))).folder, source);
+    }
+  }
+  await rejected(folders.getOne(custom.id), 404);
+  console.log(
+    "PASS confirmed folder write set",
+    JSON.stringify({
+      folder: custom.id,
+      before: confirmedRows,
+      after: finalRows,
+    }),
+  );
 }

@@ -103,6 +103,18 @@ COPYFILE_DISABLE=1 tar --exclude='._*' -cf - package.json bun.lock bunfig.toml i
   pb/hooks pb/migrations scripts/*.ts deploy/docker/Dockerfile deploy/local/prepare-test.sh \
   tests/e2e playwright.config.ts "${inputs[@]}" | docker exec -i "$project-prepare" tar -xf -
 inside prepare sh deploy/local/prepare-test.sh "$profile"
+if [[ $1/$profile = api/default ]]; then
+  docker exec -i "$project-prepare" sh -c 'cat > /pb/pb_hooks/zz-manual-cron.pb.js' <<'JS'
+$app.onServe().bindFunc((e) => {
+  const cron = e.app.cron();
+  const jobs = cron.jobs().filter(j => j.id() === "expired-notes");
+  if (jobs.length !== 1 || jobs[0].expression() !== "17 3 * * *") throw Error("Missing production purge schedule");
+  console.log("Verified production cron", jobs[0].id(), jobs[0].expression());
+  cron.add("expired-notes", "0 0 30 2 *", jobs[0].run);
+  e.next();
+});
+JS
+fi
 docker stop -t 1 "$project-prepare" >/dev/null
 
 start rustfs
@@ -129,6 +141,9 @@ if [[ $profile = accounts ]]; then
 fi
 idle setup
 inside setup bun run scripts/configure-services.ts
+if [[ $1/$profile = api/default ]]; then
+  inside setup bun scripts/test-attachments.ts --cron-ready
+fi
 if [[ $profile = load ]]; then
   idle k6
   inside k6 mkdir /tmp/results

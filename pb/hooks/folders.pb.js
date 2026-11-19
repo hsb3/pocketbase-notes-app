@@ -35,14 +35,50 @@ onRecordCreateExecute((e) => {
   });
 }, "users");
 
-onRecordDeleteRequest((e) => {
+// Goja compiles each registered callback in isolation. Register the same snapshot transaction for both paths.
+function folderAction(e) {
+  const request = e.requestEvent || e;
+  const preview = request.request.method === "GET";
+  const id = preview ? request.request.pathValue("id") : e.record.id;
+  const user = request.auth.id;
+  request.response.header().set("Cache-Control", "private, no-store");
+  let result;
   e.app.runInTransaction((tx) => {
-    const folder = tx.findRecordById("folders", e.record.id);
+    const [folder] = tx.findRecordsByFilter("folders", "id={:id} && user={:user}", "", 1, 0, { id, user });
+    if (!folder) throw new NotFoundError("Folder unavailable.");
     if (folder.getBool("is_default")) throw new BadRequestError("The Notes folder is permanent.");
-    if (tx.findRecordsByFilter("notes", "folder = {:folder}", "", 1, 0, { folder: folder.id }).length) {
-      throw new BadRequestError("Only an empty folder can be deleted.");
+    const life = require(`${__hooks}/note-lifecycle.js`);
+    const rows = arrayOf(new DynamicModel({ id: "", user: "", revision: 0, deleted: "" }));
+    tx.db().newQuery("SELECT id,user,revision,deleted FROM notes WHERE folder={:id} ORDER BY id").bind({ id }).all(rows);
+    const members = rows.map((r) => {
+      if (r.user !== user || !Number.isSafeInteger(r.revision) || r.revision < 1 || r.revision >= Number.MAX_SAFE_INTEGER)
+        throw new InternalServerError("Folder data is unavailable.");
+      life.checkDeleted(tx, r.id, r.deleted);
+      return [r.id, r.revision, r.deleted];
+    });
+    const snapshot = $security.sha256(JSON.stringify([id, members]));
+    if (preview) {
+      result = { id, name: folder.getString("name"), activeCount: members.filter(m => !m[2]).length, snapshot };
+      return;
+    }
+    const query = request.request.url.query();
+    if (query.has("snapshot")) {
+      if (query.get("snapshot") !== snapshot) throw new ApiError(409, "Folder changed.");
+    } else if (rows.length) {
+      throw new BadRequestError("Only an empty folder can be deleted without confirmation.");
+    }
+    const now = life.utc(Date.now());
+    for (const row of rows) {
+      const write = tx.db().newQuery("UPDATE notes SET folder='', revision=revision+1, deleted={:deleted} " +
+        "WHERE id={:id} AND user={:user} AND folder={:folder} AND revision={:rev} AND deleted={:old}")
+        .bind({ deleted: row.deleted || now, id: row.id, user, folder: id, rev: row.revision, old: row.deleted }).execute();
+      if (write.rowsAffected() !== 1) throw new ApiError(409, "Folder changed.");
     }
     e.app = tx;
+    e.record = folder;
     e.next();
   });
-}, "folders");
+  if (preview) return e.json(200, result);
+}
+routerAdd("GET", "/api/notebook/folders/{id}/delete-preview", folderAction, $apis.requireAuth("users"));
+onRecordDeleteRequest(folderAction, "folders");
