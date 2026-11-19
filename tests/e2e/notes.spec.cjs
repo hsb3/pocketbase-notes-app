@@ -220,6 +220,7 @@ test("a failed save keeps the words and blocks Back", async ({
       .first(),
   ).toBeVisible();
   await back(page).click();
+  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
   await expect(page).toHaveURL(url);
   await expect(editor(page)).toHaveText(gardenTitle);
   await expect(saved(page)).toBeHidden();

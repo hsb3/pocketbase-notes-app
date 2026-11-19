@@ -46,7 +46,7 @@ export class NoteDraft {
   error = "";
   editorVersion = 0;
   failure?: Failure;
-  private session: ReturnType<typeof ownerSession>;
+  private readonly session: ReturnType<typeof ownerSession>;
   private baseline?: SavedNote;
   private submissions: Submission[] = [];
   private rejection?: "collision" | "denied" | "bad-create" | "stale";
@@ -55,9 +55,13 @@ export class NoteDraft {
   private timer?: ReturnType<typeof setTimeout>;
   private running?: Promise<boolean>;
   private leaving = false;
+  private paused = false;
   private disposed = false;
 
-  constructor(private options: Options) {
+  constructor(
+    private options: Options,
+    held?: ReturnType<NoteDraft["suspend"]>,
+  ) {
     const { note, user, folder } = options;
     if (
       !user ||
@@ -68,14 +72,67 @@ export class NoteDraft {
     this.user = user;
     this.initialFolder = folder;
     this.session = ownerSession(user);
-    this.baseline = note;
+    if (
+      held &&
+      (held.user !== user || held.folder !== folder || !this.session.current())
+    )
+      throw new Error("Note unavailable.");
+    this.baseline = held?.baseline ?? note;
     this.id =
+      held?.id ??
       note?.id ??
       Array.from(crypto.getRandomValues(new Uint8Array(15)), (byte) =>
         (byte % 36).toString(36),
       ).join("");
-    this.body = note?.body ?? { type: "doc", content: [{ type: "paragraph" }] };
+    this.body = held?.body ??
+      note?.body ?? { type: "doc", content: [{ type: "paragraph" }] };
     this.status = note ? "Saved" : "Idle";
+    if (held) {
+      this.generation = held.generation;
+      this.acknowledged = held.acknowledged;
+      this.submissions = held.submissions;
+      this.rejection = held.rejection;
+      this.failure = held.failure;
+      this.error = held.error;
+      this.status = "Error";
+    }
+  }
+
+  get dirty() {
+    return (
+      !this.disposed &&
+      (this.submissions.length > 0 ||
+        (this.generation !== this.acknowledged &&
+          (!!this.baseline || hasContent(this.body))))
+    );
+  }
+
+  suspend() {
+    this.dispose();
+    return {
+      user: this.user,
+      folder: this.folder,
+      id: this.id,
+      body: this.body,
+      baseline: this.baseline,
+      generation: this.generation,
+      acknowledged: this.acknowledged,
+      submissions: this.submissions,
+      // Recheck the outcome with fresh credentials after an authorization failure.
+      rejection:
+        this.rejection === "denied" ||
+        (this.rejection === "bad-create" && this.failure === "locked")
+          ? undefined
+          : this.rejection,
+      failure:
+        this.failure && this.failure !== "locked"
+          ? this.failure
+          : ("retry" as const),
+      error:
+        this.failure && this.failure !== "locked"
+          ? this.error
+          : "Your edits are still here. Retry to save them.",
+    };
   }
 
   get folder() {
@@ -86,6 +143,32 @@ export class NoteDraft {
     return this.baseline?.revision ?? 0;
   }
 
+  get busy() {
+    return !!this.running;
+  }
+
+  get current() {
+    return !this.disposed && this.session.current();
+  }
+
+  pause() {
+    this.paused = true;
+    this.clearTimer();
+  }
+
+  resume() {
+    this.paused = false;
+    if (this.current && this.dirty && !this.failure) this.schedule();
+  }
+
+  private schedule() {
+    this.clearTimer();
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      void this.pump();
+    }, 500);
+  }
+
   edit(body: NodeJSON) {
     if (this.disposed || !this.session.sameOwner()) return;
     this.body = body;
@@ -94,11 +177,7 @@ export class NoteDraft {
     this.clearTimer();
     if (!this.failure) {
       this.status = "Pending";
-      if (!this.leaving)
-        this.timer = setTimeout(() => {
-          this.timer = undefined;
-          void this.pump();
-        }, 500);
+      if (!this.leaving && !this.paused) this.schedule();
     }
     this.options.onChange?.();
   }
@@ -127,6 +206,7 @@ export class NoteDraft {
     this.running = this.reload(generation).finally(() => {
       this.leaving = false;
       this.running = undefined;
+      if (this.paused && this.current) this.options.onChange?.();
     });
     return this.running;
   }
@@ -373,6 +453,7 @@ export class NoteDraft {
           while (
             this.active() &&
             !this.failure &&
+            !this.paused &&
             !this.timer &&
             this.acknowledged !== this.generation
           ) {
@@ -386,6 +467,7 @@ export class NoteDraft {
         } finally {
           this.leaving = false;
           this.running = undefined;
+          if (this.paused && this.current) this.options.onChange?.();
         }
       });
     }

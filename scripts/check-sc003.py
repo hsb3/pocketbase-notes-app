@@ -36,7 +36,7 @@ def check(report):
             seen[cell] += 1
             attempts = test["results"]
             if (
-                "@sc003" not in spec["tags"]
+                "sc003" not in spec["tags"]
                 or Path(spec["file"]).name != "save-resilience.spec.cjs"
                 or test["expectedStatus"] != "passed"
                 or test["status"] != "expected"
