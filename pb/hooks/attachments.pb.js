@@ -1,7 +1,7 @@
 onRecordDeleteRequest((e) => {
   e.app.runInTransaction((tx) => {
     const { isReferenced } = require(`${__hooks}/attachment-cleanup.js`);
-    if (isReferenced(tx, e.record.id)) throw new BadRequestError("Remove the file from its entries and notes and save first.");
+    if (isReferenced(tx, e.record.id)) throw new BadRequestError("Remove the file from its notes and save first.");
     e.app = tx;
     e.next();
   });

@@ -100,6 +100,7 @@ inside storage-init sh -ec 'rc alias set local http://rustfs:9000 "$RUSTFS_ACCES
 idle setup
 inside setup bun run scripts/configure-services.ts
 if [[ $1 = api ]]; then
+  docker exec -i -e CONTAINED_TEST=1 "$project-pocketbase" sh -s < scripts/test-r2-upgrade.sh
   inside setup bun run test:api
 else
   idle browser

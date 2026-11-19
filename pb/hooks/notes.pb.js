@@ -81,3 +81,17 @@ onRecordEnrich((e) => {
   e.record.hide("search_key");
   e.next();
 }, "notes");
+
+onRecordsListRequest((e) => {
+  for (const note of e.records) {
+    const text = note.getString("text");
+    const start = text.search(/[\r\n\u2028\u2029]/);
+    const body = start < 0 ? "" : text.slice(start + 1).trim().replace(/\s+/g, " ");
+    // Enabling custom data would otherwise serialize every custom key.
+    note.hide(...Object.keys(note.customData() || {}));
+    note.set("excerpt", Array.from(body).slice(0, 120).join(""));
+    note.unhide("excerpt");
+    note.withCustomData(true);
+  }
+  e.next();
+}, "notes");
