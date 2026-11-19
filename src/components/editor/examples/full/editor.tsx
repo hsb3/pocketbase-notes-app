@@ -5,7 +5,6 @@ import {
   defineUpdateHandler,
   type NodeJSON,
 } from "prosekit/core";
-import type { Uploader } from "prosekit/extensions/file";
 import { defineReadonly } from "prosekit/extensions/readonly";
 import { ProseKit } from "prosekit/react";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -15,8 +14,6 @@ interface EditorProps {
   initialBody?: NodeJSON;
   disabled?: boolean;
   onChange: (body: NodeJSON) => void;
-  // shortcut: accepted by the legacy entries caller until its wave 6 removal.
-  uploader?: Uploader<string>;
 }
 
 export default function Editor(props: EditorProps) {

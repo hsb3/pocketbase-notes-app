@@ -159,23 +159,5 @@
 button svg { width: 1rem; height: 1rem; flex-shrink: 0; }
 button { gap: .5rem; }
 ::selection { background: hsl(var(--foreground) / .14); }
-.entry-pane { min-width: 0; flex: 1; background: hsl(var(--background)); }
-.writing-page { height: 100%; display: flex; flex-direction: column; min-width: 0; }
-.writing-header { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: .5rem 1rem; border-bottom: 1px solid hsl(var(--border)); min-height: 52px; }
-.save-status { font-size: .75rem; color: hsl(var(--muted-foreground)); }
-.writing-scroll { flex: 1; min-height: 0; overflow-y: auto; }
-.writing-document { max-width: 1040px; padding: 1rem 1.5rem; margin: auto; }
-.document-heading { display: flex; align-items: center; gap: .75rem; }
-.document-meta { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin: .25rem 0 .75rem; }
-.entry-kind { font-size: .8rem; color: hsl(var(--muted-foreground)); }
-.entry-title-input { min-width: 0; flex: 1; font-family: inherit; font-weight: 600; font-size: 1.5rem; line-height: 1.4; letter-spacing: -.02em; width: 100%; background: transparent; outline: none; padding: .25rem 0; resize: none; field-sizing: content; overflow-wrap: anywhere; }
-.entry-title-input::placeholder { color: hsl(var(--muted-foreground)); }
-.entry-title-input:focus-visible { box-shadow: 0 1px 0 hsl(var(--ring)); }
-.document-footer { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 1rem; min-height: 32px; border-top: 1px solid hsl(var(--border)); padding: .375rem 1rem; background: hsl(var(--muted) / .5); font-size: .75rem; color: hsl(var(--muted-foreground)); }
-.entry-error { background: hsl(var(--muted)); border: 1px solid hsl(var(--border)); padding: 1rem; margin-bottom: 1rem; font-size: .85rem; }
-.entry-error p { margin-bottom: .6rem; }
 /* Shiki publishes its theme as these variables; without a surface its colors are unreadable on a light page. */
 .ProseMirror pre { margin: .75rem 0; padding: .75rem 1rem; border-radius: calc(var(--radius) - 2px); background-color: var(--prosemirror-highlight-bg, hsl(var(--muted))); color: var(--prosemirror-highlight, inherit); }
-.muted-note { color: hsl(var(--muted-foreground)); font-size: .75rem; margin-bottom: 1rem; }
-
-@media(max-width:767px) { .writing-document { padding: .75rem 1rem; } .document-meta { flex-wrap: wrap; } .writing-header { padding: .375rem .5rem; } .writing-header .save-status { max-width: 80px; font-size: .65rem; } }

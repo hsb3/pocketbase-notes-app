@@ -11,9 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/_library'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedEntriesRouteImport } from './routes/_authenticated/entries'
 import { Route as AuthEmailVerificationRouteImport } from './routes/auth/email-verification'
 import { Route as AuthEmailVerificationConfirmRouteImport } from './routes/auth/email-verification-confirm'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
@@ -21,10 +21,9 @@ import { Route as AuthLogoutRouteImport } from './routes/auth/logout'
 import { Route as AuthPasswordResetRouteImport } from './routes/auth/password-reset'
 import { Route as AuthPasswordResetConfirmRouteImport } from './routes/auth/password-reset-confirm'
 import { Route as AuthRegisterRouteImport } from './routes/auth/register'
-import { Route as AuthenticatedEntriesIndexRouteImport } from './routes/_authenticated/entries.index'
-import { Route as AuthenticatedEntriesEntryIdRouteImport } from './routes/_authenticated/entries.$entryId'
-import { Route as AuthenticatedEntriesNewRouteImport } from './routes/_authenticated/entries.new'
-import { Route as AuthenticatedEntriesTasksRouteImport } from './routes/_authenticated/entries.tasks'
+import { Route as AuthenticatedLibraryFoldersIndexRouteImport } from './routes/_authenticated/_library.folders.index'
+import { Route as AuthenticatedLibraryFoldersFolderIdRouteImport } from './routes/_authenticated/_library.folders.$folderId'
+import { Route as AuthenticatedLibraryNotesNoteIdRouteImport } from './routes/_authenticated/_library.notes.$noteId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -35,6 +34,10 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
+  id: '/_library',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -43,11 +46,6 @@ const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedEntriesRoute = AuthenticatedEntriesRouteImport.update({
-  id: '/entries',
-  path: '/entries',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthEmailVerificationRoute = AuthEmailVerificationRouteImport.update({
@@ -87,35 +85,29 @@ const AuthRegisterRoute = AuthRegisterRouteImport.update({
   path: '/auth/register',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedEntriesIndexRoute =
-  AuthenticatedEntriesIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedEntriesRoute,
+const AuthenticatedLibraryFoldersIndexRoute =
+  AuthenticatedLibraryFoldersIndexRouteImport.update({
+    id: '/folders/',
+    path: '/folders/',
+    getParentRoute: () => AuthenticatedLibraryRoute,
   } as any)
-const AuthenticatedEntriesEntryIdRoute =
-  AuthenticatedEntriesEntryIdRouteImport.update({
-    id: '/$entryId',
-    path: '/$entryId',
-    getParentRoute: () => AuthenticatedEntriesRoute,
+const AuthenticatedLibraryFoldersFolderIdRoute =
+  AuthenticatedLibraryFoldersFolderIdRouteImport.update({
+    id: '/folders/$folderId',
+    path: '/folders/$folderId',
+    getParentRoute: () => AuthenticatedLibraryRoute,
   } as any)
-const AuthenticatedEntriesNewRoute = AuthenticatedEntriesNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AuthenticatedEntriesRoute,
-} as any)
-const AuthenticatedEntriesTasksRoute =
-  AuthenticatedEntriesTasksRouteImport.update({
-    id: '/tasks',
-    path: '/tasks',
-    getParentRoute: () => AuthenticatedEntriesRoute,
+const AuthenticatedLibraryNotesNoteIdRoute =
+  AuthenticatedLibraryNotesNoteIdRouteImport.update({
+    id: '/notes/$noteId',
+    path: '/notes/$noteId',
+    getParentRoute: () => AuthenticatedLibraryRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AuthenticatedAccountRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/entries': typeof AuthenticatedEntriesRouteWithChildren
   '/auth/email-verification': typeof AuthEmailVerificationRoute
   '/auth/email-verification-confirm': typeof AuthEmailVerificationConfirmRoute
   '/auth/login': typeof AuthLoginRoute
@@ -123,10 +115,9 @@ export interface FileRoutesByFullPath {
   '/auth/password-reset': typeof AuthPasswordResetRoute
   '/auth/password-reset-confirm': typeof AuthPasswordResetConfirmRoute
   '/auth/register': typeof AuthRegisterRoute
-  '/entries/$entryId': typeof AuthenticatedEntriesEntryIdRoute
-  '/entries/new': typeof AuthenticatedEntriesNewRoute
-  '/entries/tasks': typeof AuthenticatedEntriesTasksRoute
-  '/entries/': typeof AuthenticatedEntriesIndexRoute
+  '/folders/$folderId': typeof AuthenticatedLibraryFoldersFolderIdRoute
+  '/notes/$noteId': typeof AuthenticatedLibraryNotesNoteIdRoute
+  '/folders/': typeof AuthenticatedLibraryFoldersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -139,18 +130,17 @@ export interface FileRoutesByTo {
   '/auth/password-reset': typeof AuthPasswordResetRoute
   '/auth/password-reset-confirm': typeof AuthPasswordResetConfirmRoute
   '/auth/register': typeof AuthRegisterRoute
-  '/entries/$entryId': typeof AuthenticatedEntriesEntryIdRoute
-  '/entries/new': typeof AuthenticatedEntriesNewRoute
-  '/entries/tasks': typeof AuthenticatedEntriesTasksRoute
-  '/entries': typeof AuthenticatedEntriesIndexRoute
+  '/folders/$folderId': typeof AuthenticatedLibraryFoldersFolderIdRoute
+  '/notes/$noteId': typeof AuthenticatedLibraryNotesNoteIdRoute
+  '/folders': typeof AuthenticatedLibraryFoldersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/_authenticated/_library': typeof AuthenticatedLibraryRouteWithChildren
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/entries': typeof AuthenticatedEntriesRouteWithChildren
   '/auth/email-verification': typeof AuthEmailVerificationRoute
   '/auth/email-verification-confirm': typeof AuthEmailVerificationConfirmRoute
   '/auth/login': typeof AuthLoginRoute
@@ -158,10 +148,9 @@ export interface FileRoutesById {
   '/auth/password-reset': typeof AuthPasswordResetRoute
   '/auth/password-reset-confirm': typeof AuthPasswordResetConfirmRoute
   '/auth/register': typeof AuthRegisterRoute
-  '/_authenticated/entries/$entryId': typeof AuthenticatedEntriesEntryIdRoute
-  '/_authenticated/entries/new': typeof AuthenticatedEntriesNewRoute
-  '/_authenticated/entries/tasks': typeof AuthenticatedEntriesTasksRoute
-  '/_authenticated/entries/': typeof AuthenticatedEntriesIndexRoute
+  '/_authenticated/_library/folders/$folderId': typeof AuthenticatedLibraryFoldersFolderIdRoute
+  '/_authenticated/_library/notes/$noteId': typeof AuthenticatedLibraryNotesNoteIdRoute
+  '/_authenticated/_library/folders/': typeof AuthenticatedLibraryFoldersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -169,7 +158,6 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/dashboard'
-    | '/entries'
     | '/auth/email-verification'
     | '/auth/email-verification-confirm'
     | '/auth/login'
@@ -177,10 +165,9 @@ export interface FileRouteTypes {
     | '/auth/password-reset'
     | '/auth/password-reset-confirm'
     | '/auth/register'
-    | '/entries/$entryId'
-    | '/entries/new'
-    | '/entries/tasks'
-    | '/entries/'
+    | '/folders/$folderId'
+    | '/notes/$noteId'
+    | '/folders/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -193,17 +180,16 @@ export interface FileRouteTypes {
     | '/auth/password-reset'
     | '/auth/password-reset-confirm'
     | '/auth/register'
-    | '/entries/$entryId'
-    | '/entries/new'
-    | '/entries/tasks'
-    | '/entries'
+    | '/folders/$folderId'
+    | '/notes/$noteId'
+    | '/folders'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/_authenticated/_library'
     | '/_authenticated/account'
     | '/_authenticated/dashboard'
-    | '/_authenticated/entries'
     | '/auth/email-verification'
     | '/auth/email-verification-confirm'
     | '/auth/login'
@@ -211,10 +197,9 @@ export interface FileRouteTypes {
     | '/auth/password-reset'
     | '/auth/password-reset-confirm'
     | '/auth/register'
-    | '/_authenticated/entries/$entryId'
-    | '/_authenticated/entries/new'
-    | '/_authenticated/entries/tasks'
-    | '/_authenticated/entries/'
+    | '/_authenticated/_library/folders/$folderId'
+    | '/_authenticated/_library/notes/$noteId'
+    | '/_authenticated/_library/folders/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -245,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/_library': {
+      id: '/_authenticated/_library'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedLibraryRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/account': {
       id: '/_authenticated/account'
       path: '/account'
@@ -257,13 +249,6 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/entries': {
-      id: '/_authenticated/entries'
-      path: '/entries'
-      fullPath: '/entries'
-      preLoaderRoute: typeof AuthenticatedEntriesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/auth/email-verification': {
@@ -315,64 +300,56 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/entries/': {
-      id: '/_authenticated/entries/'
-      path: '/'
-      fullPath: '/entries/'
-      preLoaderRoute: typeof AuthenticatedEntriesIndexRouteImport
-      parentRoute: typeof AuthenticatedEntriesRoute
+    '/_authenticated/_library/folders/': {
+      id: '/_authenticated/_library/folders/'
+      path: '/folders'
+      fullPath: '/folders/'
+      preLoaderRoute: typeof AuthenticatedLibraryFoldersIndexRouteImport
+      parentRoute: typeof AuthenticatedLibraryRoute
     }
-    '/_authenticated/entries/$entryId': {
-      id: '/_authenticated/entries/$entryId'
-      path: '/$entryId'
-      fullPath: '/entries/$entryId'
-      preLoaderRoute: typeof AuthenticatedEntriesEntryIdRouteImport
-      parentRoute: typeof AuthenticatedEntriesRoute
+    '/_authenticated/_library/folders/$folderId': {
+      id: '/_authenticated/_library/folders/$folderId'
+      path: '/folders/$folderId'
+      fullPath: '/folders/$folderId'
+      preLoaderRoute: typeof AuthenticatedLibraryFoldersFolderIdRouteImport
+      parentRoute: typeof AuthenticatedLibraryRoute
     }
-    '/_authenticated/entries/new': {
-      id: '/_authenticated/entries/new'
-      path: '/new'
-      fullPath: '/entries/new'
-      preLoaderRoute: typeof AuthenticatedEntriesNewRouteImport
-      parentRoute: typeof AuthenticatedEntriesRoute
-    }
-    '/_authenticated/entries/tasks': {
-      id: '/_authenticated/entries/tasks'
-      path: '/tasks'
-      fullPath: '/entries/tasks'
-      preLoaderRoute: typeof AuthenticatedEntriesTasksRouteImport
-      parentRoute: typeof AuthenticatedEntriesRoute
+    '/_authenticated/_library/notes/$noteId': {
+      id: '/_authenticated/_library/notes/$noteId'
+      path: '/notes/$noteId'
+      fullPath: '/notes/$noteId'
+      preLoaderRoute: typeof AuthenticatedLibraryNotesNoteIdRouteImport
+      parentRoute: typeof AuthenticatedLibraryRoute
     }
   }
 }
 
-interface AuthenticatedEntriesRouteChildren {
-  AuthenticatedEntriesEntryIdRoute: typeof AuthenticatedEntriesEntryIdRoute
-  AuthenticatedEntriesNewRoute: typeof AuthenticatedEntriesNewRoute
-  AuthenticatedEntriesTasksRoute: typeof AuthenticatedEntriesTasksRoute
-  AuthenticatedEntriesIndexRoute: typeof AuthenticatedEntriesIndexRoute
+interface AuthenticatedLibraryRouteChildren {
+  AuthenticatedLibraryFoldersFolderIdRoute: typeof AuthenticatedLibraryFoldersFolderIdRoute
+  AuthenticatedLibraryNotesNoteIdRoute: typeof AuthenticatedLibraryNotesNoteIdRoute
+  AuthenticatedLibraryFoldersIndexRoute: typeof AuthenticatedLibraryFoldersIndexRoute
 }
 
-const AuthenticatedEntriesRouteChildren: AuthenticatedEntriesRouteChildren = {
-  AuthenticatedEntriesEntryIdRoute: AuthenticatedEntriesEntryIdRoute,
-  AuthenticatedEntriesNewRoute: AuthenticatedEntriesNewRoute,
-  AuthenticatedEntriesTasksRoute: AuthenticatedEntriesTasksRoute,
-  AuthenticatedEntriesIndexRoute: AuthenticatedEntriesIndexRoute,
+const AuthenticatedLibraryRouteChildren: AuthenticatedLibraryRouteChildren = {
+  AuthenticatedLibraryFoldersFolderIdRoute:
+    AuthenticatedLibraryFoldersFolderIdRoute,
+  AuthenticatedLibraryNotesNoteIdRoute: AuthenticatedLibraryNotesNoteIdRoute,
+  AuthenticatedLibraryFoldersIndexRoute: AuthenticatedLibraryFoldersIndexRoute,
 }
 
-const AuthenticatedEntriesRouteWithChildren =
-  AuthenticatedEntriesRoute._addFileChildren(AuthenticatedEntriesRouteChildren)
+const AuthenticatedLibraryRouteWithChildren =
+  AuthenticatedLibraryRoute._addFileChildren(AuthenticatedLibraryRouteChildren)
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRouteWithChildren
   AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedEntriesRoute: typeof AuthenticatedEntriesRouteWithChildren
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedLibraryRoute: AuthenticatedLibraryRouteWithChildren,
   AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedEntriesRoute: AuthenticatedEntriesRouteWithChildren,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

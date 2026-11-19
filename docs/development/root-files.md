@@ -8,7 +8,7 @@ What each file at the repo root does and why it exists.
 
 Declares dependencies (React 19, TanStack Router, PocketBase SDK, Tailwind) and scripts (`dev`, `build`, `lint`, `knip`, `docs:dev`/`docs:build`, `pb:codegen`, `test:*`). It also carries the app version (`0.1.0`, checked by the release workflow) and the MIT `license` field. Its `trustedDependencies` field whitelists which packages may run postinstall scripts under Bun (`@biomejs/biome`, `esbuild`) — everything else is blocked. Necessary: it is the package manifest; nothing installs or builds without it.
 
-`test:api` exercises private folders, note projections and revision-checked saves in `scripts/test-notes.ts`. The attachment and MFA suites also use live notes to check protected files and sign-in access.
+`test:api` exercises private folders, note projections and revision-checked saves in `scripts/test-notes.ts`. The attachment and MFA suites also use live notes to check protected files and sign-in access. The library uses ProseKit for the note editor and vendored shadcn primitives for folder navigation and dialogs.
 
 ### `bun.lock`
 
