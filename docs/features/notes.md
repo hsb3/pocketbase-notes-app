@@ -20,9 +20,19 @@ Use a single line of up to 160 Unicode code points. Matching ignores case, treat
 
 Open a result and use Back to restore the query, result page, scroll position and row focus. If an edit moves the row off that page, focus returns to Search. **Clear** or Escape in the field restores the originating folder and its list page. On a wide screen, changing the search, paging or clearing beside an open draft uses the same [save choices](#leaving-a-draft) as Back. **No matching notes** keeps the query available to edit or clear. A failed read offers **Retry**.
 
+## Move, delete and restore
+
+On a saved note, open **Note actions** and choose **Move…**. Select another folder to move the note, or **Cancel** to keep it in place. The editor saves pending writing first. A move keeps the same note address, document, attachments and last-edit time. The note leaves its old folder list, and matching search results show its new folder.
+
+Choose **Delete note…** to review the title and confirm. The note disappears from ordinary lists and search. To bring it back, open **Folders → Recently Deleted** and choose **Restore** beside its title. Each row shows the deadline in local time with the time zone. Restore works strictly before 30 elapsed days from deletion. It returns the same note and attachments to the original folder if it survives, or to **Notes** if it was removed. The note can be found in search again.
+
+To remove a custom folder, open its list and choose **Delete folder**. Check the folder name and active note count. **Cancel** keeps the folder and its contents. Confirming removes the folder permanently and sends its active notes to Recently Deleted together. Notes already there keep their original deadlines. If any member changed since the preview, review the fresh preview and confirm again, even if the count looks the same.
+
+If a reply is lost during a move, deletion or restore, choose **Check again**. It reads the current state before another action can be submitted. **Close** dismisses the prompt and leaves the check available, even if the row or folder has disappeared. If the read fails, **Retry** checks again. Keep the tab open if there are unsaved words. When another change makes the note unavailable, **Copy draft** preserves the latest local text. If clipboard access fails, select and copy the words in the editor.
+
 ## Folders and ownership
 
-Creating an ordinary account also creates its permanent **Notes** folder in the same transaction. If the folder cannot be saved, account creation fails. The records API allows an account to create custom folders and delete its empty ones. The API prevents renaming folders, changing ownership, deleting the default folder and deleting a folder that contains notes. Deleting the account removes its folders and notes.
+Creating an ordinary account also creates its permanent **Notes** folder in the same transaction. If the folder cannot be saved, account creation fails. Its name and ownership are fixed, and it cannot be deleted separately. Custom folders also keep their names and ownership. At the records API, an empty custom folder accepts a bare DELETE. A folder with any linked notes requires the snapshot from its private deletion preview. A stale snapshot returns HTTP 409 and preserves the entire folder. Deleting the account removes its folders and notes.
 
 Custom folder names keep their display spelling after trimming and allow 1–80 Unicode code points. Within one account, names must have a unique comparison key. The server normalizes the name to NFC, uppercases it without a locale, then normalizes to NFC again. For example, `Café`, `CAFÉ` and a decomposed spelling share a key. Unaccented `Cafe` has its own key. The reserved names are Notes, All Notes, Pinned, Journal, Open Tasks and Recently Deleted.
 
@@ -30,7 +40,7 @@ Custom folder names keep their display spelling after trimming and allow 1–80 
 
 Create a note with the authenticated user's ID in `user`, an owned `folder`, a rich-text `body` and any ordered `attachments`. The encoded document limit is 102400 bytes. Whitespace alone is rejected. An owned attachment can make an otherwise empty document valid. Up to 20 files can be attached, and every embedded private image must appear in that list. A saved note reference protects the file from direct deletion and hourly orphan cleanup.
 
-Ordinary accounts can list and read only their own notes. The account and folder on a saved note are fixed. The server keeps `deleted` empty and rejects an ordinary request to delete the note permanently. On each save it derives the following fields from the full document.
+Ordinary accounts list only their own active notes. The records API can still return a valid deleted note to its writer by known ID until purge. Opening it in the editor shows **Note unavailable**. A content PATCH cannot reassign the note, move it or set its deletion time. The dedicated move, delete and restore commands check the current revision in a transaction. A stale command returns HTTP 409 without changing the note. On each content save the server derives the following fields from the full document.
 
 | Field | Stored value |
 | --- | --- |

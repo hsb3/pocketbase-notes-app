@@ -9,6 +9,8 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Added
 
+- Move a saved note without losing its place in the editor. Delete a note or a custom folder and restore its notes and attachments from Recently Deleted for 30 days. Removed folders stay removed. [Move, delete and recover notes, issue 40](https://github.com/hsb3/pocketbase-notes-app/issues/40)
+
 - Search titles and body text across all private folders. Results show the actual folder and highlight the match. Back restores the result page. [Search across folders, issue 39](https://github.com/hsb3/pocketbase-notes-app/issues/39)
 
 - Notes retain unsaved writing in the open tab after a failed save or expired session. Retry saves the latest edits. Conflicts allow copying a draft before replacing it, and signing out with unsaved edits offers a choice to save, discard or keep editing.
