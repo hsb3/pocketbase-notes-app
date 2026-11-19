@@ -1,0 +1,28 @@
+# R5 record lifecycle
+
+## Stored state and write set
+
+Keep the [R1 note fields](../r1-data-foundation/data-model.md), the [R4 comparison key](../r4-search/data-model.md) and stable note IDs. An active note has an empty PocketBase date and one real folder owned by its user. A retained note has a server deletion instant and either its original owned folder or an empty optional relation. Recently Deleted is a view. It never becomes a folder record.
+
+| Successful write | Preconditions inside the write transaction | Exact changes |
+|---|---|---|
+| Ordinary create / edit | Existing R3 active-note validation, revision and R4 derivation | Existing write set. A content edit advances revision and the normal PocketBase edit timestamp. |
+| Move | Active, submitted current revision, different real destination owned by the writer | Set folder to destination, revision +1. |
+| Delete one | Active, submitted current revision | Set deleted to the current server instant, revision +1. Retain folder. |
+| Delete custom folder | Owner, nondefault, confirmed snapshot matches all linked notes | All active members get one shared deleted instant, empty folder, revision +1. Previously deleted members get empty folder and revision +1, keeping their original deletion instant, including expired ones awaiting purge. Remove the folder in the same transaction. |
+| Restore | Deleted, submitted current revision, server now strictly before deadline | Clear deleted, set folder to surviving original owned folder or the unique permanent Notes folder, revision +1. Missing/ambiguous default is an invariant failure and rolls back. |
+| Daily purge | Deleted and at or past deadline on transactional reread | Permanently remove that note. Delete its attachment records only when no surviving note references them. PocketBase removes their stored objects through the normal record deletion lifecycle. |
+
+For the three individual transitions and bulk folder removal, preserve every unlisted note column byte-for-byte, including created, updated, body, title, text, search_key, tasks, open_tasks, user and ordered attachments. The library orders by last content edit. A metadata change must invalidate a stale editor without promoting the row in that order. Use a bound, allowlisted SQL UPDATE for these few columns inside PocketBase's transaction. Include user, id, observed revision and required state in its predicate, require one affected row. Use the ordinary record APIs for physical folder/file/note deletion. Clear every folder reference **before** deleting the folder, so PocketBase has no residual relation to rewrite. Raw metadata SQL emits no model after-update or realtime event. Refresh initiating views on acknowledgement. Other clients see current state on their next read or revision-checked save.
+
+## Clock and cleanup
+
+Store canonical UTC milliseconds as PocketBase formats them, e.g. `2026-03-01 13:14:15.123Z`. In Goja, parse by replacing the single space with T. Use epoch milliseconds and **2,592,000,000** ms. Serialize using ISO UTC and replace T with a space for SQLite-bound dates. Use one server clock sample inside each mutation after obtaining the write transaction. Active (empty) is never expired. An invalid nonempty stored date must fail closed and identify the bad record to the operator. Never use local calendar arithmetic, rounded days, a client-supplied clock or cron arrival as authorization.
+
+The daily `expired-notes` job runs at `17 3 * * *` in the scheduler's default UTC. Capture one cutoff for the run. Select up to 100 expired IDs ordered by deleted then id with the exact predicate in [research](research.md). Drain successive batches until empty. For each ID use a fresh short transaction, re-read or skip a missing/now-ineligible candidate, copy the ordered attachment IDs, delete the note, re-check each ID with the existing unfiltered `attachment-cleanup.js:isReferenced(tx,id)`, then delete each surviving unreferenced file via tx.delete. A shared file survives until its last reference disappears, even if another deleted note is its only owner-side reference. On a database failure roll back that note/file transaction, log the failed job and let the next run retry. Physical object cleanup is a PocketBase post-delete operation outside SQLite rollback. A 404 from the file API alone cannot prove reclamation. The gate reads RustFS independently. Concurrent or repeated runs must converge. Keep the hourly orphan query and direct attachment deletion check inclusive of *all* notes. Both already implement this rule.
+
+## Migration and rollback
+
+Add only `pb/migrations/1795000400_active_notes_and_purge.js`. Up changes the notes list rule from the R1 ordinary-users/owner expression to that expression followed by ` && deleted = ""`, and adds the nonunique partial index `idx_notes_purge` on `deleted, id` where `deleted > ''`. The other four notes rules, all folder/attachment rules and all existing fields/indexes stay as defined. The standard owner-only direct record view remains available by known ID for acknowledgement checks. The editor's active-only getNote rejects a deleted response. R3/R4 ordinary filters stay in place.
+
+Down restores the exact prior list rule and removes only this index. Check source or already-target metadata before each direction. Unexpected rule/index definitions abort the migration. Neither direction updates notes, recreates removed folders, revives writing or restores purged bytes. A binary rollback therefore needs a compatible backup to reverse actual user deletions. Prove schema reversal independently from product recovery, including every surviving row written **after** up. [Staged procedure](quickstart.md#staged-upgrade)
