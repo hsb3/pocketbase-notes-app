@@ -220,7 +220,9 @@ async function main() {
     await page.keyboard.type("Tomatoes go by the south fence this year.", {
       delay: 45,
     });
-    await expect(page.getByRole("status")).toHaveText("Saved");
+    await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+      "Saved",
+    );
     await page.getByRole("button", { name: "Back", exact: true }).click();
     await open(page, "Garden plans");
     await expect(editor).toContainText(
