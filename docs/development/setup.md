@@ -67,7 +67,7 @@ development. The S3 endpoint inside Docker is `http://rustfs:9000`, region
 `us-east-1`, with path-style addressing. Mailpit and RustFS ports bind to loopback.
 To run two checkouts at once, give the second one its own ports and container
 names in `.env`; `.env.example` lists the variables.
-The full editor uses this storage for [private note attachments and images](../features/attachments.md).
+The notes API uses this storage for [private note attachments and images](../features/attachments.md).
 
 The setup script refuses to overwrite another enabled SMTP/S3 provider or change
 an active S3 bucket. It also refuses to enable S3 over existing local uploads:
@@ -103,8 +103,11 @@ same script in the stack's setup container.
 An intentional development password reset uses
 `make seed SEED_ARGS=--reset-passwords` (or the same option with `stack-seed`).
 Only the configured seed accounts are affected; profile/verification fields stay
-unchanged. Seeding refuses non-loopback URLs, and any superuser CLI write requires
+unchanged. Seeding refuses non-loopback URLs, and a host-driven superuser CLI write requires
 `PB_CONTAINER` to publish PocketBase on the configured loopback port. In a
 self-contained stack the PocketBase service itself creates the superuser when
-it is absent, so resetting the superuser password there is a dashboard task. The entries
-seed command adds sample entries only to an empty existing seed account.
+it is absent, so resetting the superuser password there is a dashboard task. The seed adds sample notes to the permanent Notes folder when the account has no notes. Re-running it preserves the existing notebook.
+
+## Verify the notebook
+
+Run `bun test tests/unit` for draft logic. Run `make test-api-contained` and `make test-browser-contained` for fresh, disposable stacks. Neither needs a running development instance. [Verification and optional profiles](../testing/verification.md#disposable-docker-gates)

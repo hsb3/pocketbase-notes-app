@@ -1,17 +1,15 @@
 # PocketBase Notes
 
-## Platform
-
-web
-
 ## Purpose
 
-A private notes and journaling app using the existing React, TanStack Router, Bun and PocketBase stack. The core loop is write, save, find and revisit an entry.
+A private, self-hosted web notebook for capturing and reopening writing across devices. React and TanStack Router serve the interface. PocketBase stores folders, notes and protected files.
 
 ## Capabilities and constraints
 
-Notes and dated journal entries share a ProseKit editor. Title search, journal dates and favorites organize the library. Explicit saves and conflict detection protect drafts. [Open tasks](../features/tasks.md) lists unchecked checklist items across entries. Private image, PDF and text [attachments](../features/attachments.md) use PocketBase with RustFS in the local full stack. Sign-in is email and password, with opt-in [two-step sign-in](../features/auth.md) by emailed code; the theme follows the system or a light/dark choice. No sharing, AI or offline synchronization.
+Sign-in opens All Notes. Compose writes to the selected folder, derives the title from the first line and autosaves with a revision check. Phones show one region at a time. Larger screens keep folders, list and editor visible together. Account settings include [two-step sign-in](../features/auth.md). Themes support light, dark and system preferences.
+
+The [notebook guide](../features/notes.md) describes current behavior and planned increments. Drafts live in memory. The app has no sharing or offline synchronization.
 
 ## Design authority
 
-The approved structure and acceptance criteria live in [the design brief](../design/notes-journal.md); [wireframes](../design/wireframes.md) define the three-region desktop workspace and single-region mobile flow. Preserve the existing neutral shadcn theme and reuse prebuilt components.
+The [R2 route and write contract](../../specs/002-notes-redesign/r2-compose/contracts/compose.md) defines navigation, layout and saves. The [notes and journal design](../design/notes-journal.md) and its wireframes document the retired entries interface.

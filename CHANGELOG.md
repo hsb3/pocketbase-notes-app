@@ -9,7 +9,7 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Added
 
-- The [private folders and notes API](docs/features/notes.md) gives each new account a permanent Notes folder and supports revision-checked saves. Attachments stay protected while either a note or an entry references them. The current notebook still uses entries.
+- The [notebook](docs/features/notes.md) opens in All Notes. Create a folder, compose in one writing surface and autosave edits. Phone navigation restores the list position. Wider screens show folders, notes and editor together.
 
 - Run the API or Chromium/WebKit suite in a disposable Docker stack with
   `make test-api-contained` or `make test-browser-contained`.
@@ -20,6 +20,7 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Changed
 
+- The upgrade provisions a permanent Notes folder for existing accounts and drops the legacy entries collection. Take a pre-upgrade backup to recover legacy data. Search, favorites, dated journals, Open Tasks and attachment controls are absent from this increment. Existing note documents and protected attachment references remain supported.
 - The restore test's temporary container runs with CPU, memory and process limits,
   and Biome skips locally synced `.claude/skills/`.
 - The `make railway-verify-*` scripts wait and retry when the deployment's
