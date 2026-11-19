@@ -1,6 +1,6 @@
 onRecordValidate((e) => {
   const validate = require(`${__hooks}/entry-validation.js`);
-  const comparisonKey = require(`${__hooks}/comparison-key.js`);
+  const search = require(`${__hooks}/note-search.js`);
   const note = e.record;
   const user = note.getString("user");
   const folder = note.getString("folder");
@@ -36,8 +36,7 @@ onRecordValidate((e) => {
   const title = blank ? "Untitled note" : Array.from(first).slice(0, 160).join("");
   note.set("title", title);
   note.set("text", text);
-  const searchable = blank ? [title, text].filter(Boolean).join("\n") : text;
-  note.set("search_key", comparisonKey(searchable));
+  note.set("search_key", search.key(title, text));
   const tasks = validate.tasks(doc);
   note.set("open_tasks", tasks.count);
   note.set("tasks", tasks.open);
@@ -79,14 +78,22 @@ onRecordDeleteRequest((e) => {
 
 onRecordEnrich((e) => {
   e.next();
-  // List handlers can add custom fields before enrichment. Only the preview is public.
-  const privateKeys = Object.keys(e.record.customData() || {}).filter((key) => key !== "excerpt");
+  // List handlers can add custom fields before enrichment. Only server-computed previews are public.
+  const privateKeys = Object.keys(e.record.customData() || {}).filter((key) => key !== "excerpt" && key !== "snippet");
   e.record.hide("search_key", ...privateKeys);
 }, "notes");
 
 onRecordsListRequest((e) => {
+  const query = e.requestInfo().query;
+  const search = require(`${__hooks}/note-search.js`);
+  const term = Object.prototype.hasOwnProperty.call(query, "searchTerm") ? search.validate(query) : null;
   for (const note of e.records) {
     const text = note.getString("text");
+    if (term !== null) {
+      note.set("snippet", search.snippet(note.getString("title"), text, term));
+      note.withCustomData(true);
+      continue;
+    }
     const start = text.search(/[\r\n\u2028\u2029]/);
     const body = start < 0 ? "" : text.slice(start + 1).trim().replace(/\s+/g, " ");
     note.set("excerpt", Array.from(body).slice(0, 120).join(""));

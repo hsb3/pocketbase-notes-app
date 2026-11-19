@@ -424,6 +424,365 @@ async function noteSearch(a: Account, b: Account) {
   }
 }
 
+const searchFields = "id,folder,title,updated,snippet";
+
+function searchOptions(pb: PocketBase, term: string) {
+  const folded = term.normalize("NFC").toUpperCase().normalize("NFC");
+  const pattern = "%" + folded.replace(/[\\%_]/g, "\\$&") + "%";
+  return {
+    query: { searchTerm: term },
+    filter:
+      'deleted = "" && ' + pb.filter("search_key ~ {:pattern}", { pattern }),
+    sort: "-updated,-id",
+    fields: searchFields,
+    cache: "no-store" as const,
+    requestKey: null,
+  };
+}
+
+async function searchPage(pb: PocketBase, term: string, page = 1) {
+  const result = await pb
+    .collection("notes")
+    .getList(page, 20, searchOptions(pb, term));
+  assert.equal(result.page, page);
+  assert.equal(result.perPage, 20);
+  return result;
+}
+
+async function hits(pb: PocketBase, term: string, ids: string[]) {
+  const page = await searchPage(pb, term);
+  assert.equal(
+    page.totalItems,
+    ids.length,
+    `total for ${JSON.stringify(term)}`,
+  );
+  assert.deepEqual(page.items.map((r) => r.id).sort(), [...ids].sort());
+  for (const row of page.items) {
+    assert.deepEqual(Object.keys(row).sort(), searchFields.split(",").sort());
+    assert.deepEqual(Object.keys(row.snippet).sort(), [
+      "after",
+      "before",
+      "match",
+    ]);
+    for (const [part, limit] of [
+      ["before", 33],
+      ["match", 160],
+      ["after", 33],
+    ] as const) {
+      assert.equal(typeof row.snippet[part], "string");
+      assert.ok(Array.from(row.snippet[part]).length <= limit);
+    }
+    assert.ok(row.snippet.match);
+  }
+  return page.items;
+}
+
+async function writeText(a: Account, text: string) {
+  return a.pb
+    .collection("notes")
+    .create({ ...(await draft(a)), body: doc(paragraph(text)) });
+}
+
+async function boundarySearch() {
+  const a = await account();
+  const notes = a.pb.collection("notes");
+  const title = "x".repeat(158) + "ze";
+  const text = title + "\u0301";
+  const key = "X".repeat(158) + "ZE\n" + "X".repeat(158) + "ZÉ";
+  let note = await writeText(a, text);
+  for (const revision of [1, 3]) {
+    assert.deepEqual(
+      [note.title, note.text, note.revision],
+      [title, text, revision],
+    );
+    assert.equal((await hits(a.pb, "ZE", [note.id]))[0].snippet.match, "ze");
+    assert.equal(
+      (await hits(a.pb, "ZÉ", [note.id]))[0].snippet.match,
+      "ze\u0301",
+    );
+    await assertStoredSearchKey(note.id, key);
+    if (revision === 1) {
+      note = await notes.update(note.id, {
+        revision,
+        body: doc(paragraph("Plain")),
+      });
+      assert.equal(note.revision, 2);
+      await assertStoredSearchKey(note.id, "PLAIN");
+      await hits(a.pb, "ZE", []);
+      await hits(a.pb, "ZÉ", []);
+      note = await notes.update(note.id, {
+        revision: 2,
+        body: doc(paragraph(text)),
+      });
+    }
+  }
+}
+
+async function nulSearch() {
+  const a = await account();
+  const notes = a.pb.collection("notes");
+  const note = await writeText(a, "Oak\0lantern");
+  for (const n of [1, 2]) {
+    const prefix = "Oak" + "\0".repeat(n);
+    const text = prefix + "lantern";
+    if (n === 2)
+      await notes.update(note.id, { revision: 1, body: doc(paragraph(text)) });
+    const current = await notes.getOne(note.id);
+    assert.deepEqual(
+      [current.body, current.title, current.text, current.revision],
+      [doc(paragraph(text)), text, text, n],
+    );
+    const hex = Buffer.from(text).toString("hex").toUpperCase();
+    assert.match(note.id, /^[a-z0-9]{15}$/);
+    assert.deepEqual(
+      (
+        await admin.sql.run(
+          `SELECT hex(title), hex(text) FROM notes WHERE id='${note.id}'`,
+        )
+      ).rows,
+      [[hex, hex]],
+    );
+    const [row] = await hits(a.pb, "LANTERN", [note.id]);
+    assert.deepEqual(row.snippet, {
+      before: prefix,
+      match: "lantern",
+      after: "",
+    });
+    await assertStoredSearchKey(note.id, "OAK" + "\n".repeat(n) + "LANTERN");
+    for (const miss of ["OAKLANTERN", "OAK LANTERN"])
+      await hits(a.pb, miss, []);
+  }
+}
+
+async function distantMarks() {
+  const a = await account();
+  const note = await writeText(
+    a,
+    "a".repeat(80) + "q" + "\u0301".repeat(160) + "\u0300" + "b".repeat(80),
+  );
+  const [hit] = await hits(a.pb, "\u0300", [note.id]);
+  assert.deepEqual(hit.snippet, {
+    before: "…" + "\u0301".repeat(32),
+    match: "\u0300",
+    after: "b".repeat(32) + "…",
+  });
+}
+
+async function composedSpan() {
+  const a = await account();
+  const composed = await writeText(a, "A" + "\u0315".repeat(160) + "\u0300");
+  assert.match(composed.id, /^[a-z0-9]{15}$/);
+  const stored = await admin.sql.run(
+    `SELECT instr(search_key, 'À'), instr(search_key, char(847)) FROM notes WHERE id='${composed.id}'`,
+  );
+  console.log("Distant composition key indices (À and U+034F)", stored.rows);
+  const [span] = await hits(a.pb, "À", [composed.id]);
+  assert.deepEqual(span.snippet, {
+    before: "",
+    match: "A" + "\u0315".repeat(78) + "…" + "\u0315".repeat(79) + "\u0300",
+    after: "",
+  });
+}
+
+async function literalSearch() {
+  const a = await account();
+  const text = `Garden\n🥕 cafe\u0301 Маяк Straße 5%_\\"' & <b> 5% interest`;
+  const positive = await writeText(a, text);
+  await writeText(a, "Garden\n5XX interest");
+  const notes = a.pb.collection("notes");
+  for (const [q, rawCount, match] of [
+    ["GARDEN", 2, "Garden"],
+    ["CAFÉ", 0, "cafe\u0301"],
+    ["МАЯК", 0, "Маяк"],
+  ] as const) {
+    const raw = await notes.getList(1, 20, {
+      filter: a.pb.filter('deleted = "" && (title ~ {:q} || text ~ {:q})', {
+        q,
+      }),
+    });
+    assert.equal(raw.totalItems, rawCount);
+    if (rawCount !== 2)
+      assert.equal(
+        (await hits(a.pb, q, [positive.id]))[0].snippet.match,
+        match,
+      );
+    else
+      assert.deepEqual(
+        (await searchPage(a.pb, q)).items.map((r) => r.snippet.match),
+        [match, match],
+      );
+  }
+  for (const [term, match] of [
+    ["STRASSE", "Straße"],
+    ["🥕", "🥕"],
+    ["5% interest", "5% interest"],
+    ["%", "%"],
+    ["_", "_"],
+    ["\\", "\\"],
+    ['"', '"'],
+    ["'", "'"],
+    [`5%_\\"'`, `5%_\\"'`],
+    ["<b>", "<b>"],
+  ]) {
+    assert.equal(
+      (await hits(a.pb, term, [positive.id]))[0].snippet.match,
+      match,
+    );
+  }
+  await hits(a.pb, "cafe", []);
+  const blank = await writeText(a, "\nvisible only");
+  assert.equal(
+    (await hits(a.pb, "UNTITLED NOTE", [blank.id]))[0].snippet.match,
+    "Untitled note",
+  );
+}
+
+async function searchPrivacy() {
+  const a = await account(),
+    b = await account();
+  const folder = await a.pb
+    .collection("folders")
+    .create({ user: a.id, name: "Garden" });
+  const note = await a.pb.collection("notes").create({
+    user: a.id,
+    folder: folder.id,
+    body: doc(
+      paragraph("Garden writing"),
+      paragraph("Distant sentinel"),
+      paragraph("x".repeat(100000) + " 🥕Late-A-Word"),
+    ),
+  });
+  const foreign = await writeText(b, "B-only-word");
+  const [row] = await hits(a.pb, "LATE-A-WORD", [note.id]);
+  assert.deepEqual(
+    [row.folder, row.title, row.updated, row.snippet],
+    [
+      folder.id,
+      note.title,
+      note.updated,
+      { before: "…" + "x".repeat(30) + " 🥕", match: "Late-A-Word", after: "" },
+    ],
+  );
+  assert.ok(!JSON.stringify(row).includes("Distant sentinel"));
+  await hits(b.pb, "B-only-word", [foreign.id]);
+  for (const pb of [b.pb, anonymous]) await hits(pb, "Late-A-Word", []);
+  for (const pb of [a.pb, anonymous]) await hits(pb, "B-only-word", []);
+  if (process.env.CONTAINED_TEST === "1") {
+    assert.match(note.id, /^[a-z0-9]{15}$/);
+    assert.equal(
+      (
+        await admin.sql.run(
+          `UPDATE notes SET deleted='2026-01-01 00:00:00.000Z' WHERE id='${note.id}'`,
+        )
+      ).affectedRows,
+      1,
+    );
+    assert.ok((await admin.collection("notes").getOne(note.id)).deleted);
+    for (const pb of [a.pb, b.pb, anonymous]) await hits(pb, "Late-A-Word", []);
+  }
+}
+
+async function visibleSearch() {
+  const a = await account();
+  const file = await a.pb.collection("attachments").create({
+    user: a.id,
+    name: "codedfilename.txt",
+    file: new File(["codedfilebytes"], "codedfilename.txt", {
+      type: "text/plain",
+    }),
+  });
+  await a.pb.collection("notes").create({
+    ...(await draft(a)),
+    attachments: [file.id],
+    body: doc({
+      type: "paragraph",
+      content: [
+        textNode("Sty"),
+        {
+          ...textNode("led"),
+          marks: [
+            { type: "link", attrs: { href: "https://example.test/hiddenurl" } },
+          ],
+        },
+        { type: "hardBreak" },
+        {
+          type: "mention",
+          attrs: { id: "hiddenmention", value: "MentionLabel" },
+        },
+      ],
+    }),
+  });
+  for (const miss of [
+    "paragraph",
+    "codedfilename",
+    "codedfilebytes",
+    "hiddenurl",
+    "hiddenmention",
+  ])
+    await hits(a.pb, miss, []);
+  for (const term of ["Styled", "MentionLabel"]) {
+    const page = await searchPage(a.pb, term);
+    assert.equal(page.totalItems, 1);
+    assert.equal(page.items[0].snippet.match, term);
+  }
+  const repeated = await writeText(a, "paragraph\nparagraph paragraph");
+  await hits(a.pb, "paragraph", [repeated.id]);
+}
+
+async function invalidSearch(a: Account) {
+  const notes = a.pb.collection("notes");
+  const opts = searchOptions(a.pb, "test");
+  for (const overrides of [
+    { filter: 'search_key ~ "TEST"' },
+    { fields: "id,text" },
+    { expand: "folder" },
+    { skipTotal: true },
+    { sort: "id" },
+  ])
+    await denied(notes.getList(1, 20, { ...opts, ...overrides }), 400);
+  await denied(notes.getList(1, 21, opts), 400);
+  for (const term of ["", " a ", "a".repeat(161), "x\0y", "x\ny", "x\u2028y"])
+    await denied(notes.getList(1, 20, searchOptions(a.pb, term)), 400);
+}
+
+async function searchPaging() {
+  const a = await account();
+  const folder = await a.pb
+    .collection("folders")
+    .create({ user: a.id, name: "Garden" });
+  const home = await defaultFolder(a.id);
+  const ids = [];
+  for (let i = 0; i < 21; i++)
+    ids.push(
+      (
+        await a.pb.collection("notes").create({
+          user: a.id,
+          folder: i % 2 ? home.id : folder.id,
+          body: doc(paragraph("Paged text")),
+        })
+      ).id,
+    );
+  assert.match(a.id, /^[a-z0-9]{15}$/);
+  assert.equal(
+    (
+      await admin.sql.run(
+        `UPDATE notes SET updated='2026-01-01 00:00:00.000Z' WHERE user='${a.id}'`,
+      )
+    ).affectedRows,
+    21,
+  );
+  ids.sort().reverse();
+  for (const number of [1, 2]) {
+    const page = await searchPage(a.pb, "paged", number);
+    assert.equal(page.totalPages, 2);
+    assert.equal(page.totalItems, 21);
+    assert.deepEqual(
+      page.items.map((r) => r.id),
+      ids.slice((number - 1) * 20, number * 20),
+    );
+  }
+}
+
 async function noteLines(a: Account) {
   const data = await draft(a);
   const notes = a.pb.collection("notes");
@@ -787,6 +1146,17 @@ try {
     ["note access", () => noteAccess(a, b)],
     ["note folder", () => noteFolder(a, b)],
     ["note search", () => noteSearch(a, b)],
+    ["search title boundary", boundarySearch],
+    ["search word after NUL", nulSearch],
+    ["search distant marks", distantMarks],
+    ["search composite span", composedSpan],
+    ["search literal operands", literalSearch],
+    ["search private late hit", searchPrivacy],
+    ["search visible source", visibleSearch],
+    ["invalid marked searches", () => invalidSearch(a)],
+    ...(process.env.CONTAINED_TEST === "1"
+      ? [["search tied pages", searchPaging] as const]
+      : []),
     ["note lines", () => noteLines(a)],
     ["list projection", () => noteList(a, b)],
     ["note tasks", () => noteTasks(a, b)],
