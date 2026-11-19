@@ -467,6 +467,10 @@ function journeys(width, height) {
     page: p,
     session,
   }) => {
+    test.skip(
+      process.env.CONTAINED_TEST !== "1",
+      "Ageing a note needs the contained stack",
+    );
     const { owner, garden, note } = await fixture(p, session);
     await remove(owner, note);
     await openTrash(p);
@@ -633,6 +637,10 @@ function journeys(width, height) {
     test(
       kind + " held command receives genuine 404 after a competing removal",
       async ({ page: p, session }) => {
+        test.skip(
+          kind === "restore" && process.env.CONTAINED_TEST !== "1",
+          "Ageing a note needs the contained stack",
+        );
         const { owner, garden, note } = await fixture(p, session);
         const restoring = kind === "restore";
         if (restoring) {
