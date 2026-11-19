@@ -28,12 +28,23 @@ Choose one profile per invocation, for example `make test-api-contained CONTAINE
 | `test-api-contained` | `accounts` | Seed bootstrap and explicit reset on a private local database. Verify credentials, stable sample IDs and preservation of existing records. |
 | `test-api-contained` | `restore` | Extract a backup, boot a second server with the matching key, verify its disabled jobs, compare records and protected file bytes. |
 | `test-api-contained` | `load` | Short k6 smoke of list, create, update and download. [Capacity testing](load-testing.md) uses a separate workload. |
+| `test-browser-contained` | `resilience` | Check all 30 combinations of recovery scenario, viewport and engine. Retains Playwright JSON under `test-results/<project>/sc003.json`. |
 | `test-browser-contained` | `operator` | Run the operator commands against local services, including autosave, file access, failed-write cleanup, signup policy and Mailpit email. |
 | `test-browser-contained` | `signup`, `signup-disabled` | Exercise registration with the selected policy in Chromium and WebKit. Enabled signup sets both the frontend build flag and the backend runtime flag. |
 | `test-browser-contained` | `performance` | Short Chromium production benchmark. Copies the report under `test-results/<project>/performance/`. |
 | `test-browser-contained` | `screenshots` | Seed a notebook and capture the responsive workspace. Copies images and video under `test-results/<project>/screenshots/`. Host FFmpeg renders the phone strip and GIF. |
 
 To regenerate the checked-in PocketBase types, run `scripts/run-contained.sh codegen`. This uses a seeded disposable stack, compares two generations and copies the result to `src/services/pocketbase-types.ts`. The default API gate only compares.
+
+### Save recovery
+
+Run `make test-browser-contained CONTAINED_PROFILE=resilience` for one round. Five cases cover a refused save, lost create and update replies, Retry after more typing, session expiry, and two editors writing the same revision. Chromium and WebKit each run at 390, 810 and 1440 CSS pixels with one worker and zero retries. The checker requires one passing attempt in every cell. Playwright selects `@sc003` on the command line and writes `sc003` in JSON. To recheck a retained report, run `python3 scripts/check-sc003.py test-results/<project>/sc003.json` with the printed project ID.
+
+The tests use independent owner reads to verify the note count, ID, full body and revision. They reopen the result in a separate browser context. SC-002 allows 1000 ms each from input to request and from known failure to visible Retry. The R3 matrix measured 505–513 ms from input to request and 2.0–4.3 ms from failure to Retry across the six engine and width combinations. In the full suite, healthy writes started after 506.9–512 ms. A successful response was held for 3358–3394.6 ms, and later typing stayed Pending until its own acknowledgement. [Timings by engine and width](../../specs/002-notes-redesign/r3-resilience/tasks.md#r3-gate-evidence)
+
+The default browser run also checks invalid and unavailable notes, blocked clipboard, failed reload, navigation, sign-out and the native leave warning. The R2 failed-save Back test now chooses **Keep editing** in the leave dialog before checking the original URL and retained words. Password reauthentication after expiry was exercised against PocketBase. OAuth and MFA reuse the existing sign-in completion path according to source inspection. Live expiry recovery with those methods remains unverified.
+
+R3 requires one complete matrix and both default contained targets. R6 requires ten consecutive complete matrix rounds (300 passes), three consecutive full-suite runs and physical-phone sign-off for keyboards, native leave and expiry. [Release procedure](../../specs/002-notes-redesign/r3-resilience/quickstart.md#commands-and-release-evidence)
 
 ## Commands and coverage
 

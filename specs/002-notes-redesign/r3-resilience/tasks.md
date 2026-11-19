@@ -1,6 +1,6 @@
 # R3 tasks · Save resilience
 
-**Input** [R3 scope](spec.md), [plan and file ownership](plan.md#wave-slicing-input), [recovery model](data-model.md), [editor contract](contracts/editor.md) and [live validation](quickstart.md). All boxes are open for implementation. Preserve substantive pre-fix failures and use real PocketBase reads for data-loss, privacy and conflict claims.
+**Input** [R3 scope](spec.md), [plan and file ownership](plan.md#wave-slicing-input), [recovery model](data-model.md), [editor contract](contracts/editor.md) and [live validation](quickstart.md). Preserve substantive pre-fix failures and use real PocketBase reads for data-loss, privacy and conflict claims.
 
 ## Foundation · red tests and contained execution
 
@@ -28,8 +28,33 @@
 
 ## Verification and documentation
 
-- [ ] T012 Update `docs/features/notes.md`, `docs/testing/verification.md` and `CHANGELOG.md` from verified behavior. Replace prospective R3 copy with the actual retry, owner reauthentication, conflict, invalid-input and hard-exit instructions. Document the contained command, per-round expectations, numeric timing evidence and physical-device boundary.
-- [ ] T013 Run the [gates and release evidence procedure](quickstart.md#commands-and-release-evidence) for R3. Run one complete resilience profile and both full contained targets, inspect report cardinality, metrics, server invariants and teardown, and record actual evidence in `specs/002-notes-redesign/r3-resilience/tasks.md`. Check only completed work. Leave ten consecutive rounds, three full-suite repeats and physical-phone sign-off to the R6 gate.
+- [x] T012 Update `docs/features/notes.md`, `docs/testing/verification.md` and `CHANGELOG.md` from verified behavior. Replace prospective R3 copy with the actual retry, owner reauthentication, conflict, invalid-input and hard-exit instructions. Document the contained command, per-round expectations, numeric timing evidence and physical-device boundary.
+- [x] T013 Run the [gates and release evidence procedure](quickstart.md#commands-and-release-evidence) for R3. Run one complete resilience profile and both full contained targets, inspect report cardinality, metrics, server invariants and teardown, and record actual evidence in `specs/002-notes-redesign/r3-resilience/tasks.md`. Check only completed work. Leave ten consecutive rounds, three full-suite repeats and physical-phone sign-off to the R6 gate.
+
+## R3 gate evidence
+
+On 2026-11-18 all three contained commands exited 0 against the integrated R3 client at `6f10101`.
+
+| Command | Compose project | Observed result |
+| --- | --- | --- |
+| `make test-api-contained` | `notes-test-01364e90005092a63b099d39` | Both type generations matched the checkout. The staged upgrade, note ownership, ID collisions, revision races and attachment protection passed. Signup was disabled. |
+| `make test-browser-contained CONTAINED_PROFILE=resilience` | `notes-test-215029188f835f3dadc6f6cc` | All 30 expected cells passed once. Zero missing, duplicated, skipped, failed or retried cells. Removing Chromium’s 390 px failed-save cell from a copy of the report made the checker exit 1. |
+| `make test-browser-contained` | `notes-test-ab1ef8d58e406695257d53d7` | 156 passed, including all 30 matrix cases and 48 recovery controls. The two signup-enabled cases were skipped in the default profile. |
+
+Independent owner reads verified one note at its original ID and the expected full body in all 30 cells. A rejected update preserved revision 1, then Retry committed revision 2. Lost create and update replies reconciled at revisions 1 and 2 before the queued edit committed revision 3. Retry after further typing ended at revision 2. After expiry, the original owner recovered at revisions 2 and 3. The other account saw an empty library and sent no note mutations. A stale write received HTTP 409. Copy, Cancel and confirmed Reload preserved the winner’s revision 2, which a fresh browser context reopened.
+
+| Engine | CSS width | Input to failed request (ms) | Known failure to visible Retry (ms) | Retry response held (ms) | Healthy input to request (ms) | Healthy response held (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Chromium | 390 | 505.4 | 2.0 | 3123.7 | 506.9 | 3394.6 |
+| Chromium | 810 | 506.8 | 3.4 | 3127.1 | 508.6 | 3385.3 |
+| Chromium | 1440 | 508.9 | 4.3 | 3126.9 | 507.1 | 3390.2 |
+| WebKit | 390 | 513.0 | 3.0 | 3113.0 | 507.0 | 3391.0 |
+| WebKit | 810 | 509.0 | 2.0 | 3113.0 | 512.0 | 3358.0 |
+| WebKit | 1440 | 505.0 | 3.0 | 3122.0 | 510.0 | 3390.0 |
+
+All six timing cells met both 1000 ms limits and the 3000 ms hold minimum. Each contained gate reported empty project resources at teardown. Separate Docker label queries found zero containers, networks and volumes. Unit tests passed 22/22 (182 assertions). Lint, knip, production build, scripts TypeScript, agent-context validation and docs build all exited 0.
+
+R6 still owns ten consecutive resilience rounds, three consecutive full-suite runs and physical-phone checks. R3 exercised password sign-in after session expiry. OAuth and MFA recovery integration was inspected in source only.
 
 ## Dependencies and incremental delivery
 
