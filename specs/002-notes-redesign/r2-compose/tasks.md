@@ -72,11 +72,11 @@ Complete all current callers in the same integration branch. A static reference 
 
 - [x] ~~T024~~ Cut by owner decision (2026-11-18): CI keeps its host-runner jobs on disposable GitHub runners; the contained targets are for local runs.
 
-- [ ] T025 [P] Update `docs/features/notes.md`, `docs/features/{tasks,attachments}.md`, `docs/design/{notes-journal,prebuilt-ui}.md`, `docs/architecture/spec.md`, `README.md`, `AGENTS.md` and `CHANGELOG.md` to describe the active notebook and mark historical UI/screenshots and superseded design. Explain how to retrieve code from the pre-R2 SHA, and distinguish later features from what ships. (C2, C5, C6)
+- [x] T025 [P] Update `docs/features/notes.md`, `docs/features/{tasks,attachments}.md`, `docs/design/{notes-journal,prebuilt-ui}.md`, `docs/architecture/spec.md`, `README.md`, `AGENTS.md` and `CHANGELOG.md` to describe the active notebook and mark historical UI/screenshots and superseded design. Explain how to retrieve code from the pre-R2 SHA, and distinguish later features from what ships. (C2, C5, C6)
 
-- [ ] T026 [P] Align `docs/testing/verification.md`, `docs/ci/checks-and-rules.md`, `docs/development/{setup,root-files}.md`, `deploy/{OPERATIONS,RAILWAY}.md` and `.agents/context/{build,docs}.md` with actual paths, quality/contained gates and recovery. Update changed root-file entries. Check docs links and topic budgets. (C6)
+- [x] T026 [P] Align `docs/testing/verification.md`, `docs/ci/checks-and-rules.md`, `docs/development/{setup,root-files}.md`, `deploy/{OPERATIONS,RAILWAY}.md` and `.agents/context/{build,docs}.md` with actual paths, quality/contained gates and recovery. Update changed root-file entries. Check docs links and topic budgets. (C6)
 
-- [ ] T027 Run every gate in `specs/002-notes-redesign/r2-compose/quickstart.md` on the integrated branch and review the light/dark screenshots against Round 1. Check active code, generated routes/types, scripts and docs for retired callers. Resolve any gaps before ticking `tasks.md`. Record exits, negative controls, both SC-001 series, payload evidence, preserved/retired checks, the pre-R2 SHA and unexecuted real-deployment checks in the R2 implementation PR. (C1, C2, C3, C4, C5, C6)
+- [x] T027 Run every gate in `specs/002-notes-redesign/r2-compose/quickstart.md` on the integrated branch and review the light/dark screenshots against Round 1. Check active code, generated routes/types, scripts and docs for retired callers. Resolve any gaps before ticking `tasks.md`. Record exits, negative controls, both SC-001 series, payload evidence, preserved/retired checks, the pre-R2 SHA and unexecuted real-deployment checks in the R2 implementation PR. (C1, C2, C3, C4, C5, C6)
 
 ## Dependencies and parallel work
 
