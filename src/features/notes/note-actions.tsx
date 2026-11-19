@@ -229,6 +229,7 @@ export function NoteActions({
                   </AlertDialogCancel>
                   <Button
                     variant="destructive"
+                    className="bg-[color-mix(in_srgb,hsl(var(--destructive))_78%,black)] hover:bg-[color-mix(in_srgb,hsl(var(--destructive))_70%,black)]"
                     disabled={sending}
                     onClick={() => submit()}
                   >

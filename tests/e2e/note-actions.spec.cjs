@@ -130,6 +130,36 @@ async function capture(p, engine, width, theme, name) {
     path: `/tmp/r5-views/${engine}-${width}-${theme}-${name}.png`,
   });
 }
+for (const theme of ["light", "dark"]) {
+  test(`Delete note confirmation text contrast in ${theme} theme`, async ({
+    page,
+    session,
+  }) => {
+    await page.emulateMedia({ colorScheme: theme });
+    const { note } = await setup(page, session);
+    await open(page, note);
+    const dialog = await menu(page, "delete");
+    await expect(page.locator("html")).toHaveCSS("color-scheme", theme);
+    const ratio = await button(dialog, "Delete note").evaluate((element) => {
+      const style = getComputedStyle(element);
+      const ctx = document.createElement("canvas").getContext("2d");
+      function luminance(color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 1, 1);
+        const [r, g, b] = Array.from(ctx.getImageData(0, 0, 1, 1).data, (v) => {
+          const c = v / 255;
+          return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      }
+      const bg = luminance(style.backgroundColor);
+      const fg = luminance(style.color);
+      return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+    });
+    await evidence("Delete note contrast", { theme, ratio });
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+}
 for (const [width, height] of [
   [390, 844],
   [810, 1080],
