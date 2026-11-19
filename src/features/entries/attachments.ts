@@ -1,3 +1,4 @@
+import { attachmentBlob } from "@/features/notes/attachment-blob";
 import { pb } from "@/services/pocketbase";
 import type { AttachmentsResponse } from "@/services/pocketbase-types";
 import type { NodeJSON } from "prosekit/core";
@@ -29,18 +30,6 @@ export async function uploadAttachment(file: File) {
   return pb
     .collection("attachments")
     .create<AttachmentRecord>(form, { requestKey: null });
-}
-export async function attachmentBlob(id: string) {
-  const [record, token] = await Promise.all([
-    pb
-      .collection("attachments")
-      .getOne<AttachmentRecord>(id, { requestKey: null }),
-    pb.files.getToken({ requestKey: null }),
-  ]);
-  const response = await fetch(pb.files.getURL(record, record.file, { token }));
-  if (!response.ok)
-    throw new Error("File unavailable. Sign in again and retry.");
-  return { record, blob: await response.blob() };
 }
 export async function downloadAttachment(id: string) {
   const { record, blob } = await attachmentBlob(id);

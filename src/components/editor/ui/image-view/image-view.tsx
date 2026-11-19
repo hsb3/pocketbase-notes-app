@@ -1,7 +1,6 @@
 "use client";
 
-import { attachmentBlob } from "@/features/entries/attachments";
-import { UploadTask } from "prosekit/extensions/file";
+import { attachmentBlob } from "@/features/notes/attachment-blob";
 import type { ImageAttrs } from "prosekit/extensions/image";
 import type { ReactNodeViewProps } from "prosekit/react";
 import { ResizableHandle, ResizableRoot } from "prosekit/react/resizable";
@@ -13,11 +12,9 @@ export default function ImageView(props: ReactNodeViewProps) {
   const [resolvedURL, setResolvedURL] = useState("");
   const privateImage = source.startsWith("attachment:");
   const url = privateImage ? resolvedURL : source;
-  const uploading = !privateImage && source.startsWith("blob:");
 
   const [aspectRatio, setAspectRatio] = useState<number | undefined>();
   const [error, setError] = useState<string | undefined>();
-  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     setError(undefined);
@@ -40,40 +37,12 @@ export default function ImageView(props: ReactNodeViewProps) {
     };
   }, [source, privateImage]);
 
-  useEffect(() => {
-    if (!uploading) return;
-
-    const uploadTask = UploadTask.get<string>(url);
-    if (!uploadTask) return;
-
-    let canceled = false;
-
-    uploadTask.finished.catch((error) => {
-      if (canceled) return;
-      setError(String(error));
-    });
-    const unsubscribeProgress = uploadTask.subscribeProgress(
-      ({ loaded, total }) => {
-        if (canceled) return;
-        setProgress(total ? loaded / total : 0);
-      },
-    );
-
-    return () => {
-      canceled = true;
-      unsubscribeProgress();
-    };
-  }, [url, uploading]);
-
   const handleImageLoad = (event: SyntheticEvent) => {
     const img = event.target as HTMLImageElement;
     const { naturalWidth, naturalHeight } = img;
     const ratio = naturalWidth / naturalHeight;
     if (ratio && Number.isFinite(ratio)) {
       setAspectRatio(ratio);
-    }
-    if (naturalWidth && naturalHeight && (!attrs.width || !attrs.height)) {
-      props.setAttrs({ width: naturalWidth, height: naturalHeight });
     }
   };
 
@@ -93,12 +62,6 @@ export default function ImageView(props: ReactNodeViewProps) {
           alt="Attached image"
           className="h-full max-h-full w-full max-w-full object-contain"
         />
-      )}
-      {uploading && !error && (
-        <div className="absolute bottom-0 left-0 m-1 flex content-center items-center gap-2 rounded-sm bg-gray-800/60 p-1.5 text-xs text-white/80 transition">
-          <div className="i-lucide-loader-circle block size-4 animate-spin"></div>
-          <div>{Math.round(progress * 100)}%</div>
-        </div>
       )}
       {error && (
         <div className="@container absolute top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center gap-4 bg-gray-200 p-2 text-sm dark:bg-gray-800">
