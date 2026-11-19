@@ -1,0 +1,30 @@
+# In-memory draft and save decisions
+
+R3 uses the [R1 stored model](../r1-data-foundation/data-model.md) and [R2 draft lifetime](../r2-compose/data-model.md). A new Compose still allocates one 15-character ID. PATCH still sends the last acknowledged revision and body, leaving attachment order intact by omission. The only additional state lives in the current tab.
+
+| Value | Changes when |
+|---|---|
+| Latest draft | Every editor transaction updates the body and generation, including during I/O, after a failure, or after cancelling a conflict. |
+| Acknowledged baseline | A validated server response, exact owner read-back or confirmed reload supplies the ID, user, folder, ordered attachments, full body and revision. For a fresh Compose the base revision is zero. |
+| Submitted snapshot | Before a POST/PATCH capture its operation, owner, ID, folder, effective ordered attachments, cloned body, generation and base revision. Expected result is base + 1. Keep it across lost replies, failed reads and reauthentication until the outcome is known. |
+| Active operation | One per draft. Retry, debounce, reauthentication and leave share the pump. Recheck active instance, identity and session epoch before dispatch and after every await. A superseded completion cannot render private data, refresh another account's list, install a token, release a blocker or schedule a write. |
+| Suspended draft | Keep the latest body, generation, baseline and unresolved submission together. Detach timers, UI callbacks and pending navigation on lock. Keep only dirty/unresolved drafts, at most one per owner in this tab. Remove when resumed into the active editor, explicitly discarded or the tab ends. |
+
+## Owner read-back
+
+Use the standard singleton records client as the authenticated owner. Compare full JSON recursively (object keys unordered, arrays ordered, marks/attrs included), active status, ID, user, folder, ordered attachment IDs and exact revision. Derived title, excerpt and timestamps are outside equality. Before acknowledging a direct success, validate the returned detail against the submitted values too. Only the submitted generation can advance. If typing has continued, render Pending and drain the latest generation against the confirmed revision. An earlier result never replaces the editor contents.
+
+| Observation after an uncertain write | Permitted action |
+|---|---|
+| Exact expected result, whether after a lost reply, duplicate-ID 400 or 409 | Adopt that revision for the submitted generation. If current, show Saved. A read-back that matches the newer *local* body alone proves nothing. |
+| Ambiguous POST, valid owner session, GET 404, no confirmed ID collision | On explicit Retry, submit the latest valid body under the original ID. If the repeat sends different words, retain the earlier unresolved submission while the repeat settles. On a duplicate response compare the owner read-back against both submitted generations; acknowledge only the one that matches, then drain any newer text. A repeated transport failure stays uncertain; reuse the unresolved wire snapshot on subsequent attempts to bound retained candidates. Never allocate another ID. If the latest edit is empty, defer abandoning an unresolved create until its outcome is settled or the writer explicitly discards. |
+| Ambiguous PATCH and owned record still exactly equals the acknowledged baseline | On Retry, PATCH the latest valid generation with that same revision. The server checks it again transactionally. Keep the earlier uncertain submission available for comparison if this retry races its commit. A racing writer can still produce a 409. |
+| Owned active record differs from both the expected result and the authorized retry baseline, including a later revision with identical text | Enter Conflict. Leave the local body untouched. Never adopt the read revision to replay local edits. A direct stale-write 409 requires read-back and permits no blind retry. |
+| Confirmed duplicate-ID 400 then unreadable GET, or saved PATCH target unavailable/deleted | Retain copyable words and report unavailability. No POST with a different ID, no recreation and no overwrite. A 404 alone cannot distinguish an inaccessible note from a missing one. |
+| Read failed due to transport, 5xx, throttling or inconclusive authorization | Keep the snapshot unresolved. Retry starts by reading again. A failed read supplies neither absence nor permission to write. |
+
+On failed writes show the recovery action immediately, even if a diagnostic read is slow. Stop automatic resubmission until a deliberate Retry. A 409 or explicit ID collision can start classification by read-back immediately. Avoid recursive replay loops within one Retry. A definite validation rejection may retry a corrected body at the original precondition. An unclassified 400 cannot authorize a blind POST. Check local identity/expiry and verify the session on ambiguous rule denials (400 on create, 404 on update/view). A denied authentication check or expired token locks the draft. A transport/5xx failure of the check stays retryable. Treat 401/403 as authentication/authorization signals and distinguish a continuing permission denial under a verified owner from an expired session. Use the captured token for a diagnostic auth-refresh request through `pb.send` without mutating the shared auth store on completion. Recheck owner/session before using its result.
+
+## Document limits
+
+Validate the UTF-8 bytes of the serialized document (including JSON structure) against 102400. The server's JSON field and hook remain authoritative. Retain the full body on local or server refusal. A saved note with no substantive content and no attachments keeps its last valid revision. New never-submitted whitespace-only drafts are disposable. A submitted create being cleared must resolve its first write before applying the saved-note rule. Preserve valid mention/image and attachment-only content. A writer can correct invalid input and Retry without allocating a new note.
