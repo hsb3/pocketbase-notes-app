@@ -1,9 +1,21 @@
 import { ClientResponseError } from "pocketbase";
 import type { NodeJSON } from "prosekit/core";
-import { saveNote } from "./data";
+import {
+  getNote,
+  matchesNote,
+  NoteAccessError,
+  ownerSession,
+  saveNote,
+  verifyOwner,
+} from "./data";
 
 type SavedNote = Awaited<ReturnType<typeof saveNote>>;
+type Submission = Pick<
+  SavedNote,
+  "id" | "user" | "folder" | "body" | "attachments" | "revision"
+> & { generation: number };
 type Status = "Idle" | "Pending" | "Saving" | "Saved" | "Error";
+type Failure = "retry" | "invalid" | "locked" | "conflict" | "unavailable";
 type Options = {
   user: string;
   folder: string;
@@ -21,20 +33,28 @@ function hasContent(node: NodeJSON): boolean {
   );
 }
 
+function statusOf(error: unknown) {
+  return error instanceof ClientResponseError ? error.status : 0;
+}
+
 export class NoteDraft {
   readonly id: string;
   readonly user: string;
-  readonly folder: string;
+  private readonly initialFolder: string;
   body: NodeJSON;
-  revision: number;
   status: Status;
   error = "";
+  editorVersion = 0;
+  failure?: Failure;
+  private session: ReturnType<typeof ownerSession>;
+  private baseline?: SavedNote;
+  private submissions: Submission[] = [];
+  private rejection?: "collision" | "denied" | "bad-create" | "stale";
   private generation = 0;
   private acknowledged = 0;
   private timer?: ReturnType<typeof setTimeout>;
   private running?: Promise<boolean>;
   private leaving = false;
-  private retryable = false;
   private disposed = false;
 
   constructor(private options: Options) {
@@ -42,27 +62,37 @@ export class NoteDraft {
     if (
       !user ||
       !folder ||
-      (note && (note.user !== user || note.folder !== folder))
+      (note && (note.user !== user || note.folder !== folder || note.deleted))
     )
       throw new Error("Note unavailable.");
     this.user = user;
-    this.folder = folder;
+    this.initialFolder = folder;
+    this.session = ownerSession(user);
+    this.baseline = note;
     this.id =
       note?.id ??
       Array.from(crypto.getRandomValues(new Uint8Array(15)), (byte) =>
         (byte % 36).toString(36),
       ).join("");
     this.body = note?.body ?? { type: "doc", content: [{ type: "paragraph" }] };
-    this.revision = note?.revision ?? 0;
     this.status = note ? "Saved" : "Idle";
   }
 
+  get folder() {
+    return this.baseline?.folder ?? this.initialFolder;
+  }
+
+  get revision() {
+    return this.baseline?.revision ?? 0;
+  }
+
   edit(body: NodeJSON) {
-    if (this.disposed) return;
+    if (this.disposed || !this.session.sameOwner()) return;
     this.body = body;
     this.generation++;
+    if (!this.active()) return;
     this.clearTimer();
-    if (!this.error) {
+    if (!this.failure) {
       this.status = "Pending";
       if (!this.leaving)
         this.timer = setTimeout(() => {
@@ -74,17 +104,61 @@ export class NoteDraft {
   }
 
   flush(): Promise<boolean> {
+    if (this.failure) return this.running ?? Promise.resolve(false);
     this.clearTimer();
     this.leaving = true;
     return this.pump();
   }
 
-  // Only an explicitly rejected validation attempt can be repeated without reconciliation.
   retry(): Promise<boolean> {
-    if (!this.retryable) return Promise.resolve(false);
-    this.retryable = false;
-    this.error = "";
-    return this.flush();
+    if (this.running) return this.running;
+    if (this.failure !== "retry" && this.failure !== "invalid")
+      return Promise.resolve(false);
+    this.clearTimer();
+    this.leaving = true;
+    return this.pump(true);
+  }
+
+  reloadSaved(): Promise<boolean> {
+    if (this.running) return this.running;
+    if (this.failure !== "conflict" || !this.active())
+      return Promise.resolve(false);
+    const generation = this.generation;
+    this.running = this.reload(generation).finally(() => {
+      this.leaving = false;
+      this.running = undefined;
+    });
+    return this.running;
+  }
+
+  private async reload(generation: number) {
+    let note: SavedNote;
+    try {
+      note = await getNote(this.id, this.session);
+    } catch (error) {
+      if (!this.active()) return false;
+      if ([401, 403, 404].includes(statusOf(error))) {
+        if (!(await this.verified("conflict")) || !this.active()) return false;
+      } else if (!(error instanceof NoteAccessError))
+        return this.fail(
+          "conflict",
+          "Could not reload the saved note. Your draft is still here.",
+        );
+      return this.fail(
+        "unavailable",
+        "The saved note is unavailable. Copy your draft.",
+      );
+    }
+    if (!this.active()) return false;
+    if (generation !== this.generation)
+      return this.fail(
+        "conflict",
+        "Your draft changed. Confirm again before replacing these edits.",
+      );
+    this.body = note.body;
+    this.editorVersion++;
+    this.acknowledge(note, generation);
+    return true;
   }
 
   dispose() {
@@ -92,65 +166,223 @@ export class NoteDraft {
     this.clearTimer();
   }
 
+  private active() {
+    if (this.disposed) return false;
+    if (this.session.current()) return true;
+    this.fail("locked", "Sign in again to save this draft.");
+    return false;
+  }
+
   private clearTimer() {
     clearTimeout(this.timer);
     this.timer = undefined;
   }
 
-  private pump(): Promise<boolean> {
+  private fail(kind: Failure, message: string): false {
+    this.clearTimer();
+    this.failure = kind;
+    this.error = message;
+    this.status = "Error";
+    if (!this.disposed && this.session.sameEpoch()) this.options.onChange?.();
+    return false;
+  }
+
+  private acknowledge(note: SavedNote, generation: number) {
+    this.baseline = note;
+    this.acknowledged = generation;
+    this.submissions = [];
+    this.rejection = undefined;
+    this.failure = undefined;
+    this.error = "";
+    this.status = generation === this.generation ? "Saved" : "Pending";
+    this.options.onSaved?.(note);
+    if (this.active()) this.options.onChange?.();
+  }
+
+  private async verified(onInconclusive: "conflict" | "retry" = "retry") {
+    try {
+      await verifyOwner(this.user, this.session);
+      return this.active();
+    } catch (error) {
+      if (!this.active()) return false;
+      if (
+        error instanceof NoteAccessError ||
+        [401, 403].includes(statusOf(error))
+      )
+        return this.fail("locked", "Sign in again to save this draft.");
+      return this.fail(
+        onInconclusive,
+        "Could not verify this session. Try checking the saved note again.",
+      );
+    }
+  }
+
+  // "replay" permits exactly one more write at the original precondition.
+  private async reconcile(): Promise<"acknowledged" | "replay" | false> {
+    if (!this.active()) return false;
+    const maskedCreate = this.rejection === "bad-create";
+    if (maskedCreate || this.rejection === "denied") {
+      if (!(await this.verified()) || !this.active()) return false;
+      if (this.rejection === "denied")
+        return this.fail(
+          "unavailable",
+          "Saving is unavailable. Copy your draft.",
+        );
+    }
+    let note: SavedNote;
+    try {
+      note = await getNote(this.id, this.session);
+    } catch (error) {
+      if (!this.active()) return false;
+      const status = statusOf(error);
+      if ([401, 403, 404].includes(status)) {
+        if (
+          (!maskedCreate || status !== 404) &&
+          (!(await this.verified()) || !this.active())
+        )
+          return false;
+        if (status === 404 && !this.baseline && !this.rejection)
+          return "replay";
+      } else if (!(error instanceof NoteAccessError))
+        return this.fail(
+          "retry",
+          "Could not check the saved note. Retry to check again.",
+        );
+      return this.fail(
+        "unavailable",
+        "The saved note is unavailable. Copy your draft.",
+      );
+    }
+    if (!this.active()) return false;
+    const match = [...this.submissions]
+      .reverse()
+      .find((submission) => matchesNote(note, submission));
+    if (match) {
+      this.acknowledge(note, match.generation);
+      return "acknowledged";
+    }
+    if (!this.rejection && this.baseline && matchesNote(note, this.baseline))
+      return "replay";
+    return this.fail(
+      "conflict",
+      "The saved version differs. Review the conflict.",
+    );
+  }
+
+  private async write(): Promise<boolean> {
+    const attachments = this.baseline?.attachments ?? [];
+    if (!attachments.length && !hasContent(this.body)) {
+      if (this.baseline || this.submissions.length)
+        return this.fail(
+          "invalid",
+          "This note needs writing or an attachment.",
+        );
+      this.acknowledged = this.generation;
+      this.status = "Idle";
+      this.options.onChange?.();
+      return true;
+    }
+    if (new TextEncoder().encode(JSON.stringify(this.body)).length > 102400)
+      return this.fail(
+        "invalid",
+        "This note exceeds the 100 KB limit. Shorten it and retry.",
+      );
+
+    // After a second ambiguous write, reuse that snapshot to bound the possible winners.
+    const earlier = this.submissions;
+    let submission = earlier[earlier.length - 1];
+    if (
+      !submission ||
+      (this.submissions.length === 1 &&
+        submission.generation !== this.generation)
+    ) {
+      submission = {
+        id: this.id,
+        user: this.user,
+        folder: this.folder,
+        attachments,
+        revision: this.revision + 1,
+        body: structuredClone(this.body),
+        generation: this.generation,
+      };
+      this.submissions = [...earlier, submission];
+    }
+    this.status =
+      submission.generation === this.generation ? "Saving" : "Pending";
+    this.options.onChange?.();
+    if (!this.active()) return false;
+    try {
+      const note = await saveNote(
+        this.user,
+        this.folder,
+        this.id,
+        submission.body,
+        this.revision,
+        this.session,
+      );
+      if (!this.active()) return false;
+      if (!matchesNote(note, submission)) throw new Error("Unconfirmed write");
+      this.acknowledge(note, submission.generation);
+      return true;
+    } catch (error) {
+      if (!this.active()) return false;
+      const status = statusOf(error);
+      const data =
+        error instanceof ClientResponseError ? error.response.data : undefined;
+      if (status === 400 && data?.body?.code && !data.id) {
+        // A rejection of a repeat does not settle an earlier transport failure.
+        this.submissions = earlier;
+        return this.fail(
+          "invalid",
+          "Unable to save this note. Correct the document and retry.",
+        );
+      }
+      this.rejection =
+        status === 409
+          ? "stale"
+          : status === 400 && !this.baseline
+            ? data?.id?.code === "validation_not_unique"
+              ? "collision"
+              : "bad-create"
+            : [401, 403].includes(status)
+              ? "denied"
+              : undefined;
+      this.fail(
+        "retry",
+        "Unable to save this note. Retry to check the saved version.",
+      );
+      if (!this.rejection && status !== 404 && status !== 400) return false;
+      const result = await this.reconcile();
+      return result === "acknowledged";
+    }
+  }
+
+  private pump(retry = false): Promise<boolean> {
     if (!this.running) {
       this.running = Promise.resolve().then(async () => {
         try {
+          if (!this.active()) return false;
+          if (retry) {
+            if (this.submissions.length) {
+              const result = await this.reconcile();
+              if (!result || !this.active()) return false;
+            }
+            this.failure = undefined;
+            this.error = "";
+          }
           while (
-            !this.disposed &&
-            !this.error &&
+            this.active() &&
+            !this.failure &&
             !this.timer &&
             this.acknowledged !== this.generation
           ) {
-            const generation = this.generation;
-            const body = structuredClone(this.body);
-            if (this.revision === 0 && !hasContent(body)) {
-              this.acknowledged = generation;
-              this.status = "Idle";
-              this.options.onChange?.();
-              continue;
-            }
-            this.status = "Saving";
-            this.options.onChange?.();
-            const note = await saveNote(
-              this.user,
-              this.folder,
-              this.id,
-              body,
-              this.revision,
-            );
-            if (this.disposed) return false;
-            this.acknowledged = generation;
-            this.revision = note.revision;
-            this.status = this.generation === generation ? "Saved" : "Pending";
-            this.options.onSaved?.(note);
-            this.options.onChange?.();
+            if (!(await this.write())) return false;
           }
           return (
-            !this.disposed &&
-            !this.error &&
+            this.active() &&
+            !this.failure &&
             this.acknowledged === this.generation
           );
-        } catch (error) {
-          if (!this.disposed) {
-            this.clearTimer();
-            this.retryable =
-              error instanceof ClientResponseError &&
-              error.status === 400 &&
-              Boolean(error.response.data?.body?.code) &&
-              !error.response.data?.id;
-            this.error =
-              "Unable to save this note. " +
-              (error instanceof Error ? error.message : String(error));
-            this.status = "Error";
-            this.options.onChange?.();
-          }
-          return false;
         } finally {
           this.leaving = false;
           this.running = undefined;

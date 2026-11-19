@@ -34,20 +34,120 @@ export function listNotes(folder: string, page: number) {
   });
 }
 
-export async function getNote(id: string) {
+export class NoteAccessError extends Error {
+  constructor(readonly reason: "locked" | "unavailable") {
+    super(
+      reason === "locked"
+        ? "Sign in again to save this draft."
+        : "Note unavailable.",
+    );
+  }
+}
+
+let sessionEpoch = 0;
+pb.authStore.onChange(() => {
+  sessionEpoch++;
+});
+
+export function ownerSession(user: string) {
+  const epoch = sessionEpoch;
+  const token = pb.authStore.token;
+  const sameOwner = () =>
+    !!user &&
+    pb.authStore.record?.collectionName === "users" &&
+    pb.authStore.record.id === user;
+  return {
+    token,
+    sameOwner,
+    sameEpoch: () => epoch === sessionEpoch,
+    current: () =>
+      epoch === sessionEpoch && pb.authStore.isValid && sameOwner(),
+  };
+}
+
+type Session = ReturnType<typeof ownerSession>;
+function checkSession(session: Session) {
+  if (!session.current()) throw new NoteAccessError("locked");
+}
+
+export async function verifyOwner(user: string, session: Session) {
+  checkSession(session);
+  // The SDK's authRefresh installs its result even if a different owner has since signed in.
+  const { record } = await pb.send<{
+    record: { id: string; collectionName: string };
+  }>("/api/collections/users/auth-refresh", {
+    method: "POST",
+    headers: { Authorization: session.token },
+    requestKey: null,
+    cache: "no-store",
+  });
+  checkSession(session);
+  if (record?.id !== user || record.collectionName !== "users")
+    throw new NoteAccessError("locked");
+}
+
+export async function getNote(
+  id: string,
+  session = ownerSession(pb.authStore.record?.id ?? ""),
+) {
+  checkSession(session);
   const user = pb.authStore.record?.id;
-  const note = await pb
-    .collection("notes")
-    .getOne<Detail>(id, { fields: detailFields, requestKey: null });
+  const note = await pb.collection("notes").getOne<Detail>(id, {
+    fields: detailFields,
+    requestKey: null,
+    cache: "no-store",
+  });
+  checkSession(session);
   if (
-    !user ||
+    note.id !== id ||
     note.user !== user ||
-    pb.authStore.record?.id !== user ||
-    note.deleted ||
-    !note.body
+    note.deleted !== "" ||
+    !note.folder ||
+    !note.body ||
+    !Array.isArray(note.attachments) ||
+    !Number.isSafeInteger(note.revision) ||
+    note.revision < 1
   )
-    throw new Error("Note unavailable.");
+    throw new NoteAccessError("unavailable");
   return note;
+}
+
+function equalJSON(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b))
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((v, i) => equalJSON(v, b[i]))
+    );
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
+  return (
+    Object.keys(a).length === Object.keys(b).length &&
+    Object.entries(a).every(
+      ([key, value]) =>
+        Object.prototype.propertyIsEnumerable.call(b, key) &&
+        equalJSON(value, (b as Record<string, unknown>)[key]),
+    )
+  );
+}
+
+export function matchesNote(
+  note: Detail,
+  expected: Pick<
+    Detail,
+    "id" | "user" | "folder" | "revision" | "attachments" | "body"
+  >,
+) {
+  return (
+    note.deleted === "" &&
+    note.id === expected.id &&
+    note.user === expected.user &&
+    note.folder === expected.folder &&
+    note.revision === expected.revision &&
+    equalJSON(note.attachments, expected.attachments) &&
+    equalJSON(note.body, expected.body)
+  );
 }
 
 export async function saveNote(
@@ -56,9 +156,9 @@ export async function saveNote(
   id: string,
   body: NodeJSON,
   revision: number,
+  session = ownerSession(user),
 ) {
-  if (pb.authStore.record?.id !== user)
-    throw new Error("Sign in as the owner to save this note.");
+  checkSession(session);
   const options = { fields: detailFields, requestKey: null };
   const notes = pb.collection("notes");
   const note =
@@ -68,14 +168,13 @@ export async function saveNote(
           options,
         )
       : await notes.update<Detail>(id, { revision, body }, options);
+  checkSession(session);
   if (
-    pb.authStore.record?.id !== user ||
     note.user !== user ||
     note.id !== id ||
     note.folder !== folder ||
     note.revision !== revision + 1
-  ) {
+  )
     throw new Error("The note save could not be confirmed.");
-  }
   return note;
 }
