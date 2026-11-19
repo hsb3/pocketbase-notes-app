@@ -1,102 +1,25 @@
 const { api, expect, test } = require("./fixtures.cjs");
 
-const notePath = "collections/notes/records";
-const folderPath = "collections/folders/records";
+const {
+  notePath,
+  listURL,
+  editor,
+  back,
+  saved,
+  doc,
+  login,
+  ownerData,
+  seedNote,
+  privateImage,
+  compose,
+  folders,
+  createFolder,
+  singleNote,
+  lines,
+} = require("./note-helpers.cjs");
 const gardenTitle = "Seed order";
 const gardenBody = "Buy calendula for the south wall";
 const fields = "id,folder,title,updated,excerpt";
-const listURL = /\/folders\/all(?:[?#]|$)/;
-const editor = (page) =>
-  page.getByRole("textbox", { name: "Note", exact: true });
-const back = (page) => page.getByRole("button", { name: "Back", exact: true });
-const saved = (page) =>
-  page.getByRole("status").filter({ hasText: /^Saved$/i });
-const doc = (...lines) => ({
-  type: "doc",
-  content: lines.map((text) =>
-    text
-      ? { type: "paragraph", content: [{ type: "text", text }] }
-      : { type: "paragraph" },
-  ),
-});
-
-async function login(page, { email, password }) {
-  await page.goto("/auth/login");
-  await page.locator('[name="identity"]').fill(email);
-  await page.locator('[name="password"]').fill(password);
-  await page.getByRole("button", { name: "Login", exact: true }).click();
-  await expect(page).toHaveURL(listURL);
-}
-async function ownerData(session) {
-  const { token } = await api(
-    "collections/users/auth-with-password",
-    "",
-    "POST",
-    {
-      identity: session.email,
-      password: session.password,
-    },
-  );
-  const { items } = await api(folderPath, token);
-  return {
-    token,
-    user: session.account.id,
-    folder: items.find((item) => item.is_default).id,
-  };
-}
-async function seedNote({ token, user, folder }, body, attachments = []) {
-  return api(notePath, token, "POST", { user, folder, body, attachments });
-}
-async function privateImage(request, owner) {
-  const upload = await request.post(
-    process.env.VITE_PB_URL + "/api/collections/attachments/records",
-    {
-      headers: { Authorization: owner.token },
-      multipart: {
-        user: owner.user,
-        name: "seed.png",
-        file: {
-          name: "seed.png",
-          mimeType: "image/png",
-          buffer: Buffer.from(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNwKV8FAAJoAWZD6tifAAAAAElFTkSuQmCC",
-            "base64",
-          ),
-        },
-      },
-    },
-  );
-  expect(upload.ok()).toBe(true);
-  return upload.json();
-}
-
-async function compose(page) {
-  await page.getByRole("button", { name: "Compose", exact: true }).click();
-  await expect(editor(page)).toBeFocused();
-  await expect(page).toHaveURL(/\/notes\/[a-z0-9]{15}$/);
-}
-async function folders(page) {
-  await page.goto("/folders");
-  await expect(page.getByRole("button", { name: "New folder" })).toBeVisible();
-}
-async function createFolder(page, name) {
-  await page.getByRole("button", { name: "New folder" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("textbox").fill(name);
-  await dialog.getByRole("button", { name: /create/i }).click();
-  await expect(dialog).toBeHidden();
-  await expect(page).toHaveURL(/\/folders\/[a-z0-9]{15}$/);
-}
-async function singleNote(token) {
-  const list = await api(notePath, token);
-  expect(list.totalItems).toBe(1);
-  return list.items[0];
-}
-async function lines(page, first, second) {
-  if (first) await page.keyboard.insertText(first);
-  await page.keyboard.press("Enter");
-  await page.keyboard.insertText(second);
-}
 
 for (const width of [390, 810, 1440]) {
   test(`Garden capture at ${width}px reopens in an independent desktop session`, async ({
