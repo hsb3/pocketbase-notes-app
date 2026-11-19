@@ -10,7 +10,7 @@ All Notes lists active notes across folders. A folder list shows only its own. L
 
 At phone width the list has Compose at bottom right. Back from a note restores the page, scroll and row focus. When a note was opened by direct link, Back goes to its actual folder. From 768 CSS pixels the folders, list and editor share one workspace. Resizing preserves the draft and caret. Account and theme controls are at the foot of Folders.
 
-Autosave sends one write at a time per note. If typing continues during a save, the editor sends the newer words with the acknowledged revision. In-app navigation waits for pending edits to finish. On failure it keeps the words and error visible. Unacknowledged edits live only in browser memory.
+The editor shows **Pending** when typing, **Saving** while it sends the current edit and **Saved** once the server confirms the latest words. Typing can continue throughout. Writes run one at a time per note.
 
 ## Folders and ownership
 
@@ -37,11 +37,21 @@ New notes start at revision 1. Send the current numeric `revision` with each upd
 
 ## Recovering an uncertain save in R3
 
-The API accepts a client-selected ID of exactly 15 lowercase ASCII letters or digits. Creating the same ID again returns HTTP 400 (`validation_not_unique`) and preserves the first record. The planned R3 client uses this contract when a save response is lost.
+**Keep the tab open.** If a save fails, the words stay editable. Choose **Retry** to save the latest words.
 
-1. Keep the submitted snapshot, stable ID and expected resulting revision separate from edits made while the request was in flight.
-2. Fetch the ID as the same owner. Compare the ID, owner, folder, ordered attachments, full body and resulting revision. An exact match acknowledges the submitted snapshot. Send queued edits against the confirmed revision.
-3. If the owned record differs, preserve the draft for conflict handling. If an ambiguous create has no visible record, retry with the same ID. A confirmed collision with no matching readable record requires an explicit failure. Neither HTTP 400 nor 409 alone acknowledges a save.
+- **Invalid note.** A saved note needs writing or an attachment. If the document exceeds 100 KB (102400 UTF-8 bytes including its JSON structure), shorten it. Correct the draft and choose **Retry**. The last valid server version stays available.
+- **Session expired.** Sign in again in the same tab with the original account. Its draft reopens at the same note address. Choose **Retry** to check and save it. The sign-in screen hides the private editor. A different account sees its own library while the original draft stays in tab memory.
+- **Save conflict.** Choose **Copy draft** to keep a plain-text copy of the current local words. If the clipboard is blocked, select and copy them in the editor. **Cancel** keeps both versions and **Review conflict** reopens the dialog. To give up the local edits, choose **Reload saved**, then confirm **Reload saved** in **Replace this draft?**. Confirmation reads the current server version again. If the read fails, the local words remain available. If the note is unavailable, use **Copy draft** to keep them.
+
+If the reply was lost, Retry reads the record as its owner. A match on ID, owner, folder, ordered attachments, full body and expected revision confirms the submitted edit. Later typing saves against that revision.
+
+A create keeps its original ID of 15 lowercase ASCII letters or digits. After an uncertain create, a verified owner read that finds no record permits a retry with the same ID. A duplicate ID returns HTTP 400 (`validation_not_unique`) and preserves the first record. If that record is unreadable, recovery stops and the words remain available to copy.
+
+## Leaving a draft
+
+Back, navigation links and Compose wait for pending edits to save. If the save fails, or if **Log out** is chosen with unsaved edits, a dialog offers three choices. **Keep editing** returns focus to the draft. **Save and continue** tries to save the latest words and leaves after confirmation. For a conflict or unavailable note, return to the editor to review or copy the draft. **Discard** abandons local edits and preserves any version already committed. While the sign-out choice is open, queued edits wait.
+
+On a reload, tab close or full-page navigation with unsaved writing, the browser can offer its native leave warning, including during sign-in. Choose **Stay** to return to the draft. Leaving ends its in-memory recovery. A mobile browser or operating system can close a tab without showing a warning. Wait for **Saved** or copy the draft before closing it.
 
 ## Later increments and source recovery
 
