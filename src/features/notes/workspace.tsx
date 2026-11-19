@@ -18,6 +18,8 @@ import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { defaultFolder, listFolders } from "@/features/folders/data";
+import { DeleteFolder } from "@/features/folders/delete-folder";
+import { RecentlyDeleted } from "./recently-deleted";
 import { FolderList } from "@/features/folders/folder-list";
 import { pb } from "@/services/pocketbase";
 import { cn } from "@/utils/classnames";
@@ -41,6 +43,7 @@ declare module "@tanstack/react-router" {
   interface HistoryState {
     origin?: ListPosition;
     focusSearch?: boolean;
+    focusTrash?: boolean;
   }
 }
 
@@ -203,11 +206,21 @@ function Library({
   const target =
     folder === "all" ? folders.find((item) => item.is_default) : folderRecord;
 
+  const [deletions, setDeletions] = useState<typeof folders>([]);
+  const isTrash = folderId === "recently-deleted";
+  const [trashRefresh, refreshTrash] = useReducer((n) => n + 1, 0);
+  useLayoutEffect(() => {
+    if (!folderId && !selected && locationState.focusTrash)
+      document
+        .querySelector<HTMLElement>('a[href="/folders/recently-deleted"]')
+        ?.focus();
+  }, [folderId, selected, locationState.focusTrash]);
+
   useEffect(() => {
     let current = true;
     listFolders()
       .then((rows) => {
-        if (!current) return;
+        if (!current || !session.current()) return;
         defaultFolder(rows, user);
         setFolders(rows);
         setFolderError("");
@@ -230,7 +243,7 @@ function Library({
     return () => {
       current = false;
     };
-  }, [user, folderId, navigate]);
+  }, [user, folderId, navigate, session]);
 
   const makeDraft = useCallback(
     (
@@ -704,6 +717,19 @@ function Library({
             folders={folders}
             selected={folder}
             error={folderError}
+            revisitTrash={(event) => {
+              if (
+                !isTrash ||
+                event.ctrlKey ||
+                event.metaKey ||
+                event.shiftKey ||
+                event.altKey
+              )
+                return;
+              event.preventDefault();
+              if (page > 1) void selectFolder("recently-deleted", {}, true);
+              else refreshTrash();
+            }}
             onCreated={(item) => {
               if (pb.authStore.record?.id !== item.user) return;
               setFolders((rows) =>
@@ -725,68 +751,130 @@ function Library({
             !selected && folderId ? "flex" : "hidden",
           )}
         >
-          <NoteList
-            key={JSON.stringify([user, folder, page, q, sp])}
+          <RecentlyDeleted
+            visible={isTrash && !selected}
+            session={session}
             user={user}
             folders={folders}
-            q={q}
-            sp={sp}
-            entryKey={locationState.__TSR_key}
-            focusSearch={!!locationState.focusSearch}
-            choosing={!!pending.current?.choosing}
-            fromList={!!q && !!origin?.fromList}
-            folder={folder}
-            title={
-              folder === "all" ? "All Notes" : (folderRecord?.name ?? "Folder")
-            }
-            page={page}
-            selected={selected}
-            refresh={refresh}
-            compose={compose}
-            canCompose={!!target}
-            position={returning.current}
-            showingList={!selected && !!folderId}
-            onPage={(next) => selectFolder(folder, { page: next })}
-            onSearch={(term, next) =>
-              selectFolder(folder, { page, q: term, sp: next }, !selected, true)
-            }
-            clampPage={(next) => {
-              if (noteId && origin) {
-                void navigate({
-                  to: "/notes/$noteId",
-                  params: { noteId },
-                  replace: true,
-                  state: { origin: { ...origin, [q ? "sp" : "page"]: next } },
-                  ignoreBlocker: true,
-                });
-              } else
-                void selectFolder(
-                  folder,
-                  { page: q ? page : next, q, sp: q ? next : sp },
-                  true,
-                  true,
-                );
-            }}
+            refresh={trashRefresh}
+            onRestored={refreshList}
           />
+          {!isTrash && (
+            <NoteList
+              key={JSON.stringify([user, folder, page, q, sp])}
+              user={user}
+              folders={folders}
+              q={q}
+              sp={sp}
+              entryKey={locationState.__TSR_key}
+              focusSearch={!!locationState.focusSearch}
+              choosing={!!pending.current?.choosing}
+              fromList={!!q && !!origin?.fromList}
+              folder={folder}
+              title={
+                folder === "all"
+                  ? "All Notes"
+                  : (folderRecord?.name ?? "Folder")
+              }
+              page={page}
+              selected={selected}
+              refresh={refresh}
+              compose={compose}
+              canCompose={!!target}
+              deletingFolder={deletions.some((item) => item.id === folderId)}
+              deleteFolder={
+                !selected &&
+                folderId &&
+                !q &&
+                folderRecord &&
+                !folderRecord.is_default
+                  ? () =>
+                      setDeletions((items) =>
+                        items.some((item) => item.id === folderId)
+                          ? items
+                          : [...items, folderRecord],
+                      )
+                  : undefined
+              }
+              position={returning.current}
+              showingList={!selected && !!folderId}
+              onPage={(next) => selectFolder(folder, { page: next })}
+              onSearch={(term, next) =>
+                selectFolder(
+                  folder,
+                  { page, q: term, sp: next },
+                  !selected,
+                  true,
+                )
+              }
+              clampPage={(next) => {
+                if (noteId && origin) {
+                  void navigate({
+                    to: "/notes/$noteId",
+                    params: { noteId },
+                    replace: true,
+                    state: { origin: { ...origin, [q ? "sp" : "page"]: next } },
+                    ignoreBlocker: true,
+                  });
+                } else
+                  void selectFolder(
+                    folder,
+                    { page: q ? page : next, q, sp: q ? next : sp },
+                    true,
+                    true,
+                  );
+              }}
+            />
+          )}
         </section>
         <section
           ref={documentPane}
           aria-label="Document"
           className={cn(pane, selected ? "flex" : "hidden")}
         >
-          <NoteEditor
-            draft={draft}
-            readError={readError ? retryDetail : undefined}
-            actions={selected && controls}
-            selected={!!selected}
-            unavailable={!!selected && failedId === selected}
-            back={back}
-          />
+          {!isTrash && (
+            <NoteEditor
+              draft={draft}
+              readError={readError ? retryDetail : undefined}
+              actions={selected && controls}
+              selected={!!selected}
+              unavailable={!!selected && failedId === selected}
+              back={back}
+            />
+          )}
         </section>
       </main>
       <span role="status" className="sr-only">
         {notice}
       </span>
+      <div
+        id="action-statuses"
+        className="fixed bottom-3 left-1/2 z-40 flex -translate-x-1/2 flex-col gap-2"
+      />
+      {deletions.map((deleting) => (
+        <DeleteFolder
+          key={deleting.id}
+          folder={deleting}
+          session={session}
+          user={user}
+          cancel={() =>
+            setDeletions((items) => items.filter((item) => item !== deleting))
+          }
+          gone={(message, focus) => {
+            setFolders((rows) => rows.filter((row) => row.id !== deleting.id));
+            setDeletions((items) => items.filter((item) => item !== deleting));
+            refreshList();
+            announce(message);
+            if (!focus) return;
+            if (history.location.pathname === "/folders/" + deleting.id)
+              void selectFolder("all", {}, true, true, true);
+            else
+              document
+                .querySelector<HTMLInputElement>('input[type="search"]')
+                ?.focus();
+          }}
+        />
+      ))}
       {!selected && panel && (
         <aside className="fixed top-2 right-2 rounded-md border bg-background p-2">
           {controls}

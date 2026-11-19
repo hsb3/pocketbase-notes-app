@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { Folder, FolderPlus, UserRound } from "lucide-react";
+import { Folder, FolderPlus, Trash2, UserRound } from "lucide-react";
 import { ClientResponseError } from "pocketbase";
 import { NavUser } from "@/components/nav-user";
 import { Button } from "@/components/ui/button";
@@ -34,11 +34,13 @@ export function FolderList({
   selected,
   onCreated,
   error,
+  revisitTrash,
 }: {
   folders: Folders;
   selected: string;
   onCreated: (folder: Folders[number]) => void;
   error?: string;
+  revisitTrash: (event: React.MouseEvent) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -135,7 +137,11 @@ export function FolderList({
         {error && <p role="alert">{error}</p>}
         <nav aria-label="Folder destinations">
           <SidebarMenu>
-            {[{ id: "all", name: "All Notes" }, ...folders].map((item) => (
+            {[
+              { id: "all", name: "All Notes" },
+              ...folders,
+              { id: "recently-deleted", name: "Recently Deleted" },
+            ].map((item) => (
               <SidebarMenuItem key={item.id}>
                 <SidebarMenuButton
                   asChild
@@ -146,8 +152,11 @@ export function FolderList({
                     to="/folders/$folderId"
                     params={{ folderId: item.id }}
                     search={{}}
+                    onClick={
+                      item.id === "recently-deleted" ? revisitTrash : undefined
+                    }
                   >
-                    <Folder />
+                    {item.id === "recently-deleted" ? <Trash2 /> : <Folder />}
                     <span>{item.name}</span>
                   </Link>
                 </SidebarMenuButton>

@@ -1,9 +1,10 @@
 import { ClientResponseError } from "pocketbase";
+import { defaultFolder, listFolders } from "@/features/folders/data";
 import { pb } from "@/services/pocketbase";
 import type { NotesResponse } from "@/services/pocketbase-types";
 import { NoteAccessError, type ownerSession, verifyOwner } from "./data";
 
-type Session = ReturnType<typeof ownerSession>;
+export type Session = ReturnType<typeof ownerSession>;
 export type NoteState = Pick<
   NotesResponse,
   "id" | "user" | "folder" | "revision" | "deleted"
@@ -15,6 +16,19 @@ export type NoteCommand = {
   originalFolder: string;
   destination?: string;
 };
+
+function privateRead(session: Session) {
+  if (!session.current()) throw new NoteAccessError("locked");
+  return {
+    headers: { Authorization: session.token },
+    requestKey: null,
+    cache: "no-store" as const,
+  };
+}
+
+export function responseStatus(error: unknown) {
+  return error instanceof ClientResponseError ? error.status : 0;
+}
 
 function identity(row: NoteState, cmd: NoteCommand, session: Session) {
   if (!session.current()) throw new NoteAccessError("locked");
@@ -50,17 +64,22 @@ export function confirms(row: NoteState, cmd: NoteCommand) {
   );
 }
 
-export async function sendCommand(cmd: NoteCommand, session: Session) {
+export async function sendCommand(
+  cmd: NoteCommand,
+  session: Session,
+  restore = false,
+) {
   if (!session.current()) throw new NoteAccessError("locked");
-  const verb = cmd.destination ? "move" : "delete";
+  const verb = restore ? "restore" : cmd.destination ? "move" : "delete";
   const row = await pb.send<NoteState>(
     `/api/notebook/notes/${cmd.id}/${verb}`,
     {
       method: "POST",
-      body: { revision: cmd.revision, folder: cmd.destination },
-      headers: { Authorization: session.token },
-      requestKey: null,
-      cache: "no-store",
+      body: {
+        revision: cmd.revision,
+        folder: restore ? undefined : cmd.destination,
+      },
+      ...privateRead(session),
     },
   );
   identity(row, cmd, session);
@@ -73,9 +92,7 @@ export async function readCommand(cmd: NoteCommand, session: Session) {
   try {
     const row = await pb.collection("notes").getOne<NoteState>(cmd.id, {
       fields: "id,user,folder,revision,deleted",
-      headers: { Authorization: session.token },
-      requestKey: null,
-      cache: "no-store",
+      ...privateRead(session),
     });
     return identity(row, cmd, session);
   } catch (error) {
@@ -87,4 +104,72 @@ export async function readCommand(cmd: NoteCommand, session: Session) {
       return null;
     throw error;
   }
+}
+
+export type TrashRow = Pick<
+  NotesResponse,
+  "id" | "folder" | "title" | "revision" | "deleted"
+> & { deadline: string };
+type TrashPage = {
+  page: number;
+  totalPages: number;
+  items: TrashRow[];
+  serverNow: string;
+};
+
+export function readTrash(page: number, session: Session) {
+  return pb.send<TrashPage>("/api/notebook/recently-deleted", {
+    ...privateRead(session),
+    query: { page },
+  });
+}
+
+type Preview = {
+  id: string;
+  name: string;
+  activeCount: number;
+  snapshot: string;
+};
+export async function folderPreview(id: string, session: Session) {
+  const preview = await pb.send<Preview>(
+    `/api/notebook/folders/${id}/delete-preview`,
+    privateRead(session),
+  );
+  if (
+    preview.id !== id ||
+    !/^[0-9a-f]{64}$/.test(preview.snapshot) ||
+    !Number.isSafeInteger(preview.activeCount) ||
+    preview.activeCount < 0
+  )
+    throw Error("Invalid folder preview.");
+  return preview;
+}
+
+export function deleteFolder(preview: Preview, session: Session) {
+  return pb.collection("folders").delete(preview.id, {
+    ...privateRead(session),
+    query: { snapshot: preview.snapshot },
+  });
+}
+
+export async function checkFolder(id: string, user: string, session: Session) {
+  await verifyOwner(user, session);
+  let present = true;
+  try {
+    const row = await pb.collection("folders").getOne(id, {
+      ...privateRead(session),
+      fields: "id,user,is_default",
+    });
+    if (row.id !== id || row.user !== user || row.is_default)
+      throw Error("Unexpected folder.");
+  } catch (error) {
+    if (responseStatus(error) !== 404) throw error;
+    present = false;
+  }
+  if (!session.current()) throw new NoteAccessError("locked");
+  const rows = await listFolders();
+  defaultFolder(rows, user);
+  if (!session.current() || rows.some((f) => f.id === id) !== present)
+    throw Error("Folder list changed.");
+  return present;
 }
