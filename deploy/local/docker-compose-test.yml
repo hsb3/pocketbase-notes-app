@@ -18,6 +18,8 @@ services:
     <<: *test-limits
     image: ${TEST_BUN_IMAGE:?}
     networks: [downloads]
+    environment:
+      VITE_SIGNUP_ENABLED: ${VITE_SIGNUP_ENABLED:?}
     working_dir: /app
     volumes:
       - workspace:/app
@@ -49,6 +51,7 @@ services:
       CONTAINED_TEST: "1"
     volumes:
       - workspace:/app
+      - server:/pb:ro
 
   browser:
     <<: *test-limits
@@ -60,6 +63,7 @@ services:
       - workspace:/app
     environment:
       CI: "true"
+      VITE_SIGNUP_ENABLED: ${VITE_SIGNUP_ENABLED:?}
       TEST_APP_URL: http://127.0.0.1:8080
       VITE_PB_URL: http://127.0.0.1:8080
       MAILPIT_URL: http://mailpit:8025
