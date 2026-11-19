@@ -12,6 +12,14 @@ At phone width the list has Compose at bottom right. Back from a note restores t
 
 The editor shows **Pending** when typing, **Saving** while it sends the current edit and **Saved** once the server confirms the latest words. Typing can continue throughout. Writes run one at a time per note.
 
+## Search across folders
+
+From any folder or **All Notes**, enter part of a title or body in **Search** and press Enter or select the search button. Search covers every active note in the signed-in account, including text beyond the list excerpt. It omits deleted notes and attachment contents. On a phone the field sits beside Compose at the foot of the list. On wider screens it sits above the results.
+
+Use a single line of up to 160 Unicode code points. Matching ignores case, treats punctuation such as `%` and `_` literally, and preserves accents. For example, `CAFÉ` finds `café`, including an equivalent decomposed spelling. Each result shows the title, its actual folder and a short preview highlighting the original matching text. If a base character carries more than 30 consecutive combining marks, text beyond the 30th mark may fail to match or highlight. A hit with no corresponding highlight shows the beginning of the note as plain text.
+
+Open a result and use Back to restore the query, result page, scroll position and row focus. If an edit moves the row off that page, focus returns to Search. **Clear** or Escape in the field restores the originating folder and its list page. On a wide screen, changing the search, paging or clearing beside an open draft uses the same [save choices](#leaving-a-draft) as Back. **No matching notes** keeps the query available to edit or clear. A failed read offers **Retry**.
+
 ## Folders and ownership
 
 Creating an ordinary account also creates its permanent **Notes** folder in the same transaction. If the folder cannot be saved, account creation fails. The records API allows an account to create custom folders and delete its empty ones. The API prevents renaming folders, changing ownership, deleting the default folder and deleting a folder that contains notes. Deleting the account removes its folders and notes.
@@ -28,7 +36,7 @@ Ordinary accounts can list and read only their own notes. The account and folder
 | --- | --- |
 | `title` | First logical line, capped at 160 Unicode code points. A blank first line yields **Untitled note**, even when later lines have text. |
 | `text` | Full original visible text, including mention labels. Adjacent styled runs join without spaces. Hard breaks and block boundaries separate lines. |
-| `search_key` | Searchable text transformed with the folder comparison rule, including the fallback title when used. Owners can filter on it. PocketBase omits this internal field from returned notes, including expanded records and realtime events. |
+| `search_key` | Visible text and the displayed title, folded with the folder comparison rule. The server includes the fallback title when needed, prefixes a separately folded title if it would otherwise be missed, and replaces NUL with a line break in the key. The signed-in account can filter on this field. PocketBase omits it from returned notes, including expanded records and realtime events. |
 | `open_tasks`, `tasks` | Exact unchecked count, plus the first 100 unchecked items in document order. Each item has a child-index path and a label of up to 200 characters. |
 
 On list reads the server also returns a computed `excerpt`. It skips the title line, collapses whitespace and caps the result at 120 Unicode code points.
@@ -55,7 +63,7 @@ On a reload, tab close or full-page navigation with unsaved writing, the browser
 
 ## Later increments and source recovery
 
-The [redesign roadmap](../../specs/002-notes-redesign/versions.md) places search in R4, pinning in R7, Journal in R8, formatting controls in R9, Open Tasks in R10 and attachment controls in R11. Pasted rich content and existing private image references can already survive a body edit.
+The [redesign roadmap](../../specs/002-notes-redesign/versions.md) places physical-phone and cross-device checks in R6, pinning in R7, Journal in R8, formatting controls in R9, Open Tasks in R10 and attachment controls in R11. Pasted rich content and existing private image references can already survive a body edit.
 
 The R2 migration drops the legacy `entries` collection and preserves R1 notes and folders. [Rollback](../../deploy/OPERATIONS.md#rollback) requires a matching app and pre-upgrade backup to recover old entries. To inspect the retired editor source without changing the checkout, run:
 

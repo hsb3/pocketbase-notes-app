@@ -29,6 +29,7 @@ Choose one profile per invocation, for example `make test-api-contained CONTAINE
 | `test-api-contained` | `restore` | Extract a backup, boot a second server with the matching key, verify its disabled jobs, compare records and protected file bytes. |
 | `test-api-contained` | `load` | Short k6 smoke of list, create, update and download. [Capacity testing](load-testing.md) uses a separate workload. |
 | `test-browser-contained` | `resilience` | Check all 30 combinations of recovery scenario, viewport and engine. Retains Playwright JSON under `test-results/<project>/sc003.json`. |
+| `test-browser-contained` | `search` | Check cross-folder results, draft navigation, keyboard focus and layout. Retains the [search timings and screenshots](#cross-folder-search). |
 | `test-browser-contained` | `operator` | Run the operator commands against local services, including autosave, file access, failed-write cleanup, signup policy and Mailpit email. |
 | `test-browser-contained` | `signup`, `signup-disabled` | Exercise registration with the selected policy in Chromium and WebKit. Enabled signup sets both the frontend build flag and the backend runtime flag. |
 | `test-browser-contained` | `performance` | Short Chromium production benchmark. Copies the report under `test-results/<project>/performance/`. |
@@ -45,6 +46,23 @@ The tests use independent owner reads to verify the note count, ID, full body an
 The default browser run also checks invalid and unavailable notes, blocked clipboard, failed reload, navigation, sign-out and the native leave warning. The R2 failed-save Back test now chooses **Keep editing** in the leave dialog before checking the original URL and retained words. Password reauthentication after expiry was exercised against PocketBase. OAuth and MFA reuse the existing sign-in completion path according to source inspection. Live expiry recovery with those methods remains unverified.
 
 R3 requires one complete matrix and both default contained targets. R6 requires ten consecutive complete matrix rounds (300 passes), three consecutive full-suite runs and physical-phone sign-off for keyboards, native leave and expiry. [Release procedure](../../specs/002-notes-redesign/r3-resilience/quickstart.md#commands-and-release-evidence)
+
+### Cross-folder search
+
+Run `make test-browser-contained CONTAINED_PROFILE=search`. The runner prints the path to `test-results/<project>/sc004.json`. Recheck it with `python3 scripts/check-sc004.py PATH_TO_SC004_JSON`. The adjacent `r4-search-views/` directory holds the filled and empty views in light and dark for each engine and width.
+
+Each timing case starts with 20 active notes in each of five folders. Each of 20 distinct body-only searches must issue a fresh request and show the expected note, folder and original highlighted text. The clock starts at the final input event and includes Enter, the request, rendering and a paint opportunity. SC-004 requires all results to be correct and at least 19 of 20 to appear in under 2000 ms **in each cell**. The table shows the retained run from 2026-11-19. Timings use the checker’s one-decimal display.
+
+| Engine | CSS width | Under 2000 ms | Minimum (ms) | Median (ms) | Maximum (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Chromium | 390 | 20/20 | 41.6 | 49.6 | 161.7 |
+| Chromium | 810 | 20/20 | 45.8 | 49.9 | 116.7 |
+| Chromium | 1440 | 20/20 | 44.9 | 51.9 | 89.0 |
+| WebKit | 390 | 20/20 | 30.0 | 37.0 | 71.0 |
+| WebKit | 810 | 20/20 | 31.0 | 43.0 | 51.0 |
+| WebKit | 1440 | 20/20 | 31.0 | 46.0 | 56.0 |
+
+All 46 search cases passed on one attempt. In the API gate, a second account and an anonymous reader each found zero results for the first account’s unique term. The first account’s own deleted note also yielded zero results. Physical-phone keyboard behavior and cross-device sign-off remain R6 checks. [Tested commits, individual timings and retained evidence](../../specs/002-notes-redesign/r4-search/tasks.md#r4-gate-evidence)
 
 ## Commands and coverage
 

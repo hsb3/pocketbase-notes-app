@@ -9,6 +9,8 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Added
 
+- Search titles and body text across all private folders. Results show the actual folder and highlight the match. Back restores the result page. [Search across folders, issue 39](https://github.com/hsb3/pocketbase-notes-app/issues/39)
+
 - Notes retain unsaved writing in the open tab after a failed save or expired session. Retry saves the latest edits. Conflicts allow copying a draft before replacing it, and signing out with unsaved edits offers a choice to save, discard or keep editing.
 
 - The [notebook](docs/features/notes.md) opens in All Notes. Create a folder, compose in one writing surface and autosave edits. Phone navigation restores the list position. Wider screens show folders, notes and editor together.
@@ -22,7 +24,8 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Changed
 
-- The upgrade provisions a permanent Notes folder for existing accounts and drops the legacy entries collection. Take a pre-upgrade backup to recover legacy data. Search, favorites, dated journals, Open Tasks and attachment controls are absent from this increment. Existing note documents and protected attachment references remain supported.
+- The upgrade provisions a permanent Notes folder for existing accounts and drops the legacy entries collection. Take a pre-upgrade backup to recover legacy data. Favorites, dated journals, Open Tasks and attachment controls are absent from this increment. Existing note documents and protected attachment references remain supported.
+- The search migration repairs affected comparison keys, including those on deleted notes, and adds an index for paging results. Note content, revisions and dates are preserved.
 - The restore test's temporary container runs with CPU, memory and process limits,
   and Biome skips locally synced `.claude/skills/`.
 - The `make railway-verify-*` scripts wait and retry when the deployment's
