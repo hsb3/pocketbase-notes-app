@@ -70,7 +70,7 @@ Complete all current callers in the same integration branch. A static reference 
 
 - [ ] T023 Extend `scripts/run-contained.sh`, `deploy/local/prepare-test.sh` and `deploy/local/docker-compose-test.yml` at the missing execution points described below. Include selected operator/seed/restore inputs, the performance and screenshot clients, and successful visual evidence. Keep the production load/restore workload separate from a short smoke of the changed callers. Preserve the security envelope and both default suites. (C1, C4, C5, C6)
 
-- [ ] T024 In `.github/workflows/ci.yml` replace host execution of behavioral tests with the contained Make gates on both architectures. Preserve account drills, both signup configurations, full Chromium/WebKit suites, local-target tests and failure artifacts. Keep static quality jobs and the root Makefile’s public commands. Update the stale seed target description in `Makefile`. Integration lead owns CI/root config. (C6)
+- [x] ~~T024~~ Cut by owner decision (2026-11-18): CI keeps its host-runner jobs on disposable GitHub runners; the contained targets are for local runs.
 
 - [ ] T025 [P] Update `docs/features/notes.md`, `docs/features/{tasks,attachments}.md`, `docs/design/{notes-journal,prebuilt-ui}.md`, `docs/architecture/spec.md`, `README.md`, `AGENTS.md` and `CHANGELOG.md` to describe the active notebook and mark historical UI/screenshots and superseded design. Explain how to retrieve code from the pre-R2 SHA, and distinguish later features from what ships. (C2, C5, C6)
 
