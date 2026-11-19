@@ -29,7 +29,7 @@ the rules every task needs. Task details live in routed topics under
 
 ## Layout
 
-- `src/features/<name>/` per domain (`account`, `auth`, `entries`, `tasks`, `theme`); `src/routes/` file
+- `src/features/<name>/` per domain (`account`, `auth`, `folders`, `notes`, `theme`); `src/routes/` file
   routes (auth-gated under `_authenticated/`); `src/components/ui/` shadcn primitives;
   `src/services/pocketbase.ts` the only PocketBase client.
 - `pb/hooks/` and `pb/migrations/` backend (migrations are the schema record);

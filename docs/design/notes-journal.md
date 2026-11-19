@@ -1,8 +1,8 @@
-# Notes and journal — design draft
+# Notes and journal — superseded design
 
-Status: implemented with the adopted prebuilt shadcn workspace and ProseKit full editor. See [verification](../testing/verification.md).
+**Superseded by the folders and notes workspace.** The routes, controls and scenarios below describe the pre-R2 app. See [current behavior and source recovery](../features/notes.md) and the [R2 route contract](../../specs/002-notes-redesign/r2-compose/contracts/compose.md).
 
-[Early wireframes](wireframes.md) are historical layout sketches. The adopted implementation is documented in [component sources](prebuilt-ui.md).
+[Early wireframes](wireframes.md) are historical layout sketches. The original component choices are documented in [component sources](prebuilt-ui.md).
 
 ## Product and scope
 
