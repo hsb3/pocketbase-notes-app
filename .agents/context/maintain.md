@@ -34,7 +34,7 @@ maintain doc (listed below) that holds the procedure.
 
 ## CI
 
-- `.github/workflows/ci.yml`: required `Quality`, `E2E (amd64)`, `E2E (arm64)`;
+- `.github/workflows/ci.yml`: required `Quality`, `E2E (amd64)`;
   also `Docs links` (lychee, offline, anchors) and `Workflow lint` (CI). The CI doc's
   "Running the checks locally" section has the exact local commands.
 - `.github/workflows/docs.yml`: `Build docs site` (`bun run docs:build`) on PRs; on

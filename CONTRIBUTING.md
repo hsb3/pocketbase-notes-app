@@ -64,7 +64,7 @@ make e2e
 ## Rules of the road
 
 - `main` only changes through pull requests. Branch from `main`, push, and open a PR.
-  The three required checks (`Quality`, `E2E (amd64)`, `E2E (arm64)`) must pass and
+  The two required checks (`Quality`, `E2E (amd64)`) must pass and
   review threads must be resolved. PRs are squash-merged.
 - To update a PR branch, merge `main` into it. Force pushes are blocked.
 - Never hand-edit generated files: `src/route-tree.gen.ts` and
