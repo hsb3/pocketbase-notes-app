@@ -273,21 +273,15 @@ function journeys(width, height) {
     for (const theme of ["light", "dark"]) {
       await p.goto("/folders");
       await activate(p, p.getByRole("button", { name: /Jamie/ }));
-      // Radix menu radio items use arrow-key navigation.
+      // The theme is only set up here; a click waits for the menu to settle.
       const choice = p.getByRole("menuitemradio", {
         name: theme === "light" ? "Light" : "Dark",
         exact: true,
       });
-      for (
-        let i = 0;
-        i < 12 &&
-        !(await choice.evaluate((el) => el === document.activeElement));
-        i++
-      )
-        await p.keyboard.press("ArrowDown");
-      await expect(choice).toBeFocused();
-      await p.keyboard.press("Enter");
-      await p.keyboard.press("Escape");
+      await choice.click();
+      await expect(p.locator("html")).toHaveCSS("color-scheme", theme);
+      if (await choice.isVisible()) await p.keyboard.press("Escape");
+      await expect(choice).toBeHidden();
       await activate(p, link(p, garden.name));
       await expect(p.getByRole("heading", { name: garden.name })).toBeVisible();
       const entry = await historyEntry(p);
