@@ -108,9 +108,13 @@ export function NoteList({
     };
   }, [user, folder, page, q, sp, refresh, retry]);
   useEffect(() => {
-    if (q && rows && !rows.items.length && sp > Math.max(1, rows.totalPages))
+    if (
+      rows &&
+      !rows.items.length &&
+      effectivePage > Math.max(1, rows.totalPages)
+    )
       clampPage(Math.max(1, rows.totalPages));
-  }, [q, sp, rows, clampPage]);
+  }, [effectivePage, rows, clampPage]);
 
   useLayoutEffect(() => {
     if (!showingList) {
@@ -234,11 +238,16 @@ export function NoteList({
         {current?.error ? (
           <div role="alert">
             {current.error}{" "}
-            <Button variant="outline" size="sm" onClick={reload}>
+            <Button
+              autoFocus={showingList}
+              variant="outline"
+              size="sm"
+              onClick={reload}
+            >
               Retry
             </Button>
           </div>
-        ) : !rows || (q && !rows.items.length && sp > 1) ? (
+        ) : !rows || (!rows.items.length && effectivePage > 1) ? (
           <p>Loading notes…</p>
         ) : !rows.items.length ? (
           <Empty>

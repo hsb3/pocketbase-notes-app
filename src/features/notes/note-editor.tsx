@@ -27,11 +27,15 @@ function EditingSurface({ draft }: { draft: NoteDraft }) {
 
 export function NoteEditor({
   draft,
+  actions,
+  readError,
   selected,
   unavailable,
   back,
 }: {
   draft?: NoteDraft;
+  actions: React.ReactNode;
+  readError?: () => void;
   selected: boolean;
   unavailable: boolean;
   back: () => void;
@@ -65,18 +69,21 @@ export function NoteEditor({
             )}
             {(draft.failure === "conflict" ||
               draft.failure === "unavailable") && (
-              <ConflictDialog
-                key={draft.id}
-                draft={draft}
-                focusEditor={() =>
-                  surface.current
-                    ?.querySelector<HTMLElement>('[role="textbox"]')
-                    ?.focus()
-                }
-              />
+              <span data-recovery="">
+                <ConflictDialog
+                  key={draft.id}
+                  draft={draft}
+                  focusEditor={() =>
+                    surface.current
+                      ?.querySelector<HTMLElement>('[role="textbox"]')
+                      ?.focus()
+                  }
+                />
+              </span>
             )}
           </>
         )}
+        {actions}
       </header>
       {draft ? (
         <div ref={surface} className="min-h-0 flex-1 overflow-auto">
@@ -89,9 +96,20 @@ export function NoteEditor({
             </Suspense>
           </div>
         </div>
+      ) : readError ? (
+        <Empty>
+          <EmptyTitle>Could not load note</EmptyTitle>
+          <Button
+            ref={(el) => el?.focus()}
+            variant="outline"
+            onClick={readError}
+          >
+            Retry
+          </Button>
+        </Empty>
       ) : (
         <Empty>
-          <EmptyTitle>
+          <EmptyTitle role="status">
             {unavailable
               ? "Note unavailable"
               : selected
