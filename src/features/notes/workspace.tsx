@@ -32,6 +32,7 @@ import { NoteList, type ListPosition } from "./note-list";
 declare module "@tanstack/react-router" {
   interface HistoryState {
     origin?: ListPosition;
+    focusSearch?: boolean;
   }
 }
 
@@ -159,7 +160,8 @@ function Library({
   const { history } = useRouter();
   const { folderId, noteId } = useParams({ strict: false });
   const search = useSearch({ strict: false });
-  const origin = useLocation({ select: (location) => location.state.origin });
+  const locationState = useLocation({ select: (location) => location.state });
+  const origin = locationState.origin;
   const [folders, setFolders] = useState<
     Awaited<ReturnType<typeof listFolders>>
   >([]);
@@ -180,6 +182,8 @@ function Library({
   const draft = active.current?.id === selected ? active.current : undefined;
   const folder = folderId ?? origin?.folder ?? draft?.folder ?? "all";
   const page = folderId ? (search.page ?? 1) : (origin?.page ?? 1);
+  const q = (folderId ? search.q : origin?.q) ?? "";
+  const sp = (folderId ? search.sp : origin?.sp) ?? 1;
   const folderRecord = folders.find((item) => item.id === folder);
   const target =
     folder === "all" ? folders.find((item) => item.is_default) : folderRecord;
@@ -290,7 +294,10 @@ function Library({
             return false;
           const remember = () => {
             returning.current =
-              noteId && origin && path === "/folders/" + origin.folder
+              noteId &&
+              origin &&
+              action !== "PUSH" &&
+              path === "/folders/" + origin.folder
                 ? origin
                 : undefined;
           };
@@ -372,11 +379,25 @@ function Library({
     intent.proceed();
   }
 
-  function selectFolder(id: string, page = 1, replace = false) {
+  function selectFolder(
+    id: string,
+    {
+      page = 1,
+      q = "",
+      sp = 1,
+    }: { page?: number; q?: string; sp?: number } = {},
+    replace = false,
+    focusSearch = false,
+  ) {
     return navigate({
       to: "/folders/$folderId",
       params: { folderId: id },
-      search: page > 1 ? { page } : {},
+      search: {
+        page: page > 1 ? page : undefined,
+        q: q || undefined,
+        sp: q && sp > 1 ? sp : undefined,
+      },
+      state: focusSearch ? { focusSearch } : {},
       replace,
     });
   }
@@ -387,7 +408,7 @@ function Library({
         history.back({ ignoreBlocker: true });
       };
       void guard(false, leave);
-    } else void selectFolder(folder, page, true);
+    } else void selectFolder(folder, { page, q, sp }, true);
   }
 
   function compose(from: ListPosition) {
@@ -447,7 +468,15 @@ function Library({
           )}
         >
           <NoteList
-            key={folder + ":" + page}
+            key={JSON.stringify([user, folder, page, q, sp])}
+            user={user}
+            folders={folders}
+            q={q}
+            sp={sp}
+            entryKey={locationState.__TSR_key}
+            focusSearch={!!locationState.focusSearch}
+            choosing={!!pending.current?.choosing}
+            fromList={!!q && !!origin?.fromList}
             folder={folder}
             title={
               folder === "all" ? "All Notes" : (folderRecord?.name ?? "Folder")
@@ -457,9 +486,23 @@ function Library({
             refresh={refresh}
             compose={compose}
             canCompose={!!target}
-            position={origin ?? returning.current}
+            position={returning.current}
             showingList={!selected && !!folderId}
-            onPage={(next) => selectFolder(folder, next)}
+            onPage={(next) => selectFolder(folder, { page: next })}
+            onSearch={(term, next) =>
+              selectFolder(folder, { page, q: term, sp: next }, !selected, true)
+            }
+            clampPage={(next) => {
+              if (noteId && origin) {
+                void navigate({
+                  to: "/notes/$noteId",
+                  params: { noteId },
+                  replace: true,
+                  state: { origin: { ...origin, sp: next } },
+                });
+              } else
+                void selectFolder(folder, { page, q, sp: next }, true, true);
+            }}
           />
         </section>
         <section

@@ -21,8 +21,9 @@ type Summary = Pick<Note, "id" | "folder" | "title" | "updated"> & {
 const detailFields =
   "id,user,folder,title,body,attachments,revision,updated,deleted";
 
+const active = 'deleted = ""';
+
 export function listNotes(folder: string, page: number) {
-  const active = 'deleted = ""';
   return pb.collection("notes").getList<Summary>(page, 20, {
     fields: "id,folder,title,updated,excerpt",
     filter:
@@ -31,6 +32,35 @@ export function listNotes(folder: string, page: number) {
         : active + " && " + pb.filter("folder = {:folder}", { folder }),
     sort: "-updated,-id",
     requestKey: null,
+  });
+}
+
+export function searchTerm(value: unknown) {
+  if (
+    typeof value !== "string" &&
+    typeof value !== "boolean" &&
+    !Number.isFinite(value)
+  )
+    return "";
+  const term = String(value).trim();
+  if (/[\p{Cc}\u2028\u2029]/u.test(term)) return "";
+  return Array.from(term).slice(0, 160).join("").trimEnd();
+}
+
+type SearchHit = Omit<Summary, "excerpt"> & {
+  snippet: { before: string; match: string; after: string };
+};
+
+export function searchNotes(term: string, page: number) {
+  const folded = term.normalize("NFC").toUpperCase().normalize("NFC");
+  const pattern = "%" + folded.replace(/[\\%_]/g, "\\$&") + "%";
+  return pb.collection("notes").getList<SearchHit>(page, 20, {
+    query: { searchTerm: term },
+    filter: active + " && " + pb.filter("search_key ~ {:pattern}", { pattern }),
+    fields: "id,folder,title,updated,snippet",
+    sort: "-updated,-id",
+    requestKey: null,
+    cache: "no-store",
   });
 }
 

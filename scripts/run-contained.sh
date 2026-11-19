@@ -10,7 +10,7 @@ fi
 
 profile=${CONTAINED_PROFILE:-default}
 case "$1/$profile" in
-  api/default|api/accounts|api/restore|api/load|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
+  api/default|api/accounts|api/restore|api/load|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
   *) echo "Unsupported contained profile: $1/$profile" >&2; exit 2 ;;
 esac
 
@@ -191,6 +191,10 @@ else
   fi
   tests=(node node_modules/playwright/cli.js test)
   case $profile in
+    search)
+      inside browser mkdir -p /tmp/r4-search-views
+      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/sc004.json "${tests[@]}" tests/e2e/search.spec.cjs tests/e2e/search-timing.spec.cjs --workers=1 --retries=0 --reporter=list,html,json)
+      ;;
     resilience)
       tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/sc003.json "${tests[@]}" tests/e2e/save-resilience.spec.cjs --grep @sc003 --workers=1 --retries=0 --reporter=list,html,json)
       ;;
@@ -202,6 +206,25 @@ else
   esac
   test_status=0
   inside browser "${tests[@]}" || test_status=$?
+  if [[ $profile = search ]]; then
+    mkdir -p "$output"
+    docker cp "$project-browser:/tmp/sc004.json" "$output/sc004.json" || test_status=1
+    docker cp "$project-browser:/tmp/r4-search-views" "$output/" || test_status=1
+    if (( test_status == 0 )); then
+      python3 scripts/check-sc004.py "$output/sc004.json" || test_status=1
+      for engine in chromium webkit; do
+        for width in 390 810 1440; do
+          for theme in light dark; do
+            for state in filled empty; do
+              file="$output/r4-search-views/$engine-$width-$theme-$state.png"
+              [[ -s $file ]] || { echo "Missing screenshot: $file" >&2; test_status=1; }
+            done
+          done
+        done
+      done
+    fi
+    echo "SC-004 report: $output/sc004.json"
+  fi
   if [[ $profile = resilience ]]; then
     mkdir -p "$output"
     docker cp "$project-browser:/tmp/sc003.json" "$output/sc003.json" &&
