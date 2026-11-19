@@ -13,7 +13,7 @@ import sqlite3
 import subprocess
 import tempfile
 import time
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -28,6 +28,7 @@ def api(path, data=None, token=None, method=None):
     if data is not None:
         request.data = json.dumps(data).encode()
     with urlopen(request, timeout=5) as response:
+        assert response.status == 200, (path,response.status)
         return json.load(response)
 
 def login(collection, email):
@@ -243,6 +244,7 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
     for name in ["attachment-cleanup.js", "attachments.pb.js", "capabilities.pb.js", "comparison-key.js",
                  "entry-validation.js", "folders.pb.js", "mfa.pb.js", "note-search.js", "notes.pb.js", "signup.pb.js"]:
         shutil.copy(Path("/pb/pb_hooks") / name, hooks)
+    shutil.copy("/pb/pb_hooks/note-lifecycle.js", hooks)
     (hooks / "00-fixture.pb.js").write_text("""
     onRecordsListRequest((e) => {
       for (const note of e.records) note.set("fixture_private", "must stay hidden");
@@ -391,6 +393,7 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
         if not (source / r5).exists():
             assert deleted not in ids, ("R5 expected exclusion on R4", deleted, ids)
 
+    shutil.copy("/pb/pb_hooks/note-actions.pb.js", hooks)
     shutil.copy(source / r5, migrations)
     up()
     same_rows, r5_schema, r5_history = snapshot()
@@ -518,4 +521,131 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
         check_hits(token, "UNDERSTORY", {edit:"Understory"})
     print("R5 post-write down/up:", len(saved), "complete rows, edit revision", updated["revision"],
           "retained", created_id, retained_date, "unexpected index refusal exit", failed.returncode)
+
+    def set_raw(ident, value):
+        with closing(sqlite3.connect(dbfile)) as db:
+            assert db.execute("UPDATE notes SET deleted=? WHERE id=?", (value,ident)).rowcount == 1
+            db.commit()
+            assert db.execute("SELECT deleted FROM notes WHERE id=?", (ident,)).fetchone() == (value,)
+
+    def stored(ident):
+        with closing(sqlite3.connect(dbfile)) as db:
+            return rows(db)[ident]
+
+    def request(path, data=None, method=None):
+        try:
+            return 200, api(path, data, token, method)
+        except HTTPError as err:
+            return err.code, json.load(err)
+
+    with server():
+        actor = user(admin, "r5-dates@example.test")
+        token = login("users", "r5-dates@example.test")
+        home = api("collections/folders/records",token=token)["items"][0]["id"]
+        target = create("folders",token,user=actor,name="Date controls")["id"]
+        # This staged database uses local file storage, so inspect the file independently of HTTP.
+        form = ("--r5\r\nContent-Disposition: form-data; name=\"user\"\r\n\r\n" + actor +
+                "\r\n--r5\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nprivate.txt" +
+                "\r\n--r5\r\nContent-Disposition: form-data; name=\"file\"; filename=\"private.txt\"" +
+                "\r\nContent-Type: text/plain\r\n\r\nprivate reserved bytes\r\n--r5--\r\n")
+        upload = Request(origin+"/api/collections/attachments/records", data=form.encode(),
+                         headers={"Authorization":token,"Content-Type":"multipart/form-data; boundary=r5"})
+        with urlopen(upload,timeout=5) as response:
+            file = json.load(response)
+        key = root / "data/storage" / file["collectionId"] / file["id"] / file["file"]
+        def file_state():
+            with closing(sqlite3.connect(dbfile)) as db:
+                return db.execute("SELECT * FROM attachments WHERE id=?", (file["id"],)).fetchone(), key.read_bytes()
+        attachment = file_state()
+        assert attachment[0] and attachment[1] == b"private reserved bytes"
+
+        assert listed(token) == []
+        def fixture(label, date):
+            row = create("notes", token, user=actor, folder=home, body=body(label), attachments=[file["id"]])
+            set_raw(row["id"],date)
+            return row["id"]
+
+        empty = fixture("Active control", "")
+        expired_id = fixture("Expired control", "2020-01-01 00:00:00.001Z")
+        recent = fixture("Retained control", time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime(time.time()-86400))+".000Z")
+        bad_dates = ["0001-01-01 00:00:00.000Z","0000-invalid","2099-02-30 00:00:00.000Z","zz-invalid"]
+        bad = [fixture("Corrupt control", value) for value in bad_dates]
+        patch_control = fixture("Independent malformed PATCH", bad_dates[1])
+        assert listed(token) == [empty]
+        assert request("collections/notes/records/"+empty)[1]["deleted"] == ""
+        assert request("collections/notes/records/"+expired_id)[1]["deleted"] == stored(expired_id)["deleted"]
+
+        errors = []
+        def check(ident, verb, code, payload=None):
+            before = stored(ident)
+            path = ("collections/notes/records/"+ident if verb in ("GET","PATCH")
+                    else "notebook/notes/"+ident+"/"+verb)
+            status, result = request(path, payload, verb if verb in ("GET","PATCH") else "POST")
+            after = stored(ident)
+            actual = (status, before == after, file_state() == attachment)
+            evidence = {"path":path,"verb":verb,"request":payload,"expected":code,"actual":status,
+                        "response":result,"before":before,"after":after,"fileUnchanged":actual[2]}
+            print("R5 fixture", json.dumps(evidence,default=lambda x:x.hex()), flush=True)
+            if actual != (code,True,True):
+                errors.append((ident,verb,code,actual))
+
+        def transition(verb, revision, destination):
+            payload = {"revision":revision, **({"folder":destination} if verb == "move" else {})}
+            before = stored(empty)
+            status, result = request("notebook/notes/"+empty+"/"+verb, payload, "POST")
+            after = stored(empty)
+            print("R5 successful fixture action",verb,status,result,flush=True)
+            assert status == 200 and result == {"id":empty,"user":actor,"revision":revision+1,
+                "folder":destination,"deleted":after["deleted"]}, result
+            assert after == dict(before, folder=destination, deleted=result["deleted"], revision=revision+1)
+            assert bool(result["deleted"]) == (verb == "delete")
+
+        transition("move",1,target)
+        check(empty,"move",409,{"revision":1,"folder":home})
+        check(empty,"delete",409,{"revision":1})
+        transition("delete",2,target)
+        check(empty,"restore",409,{"revision":2})
+        transition("restore",3,target)
+        check(expired_id,"restore",410,{"revision":1})
+        for ident in bad:
+            check(ident,"restore",409,{"revision":2})
+            check(ident,"GET",500)
+            check(ident,"move",500,{"revision":1,"folder":target})
+            check(ident,"delete",500,{"revision":1})
+            check(ident,"restore",500,{"revision":1})
+            check(ident,"PATCH",500,{"revision":1,"body":body("Integrity edit")})
+        check(patch_control,"PATCH",500,{"revision":1,"body":body("Independent edit")})
+        trash_status, trash = request("notebook/recently-deleted")
+        assert not errors, errors
+        assert trash_status == 200 and trash["totalItems"] == 1 and [r["id"] for r in trash["items"]] == [recent], trash
+    trace_text = trace.read_text()
+    for ident in [*bad,patch_control]:
+        assert re.search(r"Invalid note deletion timestamp[^\n]*"+ident, trace_text), ident
+
+    with (hooks/"00-fixture.pb.js").open("a") as out:
+        out.write("""
+    onBootstrap((e) => {
+      e.next();
+      const life = require(`${__hooks}/note-lifecycle.js`);
+      for (const [start,end] of [
+        ["2026-03-01 13:14:15.123Z","2026-03-31T13:14:15.123Z"],
+        ["2026-10-15 13:14:15.123Z","2026-11-14T13:14:15.123Z"],
+        ["2024-02-01 13:14:15.123Z","2024-03-02T13:14:15.123Z"],
+      ]) {
+        const deadline = life.deadline(start);
+        const fixed = Date.parse(end);
+        const allowed = [-1,0,1].map(delta => life.canRestore(start,fixed+delta));
+        console.log("R5 fixed UTC boundary",start,new Date(deadline).toISOString(),JSON.stringify(allowed));
+        if (deadline !== fixed || JSON.stringify(allowed) !== "[true,false,false]") throw Error("R5 UTC boundary");
+      }
+      console.log("PASS R5 production UTC boundaries");
+    });""")
+    offset = trace.stat().st_size
+    try:
+        with server():
+            pass
+    finally:
+        segment = trace.read_bytes()[offset:].decode()
+        print("\n".join(l for l in segment.splitlines() if "R5 " in l or "Error:" in l),flush=True)
+    assert "PASS R5 production UTC boundaries" in segment
 PY
