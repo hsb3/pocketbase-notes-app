@@ -12,7 +12,6 @@ export const Collections = {
 	Otps: "_otps",
 	Superusers: "_superusers",
 	Attachments: "attachments",
-	Entries: "entries",
 	Folders: "folders",
 	Notes: "notes",
 	Users: "users",
@@ -106,27 +105,6 @@ export type AttachmentsRecord = {
 	user: RecordIdString
 }
 
-export const EntriesKindOptions = {
-	"note": "note",
-	"journal": "journal",
-} as const
-export type EntriesKindOptions = typeof EntriesKindOptions[keyof typeof EntriesKindOptions]
-export type EntriesRecord<Tbody = unknown, Ttasks = unknown> = {
-	attachments?: RecordIdString[]
-	body: null | Tbody
-	created: IsoAutoDateString
-	favorite?: boolean
-	id: string
-	journal_date?: string
-	kind: EntriesKindOptions
-	open_tasks?: number
-	revision: number
-	tasks?: null | Ttasks
-	title: string
-	updated: IsoAutoDateString
-	user: RecordIdString
-}
-
 export type FoldersRecord = {
 	created: IsoAutoDateString
 	id: string
@@ -175,7 +153,6 @@ export type MfasResponse<Texpand = unknown> = Required<MfasRecord> & BaseSystemF
 export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemFields<Texpand>
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
 export type AttachmentsResponse<Texpand = unknown> = Required<AttachmentsRecord> & BaseSystemFields<Texpand>
-export type EntriesResponse<Tbody = unknown, Ttasks = unknown, Texpand = unknown> = Required<EntriesRecord<Tbody, Ttasks>> & BaseSystemFields<Texpand>
 export type FoldersResponse<Texpand = unknown> = Required<FoldersRecord> & BaseSystemFields<Texpand>
 export type NotesResponse<Tbody = unknown, Ttasks = unknown, Texpand = unknown> = Required<NotesRecord<Tbody, Ttasks>> & BaseSystemFields<Texpand>
 export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSystemFields<Texpand>
@@ -189,7 +166,6 @@ export type CollectionRecords = {
 	_otps: OtpsRecord
 	_superusers: SuperusersRecord
 	attachments: AttachmentsRecord
-	entries: EntriesRecord
 	folders: FoldersRecord
 	notes: NotesRecord
 	users: UsersRecord
@@ -202,7 +178,6 @@ export type CollectionResponses = {
 	_otps: OtpsResponse
 	_superusers: SuperusersResponse
 	attachments: AttachmentsResponse
-	entries: EntriesResponse
 	folders: FoldersResponse
 	notes: NotesResponse
 	users: UsersResponse

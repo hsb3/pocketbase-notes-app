@@ -30,7 +30,7 @@ Deliver the backend before consumer code. The intermediate schema can be inspect
 
 - [ ] T009 Replace `scripts/seed-entries.ts` with `scripts/seed-notes.ts` and update `scripts/seed.ts`, `scripts/test-seed.ts` and `scripts/local-target.test.ts`. Use owned folders and real documents, preserve manual records on reseed and existing credentials, run guarded local targets in containers. Migrate the `package.json` test:api chain and stale `.env.example` test override. Root config edits belong to the integration lead. (C1, C6)
 
-- [ ] T010 Generate `src/services/pocketbase-types.ts` from a freshly migrated and seeded backend with the existing codegen script. In `scripts/run-contained.sh` use a generation-only request to copy out the single generated file; ordinary API validation compares generated output without overwriting the checkout. Check a second generation is byte-identical and entries types disappeared. (C6)
+- [x] T010 Generate `src/services/pocketbase-types.ts` from a freshly migrated and seeded backend with the existing codegen script. In `scripts/run-contained.sh` use a generation-only request to copy out the single generated file; ordinary API validation compares generated output without overwriting the checkout. Check a second generation is byte-identical and entries types disappeared. (C6)
 
 ## 3 · US1 (P1) capture and reopen
 

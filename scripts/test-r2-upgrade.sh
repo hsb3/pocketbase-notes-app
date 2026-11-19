@@ -126,7 +126,7 @@ onRecordsListRequest((e) => {
         page = api("collections/notes/records?fields=id,excerpt", token=token)
         assert page["items"] == [{"id": note["id"], "excerpt": "R1 body"}], page
         listed = api("collections/notes/records", token=token)["items"][0]
-        assert "fixture_private" not in listed and "search_key" not in listed
+        assert "fixture_private" not in listed and "search_key" not in listed, listed
         assert listed["excerpt"] == "R1 body"
         fresh = user(admin, "r2@example.test")
         folders = api("collections/folders/records", token=login("users", "r2@example.test"))["items"]

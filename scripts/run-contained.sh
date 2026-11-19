@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-case ${1:-} in api|browser) ;; *) echo "Usage: $0 api|browser" >&2; exit 2 ;; esac
+case ${1:-} in api|browser|codegen) ;; *) echo "Usage: $0 api|browser|codegen" >&2; exit 2 ;; esac
 # TERM at minute 29 leaves one minute for teardown before the absolute deadline.
 if [[ ${2:-} != --timed ]]; then
   exec timeout --kill-after=60s 29m bash "$0" "$1" --timed </dev/null
@@ -99,7 +99,23 @@ idle storage-init
 inside storage-init sh -ec 'rc alias set local http://rustfs:9000 "$RUSTFS_ACCESS_KEY" "$RUSTFS_SECRET_KEY" >/dev/null && rc bucket create --ignore-existing "local/$RUSTFS_BUCKET"'
 idle setup
 inside setup bun run scripts/configure-services.ts
-if [[ $1 = api ]]; then
+if [[ $1 != browser ]]; then
+  types=src/services/pocketbase-types.ts
+  inside setup bun scripts/test-notes.ts --seed-codegen
+  inside setup rm -f "$types"
+  inside setup bun --bun run pb:codegen
+  inside setup mv "$types" /tmp/first-types.ts
+  inside setup bun --bun run pb:codegen
+  inside setup cmp /tmp/first-types.ts "$types"
+  inside setup sha256sum "$types"
+  if [[ $1 = codegen ]]; then
+    docker cp "$project-setup:/app/$types" "$types"
+    exit 0
+  fi
+  inside setup cat "$types" | cmp - "$types" || {
+    echo "Regenerate PocketBase types with scripts/run-contained.sh codegen" >&2
+    exit 1
+  }
   docker exec -i -e CONTAINED_TEST=1 "$project-pocketbase" sh -s < scripts/test-r2-upgrade.sh
   inside setup bun run test:api
 else
