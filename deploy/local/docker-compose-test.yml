@@ -69,3 +69,21 @@ services:
       MAILPIT_URL: http://mailpit:8025
       PB_EMAIL: ${PB_EMAIL:?}
       PB_PASSWORD: ${PB_PASSWORD:?}
+
+  k6:
+    <<: *test-limits
+    image: ${TEST_K6_IMAGE:?}
+    mem_limit: 2g
+    memswap_limit: 2g
+    volumes:
+      - workspace:/app:ro
+    environment:
+      BASE_URL: http://pocketbase:8080
+      PB_EMAIL: ${PB_EMAIL:?}
+      PB_PASSWORD: ${PB_PASSWORD:?}
+      STAGES: "1"
+      STAGE_SECONDS: "15"
+      USERS: "2"
+      ENTRIES_PER_USER: "3"
+      K6_NO_USAGE_REPORT: "true"
+      WORKLOAD_SMOKE: "1"

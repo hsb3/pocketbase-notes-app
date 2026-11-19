@@ -26,7 +26,7 @@ const existing = await admin.collection("users").create({
 const directory = mkdtempSync(join(tmpdir(), "pocketbase-account-check-"));
 async function snapshot() {
   const hashes = [];
-  for (const collection of ["users", "entries", "attachments"])
+  for (const collection of ["users", "folders", "notes", "attachments"])
     hashes.push(
       createHash("sha256")
         .update(
@@ -69,6 +69,24 @@ async function run(
   );
 }
 try {
+  const preserved = new PocketBase(url);
+  await preserved.collection("users").authWithPassword(email, password);
+  const folder = await preserved
+    .collection("folders")
+    .getFirstListItem("is_default = true");
+  await preserved.collection("notes").create({
+    user: existing.id,
+    folder: folder.id,
+    body: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Preserve this note" }],
+        },
+      ],
+    },
+  });
   const before = await snapshot();
   await run("verify-app");
   assert.deepEqual(
@@ -108,6 +126,8 @@ try {
     await admin.settings.update({ meta: originalMeta });
   }
   assert.deepEqual(await snapshot(), before, "Mail fixtures must be removed");
+  let rejectedSaves = 0;
+  let uploaded = false;
   const proxy = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
@@ -115,23 +135,35 @@ try {
       const incoming = new URL(request.url);
       if (
         request.method === "POST" &&
-        incoming.pathname === "/api/collections/entries/records"
-      )
+        incoming.pathname === "/api/collections/notes/records"
+      ) {
+        rejectedSaves++;
         return Response.json(
           { message: "Injected save failure", status: 503 },
           { status: 503 },
         );
+      }
       const headers = new Headers(request.headers);
       headers.set("accept-encoding", "identity");
       headers.delete("host");
-      return fetch(new URL(incoming.pathname + incoming.search, url), {
-        method: request.method,
-        headers,
-        body: ["GET", "HEAD"].includes(request.method)
-          ? undefined
-          : await request.arrayBuffer(),
-        redirect: "manual",
-      });
+      const response = await fetch(
+        new URL(incoming.pathname + incoming.search, url),
+        {
+          method: request.method,
+          headers,
+          body: ["GET", "HEAD"].includes(request.method)
+            ? undefined
+            : await request.arrayBuffer(),
+          redirect: "manual",
+        },
+      );
+      if (
+        request.method === "POST" &&
+        incoming.pathname === "/api/collections/attachments/records" &&
+        response.ok
+      )
+        uploaded = true;
+      return response;
     },
   });
   try {
@@ -139,6 +171,10 @@ try {
   } finally {
     proxy.stop(true);
   }
+  assert(
+    uploaded && rejectedSaves > 0,
+    "The failure drill must upload a file and reach the rejected note save",
+  );
   assert.deepEqual(
     await snapshot(),
     before,

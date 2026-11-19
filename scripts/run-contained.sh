@@ -10,7 +10,7 @@ fi
 
 profile=${CONTAINED_PROFILE:-default}
 case "$1/$profile" in
-  api/default|api/accounts|api/restore|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
+  api/default|api/accounts|api/restore|api/load|browser/screenshots|browser/performance|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
   *) echo "Unsupported contained profile: $1/$profile" >&2; exit 2 ;;
 esac
 
@@ -28,6 +28,8 @@ export VITE_SIGNUP_ENABLED=false
 if [[ $profile = signup ]]; then export VITE_SIGNUP_ENABLED=true; fi
 TEST_BUN_IMAGE=$(awk '/^FROM .* AS deps$/{print $2}' deploy/docker/Dockerfile)
 TEST_BROWSER_IMAGE="mcr.microsoft.com/playwright:v$(sed -n 's/^ *"@playwright\/test": \["@playwright\/test@\([^"]*\)".*/\1/p' bun.lock)-noble"
+export TEST_K6_IMAGE
+TEST_K6_IMAGE=$(awk '/image: grafana\/k6:/ {print $2}' tests/load/compose.load.yml)
 compose=(docker compose --env-file /dev/null --project-directory . -p "$project"
   -f deploy/local/docker-compose-stack.yml -f deploy/local/docker-compose-test.yml)
 label="label=com.docker.compose.project=$project"
@@ -91,6 +93,9 @@ idle prepare
 inputs=(scripts/seed.sh)
 case "$1/$profile" in
   api/default) inputs+=(deploy/railway/verification.ts) ;;
+  api/load) inputs+=(tests/load/k6/script.js) ;;
+  browser/screenshots) inputs+=(tests/screenshots/capture.cjs) ;;
+  browser/performance) inputs+=(tests/performance playwright.performance.config.ts) ;;
   api/restore) inputs+=(deploy/railway/{evidence,verification,verify-restore}.ts) ;;
   browser/operator) inputs+=(deploy/railway/{configure,evidence,verification,verify-app,verify-email,verify-signup}.ts) ;;
 esac
@@ -124,6 +129,12 @@ if [[ $profile = accounts ]]; then
 fi
 idle setup
 inside setup bun run scripts/configure-services.ts
+if [[ $profile = load ]]; then
+  idle k6
+  inside k6 mkdir /tmp/results
+  inside k6 k6 run /app/tests/load/k6/script.js
+  exit 0
+fi
 if [[ $profile = restore ]]; then
   docker exec -e PB_ENCRYPTION_KEY "$project-setup" bun scripts/test-restore.ts
   exit 0
@@ -150,6 +161,17 @@ if [[ $1 != browser ]]; then
   inside setup bun run test:api
 else
   idle browser
+  output="test-results/$project"
+  if [[ $profile = screenshots ]]; then
+    inside setup sh scripts/seed.sh
+    docker exec -e SEED_USER_EMAIL -e SEED_USER_PASSWORD -e APP_URL=http://127.0.0.1:8080 \
+      -e OUT_DIR=/tmp/screenshots "$project-browser" timeout 600 node tests/screenshots/capture.cjs
+    mkdir -p "$output"
+    docker cp "$project-browser:/tmp/screenshots" "$output/"
+    scripts/capture-screenshots.sh --render "$output/screenshots"
+    echo "Screenshot artifacts: $output/screenshots"
+    exit 0
+  fi
   if [[ $profile = operator ]]; then
     # Keep the operator mail verifier's loopback guard while Mailpit has its own service.
     docker exec -e RUSTFS_ACCESS_KEY -e RUSTFS_SECRET_KEY -e RUSTFS_BUCKET \
@@ -157,7 +179,7 @@ else
       const mail = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(request) {
         const url = new URL(request.url);
         url.host = "mailpit:8025";
-        return fetch(url);
+        return fetch(url, { headers: { "accept-encoding": "identity" } });
       }});
       process.env.MAILPIT_URL = mail.url.origin;
       try {
@@ -169,15 +191,22 @@ else
   fi
   tests=(node node_modules/playwright/cli.js test)
   case $profile in
+    performance)
+      tests=(env PERF_SMOKE=1 "PERF_COMMIT=$(git rev-parse HEAD)" "PERF_WORKTREE=$(git status --short)" "${tests[@]}" --config=playwright.performance.config.ts)
+      ;;
     signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
     signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;
   esac
   if ! inside browser "${tests[@]}"; then
-    output="test-results/$project"
     mkdir -p "$output"
     docker cp "$project-browser:/app/playwright-report" "$output/"
     docker cp "$project-browser:/app/test-results" "$output/"
     echo "Browser failure artifacts: $output" >&2
     exit 1
+  fi
+  if [[ $profile = performance ]]; then
+    mkdir -p "$output"
+    docker cp "$project-browser:/app/playwright-report/performance" "$output/"
+    echo "Performance smoke report: $output/performance"
   fi
 fi

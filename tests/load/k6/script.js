@@ -1,7 +1,5 @@
 // k6 load test for one PocketBase Notes instance. Run through tests/load/run.sh.
-// Requests mirror the frontend: src/features/entries/data.ts (lists, open),
-// entry-editor.tsx (create/update with revision), attachments.ts (upload, protected download)
-// and src/features/tasks/data.ts (Open tasks view).
+// The R2 workload uses projected active-note lists, revisioned writes and protected files.
 import exec from "k6/execution";
 import http from "k6/http";
 import { check, sleep } from "k6";
@@ -20,14 +18,14 @@ const GAP_SECONDS = 10;
 const USERS = Number(ENV.USERS || 200);
 const ENTRIES_PER_USER = Number(ENV.ENTRIES_PER_USER || 40);
 const LOGIN_SHARE = Number(ENV.LOGIN_SHARE || 0.05);
+const SMOKE = ENV.WORKLOAD_SMOKE === "1";
 const RATE_LIMITS = ENV.RATE_LIMITS === "on";
 const PASSWORD = "load-test-password-123";
 const OPS = [
   "login",
   "list",
   "list_filtered",
-  "open_tasks",
-  "search",
+  "folders",
   "open",
   "create",
   "update",
@@ -46,7 +44,9 @@ const rateLimited = new Counter("rate_limited");
 const stageName = (index) => `s${index + 1}_${STAGES[index]}vus`;
 
 const scenarios = {};
-const thresholds = {};
+const thresholds = SMOKE
+  ? { checks: ["rate==1"], http_req_failed: ["rate==0"] }
+  : {};
 STAGES.forEach((vus, index) => {
   const name = stageName(index);
   scenarios[name] = {
@@ -56,7 +56,7 @@ STAGES.forEach((vus, index) => {
     startTime: `${index * (STAGE_SECONDS + GAP_SECONDS)}s`,
     gracefulStop: "5s",
   };
-  // Always-true thresholds: they only make k6 report these per-stage sub-metrics.
+  // Export per-stage metrics even when the capacity campaign has no pass/fail target.
   thresholds[`app_latency{scenario:${name}}`] = ["max>=0"];
   thresholds[`empty_filter_latency{scenario:${name}}`] = ["max>=0"];
   thresholds[`http_req_failed{scenario:${name}}`] = ["rate>=0"];
@@ -64,6 +64,7 @@ STAGES.forEach((vus, index) => {
   thresholds[`iterations{scenario:${name}}`] = ["count>=0"];
   for (const op of OPS) {
     thresholds[`app_latency{scenario:${name},op:${op}}`] = ["max>=0"];
+    if (SMOKE) thresholds[`http_reqs{scenario:${name},op:${op}}`] = ["count>0"];
     thresholds[`http_req_failed{scenario:${name},op:${op}}`] = ["rate>=0"];
   }
 });
@@ -108,9 +109,9 @@ const paragraph = () => ({
     text(` ${words(3)}.`, [{ type: "bold" }]),
   ],
 });
-// A realistic entry: about 2-5 KB of ProseKit JSON that passes pb/hooks/entry-validation.js.
+// The first paragraph supplies the title of the 2–5 KB rich document.
 function documentBody() {
-  const content = [];
+  const content = [{ type: "paragraph", content: [text(words(4))] }];
   for (let section = 0; section < 2; section++) {
     content.push({
       type: "heading",
@@ -145,19 +146,13 @@ function documentBody() {
   });
   return { type: "doc", content };
 }
-const journalDate = () =>
-  `2026-${pick(["10", "11"])}-${String(1 + Math.floor(Math.random() * 28)).padStart(2, "0")}`;
-function entryFields(userId) {
-  const journal = Math.random() < 0.4;
+function noteFields(user, folder) {
   return {
-    user: userId,
-    kind: journal ? "journal" : "note",
-    title: words(3 + Math.floor(Math.random() * 2)),
-    journal_date: journal ? journalDate() : "",
-    favorite: Math.random() < 0.15,
+    id: crypto.randomUUID().replaceAll("-", "").slice(0, 15),
+    user,
+    folder,
     body: documentBody(),
     attachments: [],
-    revision: 1,
   };
 }
 // Small attachments. PocketBase sniffs the type from content: a PDF header or plain text.
@@ -165,6 +160,8 @@ const PDF_FILE = `%PDF-1.4\n${"0123456789abcdef".repeat(4096)}\n%%EOF\n`; // ~64
 const TEXT_FILE = `${SENTENCES.join("\n")}\n`.repeat(24); // ~16 KB
 
 const records = (collection) => `${BASE}/api/collections/${collection}/records`;
+const detailFields =
+  "fields=id,user,folder,title,body,attachments,revision,updated,deleted";
 const query = (params) =>
   Object.keys(params)
     .map((key) => `${key}=${encodeURIComponent(params[key])}`)
@@ -242,21 +239,6 @@ export function setup() {
     );
   }
 
-  const owners = [];
-  for (const user of users)
-    for (let i = 0; i < ENTRIES_PER_USER; i++) owners.push(user.id);
-  for (const group of chunks(owners, 16))
-    http
-      .batch(
-        group.map((id) => [
-          "POST",
-          records("entries"),
-          JSON.stringify(entryFields(id)),
-          json,
-        ]),
-      )
-      .forEach((response) => must(response, "seed entry"));
-
   for (const group of chunks(users, 8)) {
     const responses = http.batch(
       group.map((user) => [
@@ -270,6 +252,28 @@ export function setup() {
       group[i].token = must(response, "user login").json("token");
     });
   }
+
+  const owners = [];
+  for (const user of users) {
+    const folders = listFolders(user.token);
+    const defaults = folders.filter(
+      (folder) => folder.user === user.id && folder.is_default,
+    );
+    if (defaults.length !== 1) throw Error("Expected one owned default folder");
+    user.folder = defaults[0].id;
+    for (let i = 0; i < ENTRIES_PER_USER; i++) owners.push(user);
+  }
+  for (const group of chunks(owners, 16))
+    http
+      .batch(
+        group.map((user) => [
+          "POST",
+          records("notes"),
+          JSON.stringify(noteFields(user.id, user.folder)),
+          params("seed", user.token, true),
+        ]),
+      )
+      .forEach((response) => must(response, "seed note"));
 
   let settings = must(
     http.get(`${BASE}/api/settings`, json),
@@ -293,137 +297,100 @@ export function setup() {
     stackRateLimits,
     rateLimits: settings.rateLimits,
     s3: settings.s3.enabled,
-    seededEntries: owners.length,
+    seededNotes: owners.length,
   };
 }
 
-// Per-VU state. `mine` holds entries this VU created, so concurrent VUs that share
+// Per-VU state. `mine` holds note IDs this VU created, so concurrent VUs that share
 // an account never save over each other (which would be a legitimate 409).
 const state = { token: null, scenario: "", mine: [] };
 
-function listEntries(token, view, q, page) {
-  const filters = [];
-  if (view === "note" || view === "journal") filters.push(`kind = '${view}'`);
-  if (view === "favorites") filters.push("favorite = true");
-  if (q) filters.push(`title ~ '${q}'`);
-  if (view === "journal" && page === 0)
-    filters.push(`journal_date = '${journalDate()}'`);
-  const op = q ? "search" : view === "all" ? "list" : "list_filtered";
+function listFolders(token) {
   const response = http.get(
-    `${records("entries")}?${query({
-      page: page || 1,
+    `${records("folders")}?${query({
+      page: 1,
+      perPage: 500,
+      sort: "-is_default,name_key,id",
+      fields: "id,user,name,is_default",
+    })}`,
+    params("folders", token),
+  );
+  return ok(response, "folders") ? response.json("items") : [];
+}
+function listNotes(token, folder, page) {
+  const op = folder ? "list_filtered" : "list";
+  const response = http.get(
+    `${records("notes")}?${query({
+      page,
       perPage: 20,
-      filter: filters.join(" && "),
-      sort: view === "journal" ? "-journal_date,-updated,-id" : "-updated,-id",
+      fields: "id,folder,title,updated,excerpt",
+      filter: folder ? `deleted = "" && folder = "${folder}"` : 'deleted = ""',
+      sort: "-updated,-id",
     })}`,
     params(op, token),
   );
   const items = response.status === 200 ? response.json("items") : [];
-  ok(
-    response,
-    op,
-    response.status === 200 && filters.length > 0 && !items.length,
-  );
+  ok(response, op, response.status === 200 && !items.length);
   return items;
 }
-// src/features/tasks/data.ts: the Open tasks view reads the server-derived index only.
-function listOpenTasks(token) {
+function openNote(token, id) {
   const response = http.get(
-    `${records("entries")}?${query({
-      page: 1,
-      perPage: 200,
-      skipTotal: 1,
-      filter: "open_tasks > 0",
-      sort: "-created,-id",
-      fields: "id,title,kind,journal_date,created,revision,open_tasks,tasks",
-    })}`,
-    params("open_tasks", token),
-  );
-  ok(response, "open_tasks");
-}
-function openEntry(token, id) {
-  const response = http.get(
-    `${records("entries")}/${id}`,
+    `${records("notes")}/${id}?${detailFields}`,
     params("open", token),
   );
   return ok(response, "open") ? response.json() : null;
 }
-function createEntry(token, userId, attachments) {
-  const fields = entryFields(userId);
+function createNote(token, user, attachments) {
+  const fields = noteFields(user.id, user.folder);
   if (attachments) fields.attachments = attachments;
   const response = http.post(
-    records("entries"),
+    `${records("notes")}?${detailFields}`,
     JSON.stringify(fields),
     params("create", token, true),
   );
   if (!ok(response, "create")) return null;
   const saved = response.json();
-  state.mine.push({ id: saved.id, revision: saved.revision });
+  check(saved, {
+    "stable ID and initial revision": (r) =>
+      r.id === fields.id && r.revision === 1,
+  });
+  state.mine.push(saved.id);
   if (state.mine.length > 20) state.mine.shift();
   return saved;
 }
 
-function browse(token) {
-  if (Math.random() < 0.1) return listOpenTasks(token);
-  const view = pick([
-    "all",
-    "all",
-    "all",
-    "all",
-    "all",
-    "all",
-    "note",
-    "journal",
-    "favorites",
-  ]);
-  const items = listEntries(token, view, "", Math.random() < 0.25 ? 2 : 1);
+function browse(token, folder) {
+  const items = listNotes(token, folder, Math.random() < 0.25 ? 2 : 1);
   if (items.length && Math.random() < 0.7) {
     sleep(between(0.3, 1));
-    openEntry(token, pick(items).id);
+    openNote(token, pick(items).id);
   }
 }
-function search(token) {
-  const view = pick(["all", "all", "all", "note", "journal"]);
-  // Journal view with page 0 adds the date filter the calendar applies.
-  if (view === "journal" && Math.random() < 0.5)
-    return listEntries(token, "journal", "", 0);
-  const items = listEntries(token, view, pick(WORDS), 1);
-  if (items.length && Math.random() < 0.5) {
-    sleep(between(0.3, 1));
-    openEntry(token, pick(items).id);
-  }
-}
-function write(token, userId) {
-  if (!state.mine.length || Math.random() < 0.4)
-    return createEntry(token, userId);
-  const own = pick(state.mine);
-  const current = openEntry(token, own.id);
+function updateNote(token, id) {
+  const current = openNote(token, id);
   if (!current) return;
   sleep(between(0.5, 1.5));
   const response = http.patch(
-    `${records("entries")}/${own.id}`,
+    `${records("notes")}/${id}?${detailFields}`,
     JSON.stringify({
-      user: userId,
-      kind: current.kind,
-      title: current.title,
-      journal_date: current.journal_date,
-      favorite: Math.random() < 0.2 ? !current.favorite : current.favorite,
       body: documentBody(),
-      attachments: current.attachments,
       revision: current.revision,
     }),
     params("update", token, true),
   );
-  if (ok(response, "update")) own.revision = response.json("revision");
+  if (ok(response, "update"))
+    check(response, {
+      "revision advanced": (r) => r.json("revision") === current.revision + 1,
+    });
 }
-function attach(token, userId) {
+function attach(token, user) {
   const pdf = Math.random() < 0.5;
   const name = pdf ? "report.pdf" : "notes.txt";
   const data = pdf ? PDF_FILE : TEXT_FILE;
   const upload = http.post(
     records("attachments"),
     {
-      user: userId,
+      user: user.id,
       name,
       file: http.file(data, name, pdf ? "application/pdf" : "text/plain"),
     },
@@ -432,9 +399,9 @@ function attach(token, userId) {
   if (!ok(upload, "upload")) return;
   const attachment = upload.json();
   sleep(between(0.3, 1));
-  if (!createEntry(token, userId, [attachment.id])) return;
+  if (!createNote(token, user, [attachment.id])) return;
   sleep(between(0.3, 1));
-  // attachments.ts: read the record, get a short-lived file token, then fetch the bytes.
+  // Read the record, get a short-lived file token, then fetch the bytes.
   const meta = http.get(
     `${records("attachments")}/${attachment.id}`,
     params("attachment_meta", token),
@@ -457,9 +424,31 @@ function attach(token, userId) {
 }
 
 // One iteration is one user action followed by think time. Mix by weight:
-// fresh login LOGIN_SHARE (5%); the rest is browse 47%, search 16%, write 26.5%, attach 10.5%.
+// Fresh login uses LOGIN_SHARE. The rest browse lists, change folder, write or attach.
 export default function (data) {
   const user = data.users[(exec.vu.idInTest - 1) % data.users.length];
+  if (SMOKE && exec.scenario.iterationInTest === 0) {
+    const token = login(user.email);
+    if (!token) return;
+    listFolders(token);
+    for (const folder of [null, user.folder]) {
+      const rows = listNotes(token, folder, 1);
+      check(rows, {
+        "seeded list has projected summaries": (items) =>
+          items.length > 0 &&
+          items.every(
+            (r) =>
+              Object.keys(r).sort().join(",") ===
+                "excerpt,folder,id,title,updated" &&
+              (!folder || r.folder === folder),
+          ),
+      });
+    }
+    const saved = createNote(token, user);
+    if (saved) updateNote(token, saved.id);
+    attach(token, user);
+    return;
+  }
   if (state.scenario !== exec.scenario.name) {
     state.scenario = exec.scenario.name;
     sleep(between(0, 3)); // spread the VUs of a new stage instead of starting in lockstep
@@ -468,16 +457,23 @@ export default function (data) {
   const roll = Math.random();
   if (Math.random() < LOGIN_SHARE)
     state.token = login(user.email) || user.token;
-  else if (roll < 0.47) browse(state.token);
-  else if (roll < 0.63) search(state.token);
-  else if (roll < 0.895) write(state.token, user.id);
-  else attach(state.token, user.id);
+  else if (roll < 0.47) browse(state.token, null);
+  else if (roll < 0.63) {
+    listFolders(state.token);
+    browse(state.token, user.folder);
+  } else if (roll < 0.895) {
+    if (!state.mine.length || Math.random() < 0.4)
+      createNote(state.token, user);
+    else updateNote(state.token, pick(state.mine));
+  } else attach(state.token, user);
   sleep(between(0.5, 1.5));
 }
 
 const fixed = (value, digits) =>
   value === undefined || value === null ? "-" : Number(value).toFixed(digits);
 export function handleSummary(data) {
+  if (!data.setup_data) return { stdout: "Workload setup failed.\n" };
+  const out = SMOKE ? "/tmp/results" : "/results";
   const metric = (name) =>
     data.metrics[name] ? data.metrics[name].values : {};
   const start = Math.round(data.setup_data.start / 1000);
@@ -546,21 +542,21 @@ export function handleSummary(data) {
     `rate limiting in the stack as started: ${data.setup_data.stackRateLimits ? "on" : "off"}`,
     `rate limiting during this run: ${data.setup_data.rateLimits.enabled ? "on" : "off"}`,
     `file storage: ${data.setup_data.s3 ? "S3 (RustFS)" : "local disk"}`,
-    `accounts: ${data.setup_data.users.length}, seeded entries: ${data.setup_data.seededEntries}`,
+    `accounts: ${data.setup_data.users.length}, seeded notes: ${data.setup_data.seededNotes}`,
     `login share of actions: ${LOGIN_SHARE}`,
     `stage length: ${STAGE_SECONDS}s, checks passed: ${fixed((metric("checks").rate || 0) * 100, 2)}%`,
   ];
   const opsTable = `${opLines.join("\n")}\n`;
   return {
     stdout: `\n${info.join("\n")}\n\n${lines.join("\n")}\n\np50 / p95 ms per operation:\n\n${opsTable}`,
-    "/results/summary.json": JSON.stringify({
+    [`${out}/summary.json`]: JSON.stringify({
       ...data,
       setup_data: { ...data.setup_data, users: undefined },
     }),
-    "/results/stages.tsv": `${stageRows.join("\n")}\n`,
-    "/results/ops.md": opsTable,
-    "/results/info.txt": `${info.join("\n")}\n`,
-    "/results/rate-limits.json": JSON.stringify(
+    [`${out}/stages.tsv`]: `${stageRows.join("\n")}\n`,
+    [`${out}/ops.md`]: opsTable,
+    [`${out}/info.txt`]: `${info.join("\n")}\n`,
+    [`${out}/rate-limits.json`]: JSON.stringify(
       data.setup_data.rateLimits,
       null,
       2,
