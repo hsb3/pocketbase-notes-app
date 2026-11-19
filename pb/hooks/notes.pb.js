@@ -78,8 +78,10 @@ onRecordDeleteRequest((e) => {
 }, "notes");
 
 onRecordEnrich((e) => {
-  e.record.hide("search_key");
   e.next();
+  // List handlers can add custom fields before enrichment. Only the preview is public.
+  const privateKeys = Object.keys(e.record.customData() || {}).filter((key) => key !== "excerpt");
+  e.record.hide("search_key", ...privateKeys);
 }, "notes");
 
 onRecordsListRequest((e) => {
@@ -87,10 +89,7 @@ onRecordsListRequest((e) => {
     const text = note.getString("text");
     const start = text.search(/[\r\n\u2028\u2029]/);
     const body = start < 0 ? "" : text.slice(start + 1).trim().replace(/\s+/g, " ");
-    // Enabling custom data would otherwise serialize every custom key.
-    note.hide(...Object.keys(note.customData() || {}));
     note.set("excerpt", Array.from(body).slice(0, 120).join(""));
-    note.unhide("excerpt");
     note.withCustomData(true);
   }
   e.next();
