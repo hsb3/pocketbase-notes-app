@@ -1,6 +1,6 @@
 # Build: set up, run and test locally
 
-Use when you need the app running or tested on this machine. Facts live in the build
+Use for running or testing the app locally. Facts live in the build
 docs listed below; this page is the order to do things in.
 
 ## Rules
@@ -17,6 +17,8 @@ docs listed below; this page is the order to do things in.
 
 ## Steps
 
+For verification alone, start at step 4. The contained tests provision their own services.
+
 1. `bun install`. `.env` is created from `.env.example` by `make env`, `make app`,
    `make start` or `make up*`; existing values are kept.
 2. Pick one entry point (Development):
@@ -26,10 +28,7 @@ docs listed below; this page is the order to do things in.
    - `make start-full` — adds Mailpit (email) and RustFS (S3 files).
    - `make dev-solo` — frontend only, auth bypassed, for UI work without a backend.
 3. Health and logs: `make health`, `make logs`.
-4. Checks before a PR (Contributing): `bun run lint`, `bun run knip`, `bun run build`.
-5. Behaviour tests (Verification) need a running full backend:
-   `bun run test:install` once, `make up-full`, then `make smoke` or `make e2e`.
-   Narrower suites: `bun run test:api`, `bun run test:accounts`,
-   `bunx tsc -p scripts/tsconfig.json`.
+4. Run `bun test tests/unit`, lint, knip, build and the scripts TypeScript check (Verification).
+5. Run `make test-api-contained` and `make test-browser-contained`. Verification lists the profiles for account, restore, operator, signup, capture and workload checks.
 6. A type-checked build proves shapes, not behaviour. If you could not exercise a
    change live, say so in your report.

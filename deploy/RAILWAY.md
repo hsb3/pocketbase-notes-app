@@ -74,6 +74,8 @@ actually used; check it after step 5.
 
 ## 5. Deploy and get a domain
 
+For an existing entries-based deployment, follow the [pre-upgrade backup and rollback procedure](OPERATIONS.md#rollback) before deploying R2.
+
 ```sh
 railway up --service notes --detach
 railway service status
@@ -83,7 +85,7 @@ curl https://YOUR-DOMAIN/api/health
 
 Wait for the deployment to report success before continuing. The domain's
 target port must be `8080`, the image's fixed listener. Open
-`https://YOUR-DOMAIN/entries`: a refresh must load the app, not a 404.
+`https://YOUR-DOMAIN/folders/all`. After sign-in, refresh the page and reopen a note by its stable link.
 
 ## 6. Create the superuser
 

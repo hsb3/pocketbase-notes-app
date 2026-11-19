@@ -11,7 +11,7 @@ doc your step needs.
 | Contributing | [CONTRIBUTING.md](../../CONTRIBUTING.md) | Setup, pre-PR checks, rules of the road |
 | Development | [docs/development/setup.md](../../docs/development/setup.md) | `make app` / `make start` / `make start-full`, seeding |
 | Local stacks | [deploy/LOCAL.md](../../deploy/LOCAL.md) | Compose files, named `STACK` instances, ports |
-| Verification | [docs/testing/verification.md](../../docs/testing/verification.md) | Test commands, coverage, debugging failures |
+| Verification | [docs/testing/verification.md](../../docs/testing/verification.md) | Contained targets and profiles, draft unit tests, failure artifacts |
 | Root files | [docs/development/root-files.md](../../docs/development/root-files.md) | What each root config file does |
 | Docs site | [docs/development/root-files.md](../../docs/development/root-files.md#vitepressconfigts) | `bun run docs:build` (VitePress, `.vitepress/config.ts`); dead links fail it |
 
@@ -32,10 +32,11 @@ doc your step needs.
 |---|---|---|
 | Tech stack | [docs/architecture/tech-stack.md](../../docs/architecture/tech-stack.md) | What each piece is and why; architecture diagram |
 | Spec | [docs/architecture/spec.md](../../docs/architecture/spec.md) | Product purpose and boundaries |
-| Designs | [docs/design/](../../docs/design/notes-journal.md) | Feature designs (one file per feature) |
-| Attachments | [docs/features/attachments.md](../../docs/features/attachments.md) | Editor attachments, storage, access |
+| Notes | [docs/features/notes.md](../../docs/features/notes.md) | Folders, Compose, autosave, private records and pre-R2 source recovery |
+| Designs | [docs/design/](../../docs/design/notes-journal.md) | Superseded entries design |
+| Attachments | [docs/features/attachments.md](../../docs/features/attachments.md) | Protected files, storage, reference checks and deferred controls |
 | Auth | [docs/features/auth.md](../../docs/features/auth.md) | Sign-in methods, OAuth setup, two-step sign-in (MFA), recovery |
-| Tasks | [docs/features/tasks.md](../../docs/features/tasks.md) | Open tasks view, server-derived task index |
+| Tasks | [docs/features/tasks.md](../../docs/features/tasks.md) | Server-derived task index and planned Open Tasks screen |
 | Verification | [docs/testing/verification.md](../../docs/testing/verification.md) | Where new tests go and what they cover |
 | Load testing | [docs/testing/load-testing.md](../../docs/testing/load-testing.md) | `tests/load/run.sh`, measured capacity of one instance, method limits |
 

@@ -16,7 +16,7 @@ by the ruleset:
 
 | Check | Work |
 | --- | --- |
-| `Docs links` | lychee in offline mode checks relative links and heading anchors in every Markdown file except the vendored `.agents/skills/`. External URLs are not fetched, so other sites cannot fail it |
+| `Docs links` | lychee in offline mode checks relative links and heading anchors in Markdown outside the vendored skill trees and `.specify/templates/`. External URLs are not fetched, so other sites cannot fail it |
 | `Workflow lint` | actionlint over `.github/workflows/`, run from a digest-pinned image with no network |
 
 E2E jobs run only after Quality passes. Both architectures must pass. The complete
@@ -26,13 +26,14 @@ There are no path exclusions or automatic test retries.
 
 Each hosted runner creates a fresh `.env` with random development credentials,
 initializes its own database and bucket, and destroys its services afterward.
-No repository secrets, production data or deployed backend are used. Playwright
-starts its own Vite server with auth bypass disabled. After the default-disabled
+No repository secrets, production data or deployed backend are used. The default browser phase sets `TEST_APP_URL=http://127.0.0.1:8080` so Playwright reaches the PocketBase-served production bundle. The warm Compose check observes that bundle’s editor chunk. After the default-disabled
 suite, CI exercises account seeding, deployment-fixture cleanup and an isolated
 archive restore. CI then explicitly enables signup on the disposable backend and runs the
 registration retry scenario with the matching frontend flag; its report is
 written under `playwright-report/signup-enabled`. The Docker image is built as
 part of full-stack startup, including fresh migrations and S3 configuration.
+
+Local acceptance uses separate [contained targets](../testing/verification.md#disposable-docker-gates) with Chromium and WebKit, plus isolated account, restore and operator drills. The hosted jobs keep their own full-stack setup. The local draft unit suite runs with `bun test tests/unit`.
 
 Actions are pinned by commit SHA; Node and Bun versions are explicit. The token has
 read-only contents permission and checkout does not retain Git credentials. The

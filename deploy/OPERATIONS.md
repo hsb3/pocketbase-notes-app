@@ -52,20 +52,20 @@ was the real client address.
 
 ## Updates
 
-1. Run `bun run lint`, `bun run build` and the relevant tests locally.
+1. Run the [static and contained gates](../docs/testing/verification.md#disposable-docker-gates) locally. Use the operator and restore profiles to rehearse these checks.
 2. If the change includes a migration, take a backup first:
    `make railway-backup CONFIRM=<host>`.
 3. Confirm the target with `railway status`, then deploy:
    `railway up --service <service> --detach`.
 4. Wait for that deployment to report success (`railway service status`).
-5. Check `/api/health`, refresh a deep link such as `/entries`, log in with an
-   existing account, and open an attachment. A health check alone does not
-   exercise email, storage or access rules.
+5. Check `/api/health`, sign in, refresh `/folders/all` and reopen a saved note. The app verifier checks autosave and protected bytes using a temporary account and API-attached file.
 
 Deploys start PocketBase against the existing volume. They create no accounts
 and reset no passwords.
 
 ## Rollback
+
+The R2 migration drops `entries` and its records. Preserve a pre-upgrade backup, matching image and encryption key before updating an entries-based instance. Git can recover the [old source](../docs/features/notes.md#later-increments-and-source-recovery). Only a backup can recover dropped records.
 
 - **Code only, schema unchanged:** redeploy the last good deployment from the
   Railway dashboard.
@@ -111,7 +111,7 @@ A backup is proven only by restoring it.
    `RESTORE_URL=http://127.0.0.1:<port> make railway-verify-restore`.
 5. Remove the copy.
 
-The comparison covers user, entry and attachment records and attachment bytes,
+The comparison covers users, folders, notes, attachment records and protected file bytes,
 and fails if the deployment changed after the backup. It does not measure
 recovery time for large data.
 

@@ -8,7 +8,7 @@ What each file at the repo root does and why it exists.
 
 Declares dependencies (React 19, TanStack Router, PocketBase SDK, Tailwind) and scripts (`dev`, `build`, `lint`, `knip`, `docs:dev`/`docs:build`, `pb:codegen`, `test:*`). It also carries the app version (`0.1.0`, checked by the release workflow) and the MIT `license` field. Its `trustedDependencies` field whitelists which packages may run postinstall scripts under Bun (`@biomejs/biome`, `esbuild`) — everything else is blocked. Necessary: it is the package manifest; nothing installs or builds without it.
 
-`test:api` exercises private folders, note projections and revision-checked saves in `scripts/test-notes.ts`. The attachment and MFA suites also use live notes to check protected files and sign-in access. The library uses ProseKit for the note editor and vendored shadcn primitives for folder navigation and dialogs.
+`test:api` exercises private folders, note projections and revision-checked saves in `scripts/test-notes.ts`. The attachment and MFA suites also use live notes to check protected files and sign-in access. The standalone draft tests run with `bun test tests/unit`. The journal date picker and its dependency were removed from the app and lockfile.
 
 ### `bun.lock`
 
@@ -100,13 +100,13 @@ The docs site. VitePress renders the repository's own Markdown (`docs/`, `deploy
 
 ### `docs/architecture/spec.md`
 
-Product purpose, boundaries and links to the notes/journal design.
+Product purpose, boundaries, current notebook behavior and the superseded entries design.
 
 Agent skills under `.agents/skills/` and `.claude/skills/` (the latter only exists when a tool such as skillshare syncs skills locally) are excluded from Biome because they are vendored references, not application source. CLI scripts may report status through the console; application console warnings remain enabled.
 
 The adopted prebuilt UI imports the ProseKit registry’s Tailwind icon plugin in
 `src/styles/globals.css`; its Lucide icon data and React icons are installed dependencies.
-Application controls retain their existing Tabler icons.
+The notebook also uses Lucide icons for navigation and Compose.
 
 ## Full-stack development integration
 
@@ -119,8 +119,7 @@ email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_UR
 ### `playwright.config.ts`
 
 Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium and WebKit execution,
-a managed Vite server and failure artifacts. `.env` supplies the local backend;
-`TEST_APP_URL` can select an existing local frontend. See [testing](../testing/verification.md).
+failure traces and screenshots. `TEST_APP_URL` selects the built app for the contained suite and the hosted default E2E phase. If unset, Playwright starts Vite for development scenarios. See [testing](../testing/verification.md).
 
 ### `.github/`
 
@@ -219,10 +218,7 @@ that is set. The Makefile runs it before `env`, `app`, `start`, `start-full`, `u
 
 ### `scripts/capture-screenshots.sh`
 
-Refreshes the README images in `docs/images/` from a running stack: drives
-`tests/screenshots/capture.cjs` in a resource-limited Playwright container and uses
-ffmpeg on the host for the GIF and the phone strip. Use a fresh stack: each run adds
-one sample note.
+With no arguments, runs the contained screenshots profile against a fresh seeded stack. Captures go to `test-results/<project>/screenshots/`. Host FFmpeg renders the GIF and phone strip. Publishing reviewed images is a separate step.
 
 ### `scripts/seed.sh` and `scripts/seed.ts`
 
