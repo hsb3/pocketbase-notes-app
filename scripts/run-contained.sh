@@ -10,7 +10,7 @@ fi
 
 profile=${CONTAINED_PROFILE:-default}
 case "$1/$profile" in
-  api/default|api/accounts|api/restore|api/load|browser/screenshots|browser/performance|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
+  api/default|api/accounts|api/restore|api/load|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
   *) echo "Unsupported contained profile: $1/$profile" >&2; exit 2 ;;
 esac
 
@@ -191,13 +191,24 @@ else
   fi
   tests=(node node_modules/playwright/cli.js test)
   case $profile in
+    resilience)
+      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/sc003.json "${tests[@]}" tests/e2e/save-resilience.spec.cjs --grep @sc003 --workers=1 --retries=0 --reporter=list,html,json)
+      ;;
     performance)
       tests=(env PERF_SMOKE=1 "PERF_COMMIT=$(git rev-parse HEAD)" "PERF_WORKTREE=$(git status --short)" "${tests[@]}" --config=playwright.performance.config.ts)
       ;;
     signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
     signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;
   esac
-  if ! inside browser "${tests[@]}"; then
+  test_status=0
+  inside browser "${tests[@]}" || test_status=$?
+  if [[ $profile = resilience ]]; then
+    mkdir -p "$output"
+    docker cp "$project-browser:/tmp/sc003.json" "$output/sc003.json" &&
+      scripts/check-sc003.py "$output/sc003.json" || test_status=1
+    echo "SC-003 report: $output/sc003.json"
+  fi
+  if (( test_status != 0 )); then
     mkdir -p "$output"
     docker cp "$project-browser:/app/playwright-report" "$output/"
     docker cp "$project-browser:/app/test-results" "$output/"

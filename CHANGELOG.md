@@ -9,6 +9,8 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Added
 
+- Notes retain unsaved writing in the open tab after a failed save or expired session. Retry saves the latest edits. Conflicts allow copying a draft before replacing it, and signing out with unsaved edits offers a choice to save, discard or keep editing.
+
 - The [notebook](docs/features/notes.md) opens in All Notes. Create a folder, compose in one writing surface and autosave edits. Phone navigation restores the list position. Wider screens show folders, notes and editor together.
 
 - Run the API or Chromium/WebKit suite in a disposable Docker stack with

@@ -11,12 +11,31 @@ const { NoteDraft } = require("../../src/features/notes/draft.ts");
 
 const user = "owner0000000001",
   folder = "folder000000001",
-  token = "unit-owner-token";
+  token = authToken(3600);
+const account = {
+  id: user,
+  collectionName: "users",
+  collectionId: "_pb_users_auth_",
+};
+function authToken(seconds) {
+  const encode = (obj) =>
+    Buffer.from(JSON.stringify(obj)).toString("base64url");
+  return [
+    encode({ alg: "HS256", typ: "JWT" }),
+    encode({
+      id: user,
+      type: "auth",
+      collectionId: "_pb_users_auth_",
+      exp: Math.floor(Date.now() / 1000) + seconds,
+    }),
+    "fixture",
+  ].join(".");
+}
 const body = (text) => ({
   type: "doc",
   content: [{ type: "paragraph", content: [{ type: "text", text }] }],
 });
-let calls, fetchStub;
+let calls, fetchStub, respond;
 function defer() {
   let resolve;
   const promise = new Promise((r) => {
@@ -25,7 +44,8 @@ function defer() {
   return { promise, resolve };
 }
 beforeEach(() => {
-  pb.authStore.save(token, { id: user });
+  pb.authStore.save(token, account);
+  respond = undefined;
   calls = [];
   fetchStub = spyOn(globalThis, "fetch").mockImplementation(
     async (url, options) => {
@@ -37,6 +57,7 @@ beforeEach(() => {
         response: defer(),
       };
       calls.push(call);
+      if (respond) return respond(call);
       return call.response.promise;
     },
   );
@@ -115,7 +136,7 @@ test("debounces 500 ms from the last edit, retains newer words, and joins concur
   expect(calls).toHaveLength(3);
 });
 
-test("a definite rejected create can explicitly retry the same ID, ambiguous failures stay stopped", async () => {
+test("retry after a validation rejection keeps the ID and reads before replaying a lost reply", async () => {
   const draft = new NoteDraft({ user, folder });
   draft.edit(body("First"));
   const first = draft.flush();
@@ -136,12 +157,17 @@ test("a definite rejected create can explicitly retry the same ID, ambiguous fai
   await reply(1, { message: "Uncertain" }, 503);
   expect(await retry).toBe(false);
   draft.edit(body("Keep these words"));
-  expect(await draft.retry()).toBe(false);
-  expect(await draft.flush()).toBe(false);
-  expect(draft.body).toEqual(body("Keep these words"));
-  expect(draft.status).toBe("Error");
-  await sleep(550);
-  expect(calls).toHaveLength(2);
+  const recovery = draft.retry();
+  expect((await call(2)).method).toBe("GET");
+  expect(calls[2].url.pathname).toBe(createPath(draft));
+  await reply(2, record(draft, 1, body("Corrected")));
+  expect((await call(3)).body).toEqual({
+    revision: 1,
+    body: body("Keep these words"),
+  });
+  await reply(3, record(draft, 2));
+  expect(await recovery).toBe(true);
+  expect(draft.revision).toBe(2);
 });
 
 test("abandon whitespace, save a mention-only document, and never discard a cleared in-flight create", async () => {
@@ -163,10 +189,12 @@ test("abandon whitespace, save a mention-only document, and never discard a clea
   expect((await call(0)).body.body).toEqual(mention);
   draft.edit(body(" "));
   await reply(0, record(draft, 1, mention));
-  expect((await call(1)).body).toEqual({ revision: 1, body: body(" ") });
-  await reply(1, { message: "Write something." }, 400);
+  respond = () => Response.json({ message: "Empty" }, { status: 400 });
   expect(await leave).toBe(false);
-  expect(draft.status).toBe("Error");
+  expect(calls.map((c) => c.method)).toEqual(["POST"]);
+  expect(draft.body).toEqual(body(" "));
+  expect(draft.revision).toBe(1);
+  expect(draft.error).toMatch(/writ|empty|attachment|blank/i);
 });
 
 test("reopened file-only notes use their current revision and keep ordered attachments by omission", async () => {
@@ -259,20 +287,273 @@ test("folder creation, unique owned default and bounded active note projection u
   await expect(inactive).rejects.toThrow();
 });
 
-test("an unclassified response or ID collision cannot authorize another create", async () => {
-  for (const data of [{}, { id: { code: "validation_not_unique" } }]) {
+const createPath = (draft) => "/api/collections/notes/records/" + draft.id;
+const fault = (status, data = {}) =>
+  Response.json({ message: "Refused", data }, { status });
+const collision = () => fault(400, { id: { code: "validation_not_unique" } });
+const savedNote = {
+  id: "note00000000001",
+  user,
+  folder,
+  body: body("Baseline"),
+  revision: 4,
+  attachments: ["file-one", "file-two"],
+  deleted: "",
+};
+const noteCalls = () =>
+  calls.filter((c) => c.url.pathname.includes("/notes/records"));
+const methods = () => noteCalls().map((c) => c.method);
+function serve(
+  handler,
+  refresh = () => Response.json({ token, record: account }),
+) {
+  respond = (c) =>
+    c.url.pathname === "/api/collections/users/auth-refresh"
+      ? refresh(c)
+      : handler(c);
+}
+
+for (const [name, change] of [
+  [
+    "reordered keys",
+    (r) => {
+      r.body = { content: r.body.content, type: "doc" };
+    },
+  ],
+  [
+    "different formatting",
+    (r) => {
+      r.body.content[0].content[0].marks = [{ type: "bold" }];
+    },
+  ],
+  ["reordered attachments", (r) => r.attachments.reverse()],
+  ["later revision with identical text", (r) => r.revision++],
+]) {
+  test("409 owner read-back: " + name, async () => {
+    const draft = new NoteDraft({ user, folder, note: savedNote });
+    const local = body("Writing");
+    draft.edit(local);
+    const owned = structuredClone({ ...savedNote, revision: 5, body: local });
+    change(owned);
+    serve((c) => (c.method === "PATCH" ? fault(409) : Response.json(owned)));
+    await draft.flush();
+    if (!methods().includes("GET")) await draft.retry();
+    expect(methods()).toEqual(["PATCH", "GET"]);
+    expect(noteCalls()[1].url.pathname).toBe(createPath(draft));
+    expect(draft.body).toEqual(local);
+    if (name === "reordered keys") {
+      expect(draft.status).toBe("Saved");
+      expect(draft.revision).toBe(5);
+    } else {
+      expect(draft.status + " " + draft.error).toMatch(
+        /conflict|newer|changed|different|version/i,
+      );
+      expect(await draft.retry()).toBe(false);
+      expect(methods().filter((m) => m === "PATCH")).toHaveLength(1);
+    }
+  });
+}
+
+test("a failed owner read grants no write; a verified unchanged PATCH baseline permits latest retry", async () => {
+  const draft = new NoteDraft({ user, folder, note: savedNote });
+  draft.edit(body("Uncertain"));
+  serve(() => fault(503));
+  expect(await draft.flush()).toBe(false);
+  draft.edit(body("Latest"));
+  expect(await draft.retry()).toBe(false);
+  expect(methods()).toEqual(["PATCH", "GET"]);
+  serve((c) =>
+    Response.json(
+      c.method === "GET"
+        ? savedNote
+        : { ...savedNote, revision: 5, body: body("Latest") },
+    ),
+  );
+  expect(await draft.retry()).toBe(true);
+  expect(methods()).toEqual(["PATCH", "GET", "GET", "PATCH"]);
+  expect(noteCalls().at(-1).body).toEqual({
+    revision: 4,
+    body: body("Latest"),
+  });
+});
+
+for (const name of ["duplicate ID", "unclassified 400"]) {
+  test(name + " with unreadable detail cannot authorize a create", async () => {
     const draft = new NoteDraft({ user, folder });
     draft.edit(body("Keep"));
-    const start = calls.length;
-    const leave = draft.flush();
-    await reply(start, { message: "Bad Request", data }, 400);
-    expect(await leave).toBe(false);
-    const retry = draft.retry();
-    // Let a mistaken dispatch finish so failure has bounded time and no dangling request.
-    await sleep(10);
-    if (calls[start + 1]) await reply(start + 1, record(draft, 1));
-    expect(await retry).toBe(false);
-    expect(calls.length).toBe(start + 1);
-    expect(draft.status).toBe("Error");
-  }
+    serve((c) =>
+      c.method === "GET"
+        ? fault(404)
+        : name === "duplicate ID"
+          ? collision()
+          : fault(400),
+    );
+    await draft.flush();
+    await draft.retry();
+    if (name === "duplicate ID") expect(methods()).toContain("GET");
+    expect(methods().filter((m) => m === "POST")).toEqual(["POST"]);
+    expect(draft.body).toEqual(body("Keep"));
+    expect(draft.status).not.toBe("Saved");
+    expect(draft.error).toBeTruthy();
+  });
+}
+
+test("a missing uncertain create races a duplicate; adopt only the old submitted generation", async () => {
+  const draft = new NoteDraft({ user, folder });
+  const first = body("First"),
+    latest = body("Later");
+  draft.edit(first);
+  serve(() => fault(503));
+  expect(await draft.flush()).toBe(false);
+  draft.edit(latest);
+  let reads = 0;
+  serve((c) => {
+    if (c.method === "GET")
+      return ++reads === 1
+        ? fault(404)
+        : Response.json(record(draft, 1, first));
+    if (c.method === "POST") return collision();
+    return Response.json(record(draft, 2, latest));
+  });
+  expect(await draft.retry()).toBe(true);
+  expect(methods()).toEqual(["POST", "GET", "POST", "GET", "PATCH"]);
+  expect(noteCalls()[2].body).toMatchObject({ id: draft.id, body: latest });
+  expect(noteCalls()[4].body).toEqual({ revision: 1, body: latest });
+  expect(draft.body).toEqual(latest);
+  expect(draft.revision).toBe(2);
+});
+
+for (const [name, credential] of [
+  ["invalid", ""],
+  ["expired", authToken(-60)],
+]) {
+  test(name + " session retains the draft without dispatch", async () => {
+    const draft = new NoteDraft({ user, folder });
+    pb.authStore.save(credential, account);
+    draft.edit(body("Private"));
+    serve(() => fault(401));
+    expect(await draft.flush()).toBe(false);
+    expect(methods()).toEqual([]);
+    expect(draft.body).toEqual(body("Private"));
+  });
+}
+
+for (const [name, refreshStatus] of [
+  ["revoked", 401],
+  ["temporarily unverifiable", 503],
+]) {
+  test("masked write denial distinguishes a " + name + " owner", async () => {
+    const draft = new NoteDraft({ user, folder, note: savedNote });
+    draft.edit(body("Retain"));
+    serve(
+      () => fault(404),
+      () => fault(refreshStatus),
+    );
+    expect(await draft.flush()).toBe(false);
+    const checks = calls.filter((c) =>
+      c.url.pathname.endsWith("/users/auth-refresh"),
+    );
+    expect(checks).toHaveLength(1);
+    expect(checks[0].headers.get("Authorization")).toBe(token);
+    expect(draft.body).toEqual(body("Retain"));
+    if (refreshStatus === 503) {
+      expect(pb.authStore.token).toBe(token);
+      serve((c) =>
+        Response.json(
+          c.method === "GET"
+            ? savedNote
+            : { ...savedNote, revision: 5, body: body("Retain") },
+        ),
+      );
+      expect(await draft.retry()).toBe(true);
+    } else {
+      expect(draft.error).toMatch(/sign in|session|authenticat/i);
+      expect(await draft.retry()).toBe(false);
+      expect(methods().filter((m) => m === "PATCH")).toHaveLength(1);
+    }
+  });
+}
+
+test("late acknowledgement from an earlier login cannot publish or drain newer edits", async () => {
+  const published = [];
+  const draft = new NoteDraft({
+    user,
+    folder,
+    onSaved: (r) => published.push(r.id),
+  });
+  draft.edit(body("Sent"));
+  const save = draft.flush();
+  await call(0);
+  draft.edit(body("Local only"));
+  pb.authStore.save(authToken(7200), { ...account, id: "different-owner" });
+  pb.authStore.save(authToken(7300), account);
+  serve(() => fault(503));
+  await reply(0, record(draft, 1, body("Sent")));
+  expect(await save).toBe(false);
+  expect(published).toEqual([]);
+  expect(methods()).toEqual(["POST"]);
+  expect(draft.body).toEqual(body("Local only"));
+});
+
+test("the encoded JSON limit accepts 102400 bytes and locally refuses one more", async () => {
+  const draft = new NoteDraft({ user, folder });
+  const remaining = 102400 - Buffer.byteLength(JSON.stringify(body("")));
+  const text =
+    "é".repeat(Math.floor(remaining / 2)) + "x".repeat(remaining % 2);
+  draft.edit(body(text));
+  serve(() => Response.json(record(draft, 1)));
+  expect(await draft.flush()).toBe(true);
+  expect(Buffer.byteLength(JSON.stringify(calls[0].body.body))).toBe(102400);
+  draft.edit(body(text + "x"));
+  serve(() => fault(400));
+  expect(await draft.flush()).toBe(false);
+  expect(methods()).toEqual(["POST"]);
+  expect(draft.error).toMatch(/100\s*KB/i);
+  expect(draft.body).toEqual(body(text + "x"));
+  expect(draft.revision).toBe(1);
+});
+
+test("direct success with different returned content cannot acknowledge local text", async () => {
+  const draft = new NoteDraft({ user, folder });
+  draft.edit(body("Local"));
+  serve(() => Response.json(record(draft, 1, body("Other"))));
+  expect(await draft.flush()).toBe(false);
+  expect(draft.status).not.toBe("Saved");
+  expect(draft.body).toEqual(body("Local"));
+});
+
+test("a read matching only newer local typing cannot acknowledge an earlier submission", async () => {
+  const draft = new NoteDraft({ user, folder, note: savedNote });
+  draft.edit(body("On the wire"));
+  const attempt = draft.flush();
+  await call(0);
+  draft.edit(body("Local only"));
+  const unrelated = { ...savedNote, revision: 5, body: body("Local only") };
+  serve(() => Response.json(unrelated));
+  await reply(0, { message: "Interrupted" }, 503);
+  await attempt;
+  await draft.retry();
+  expect(methods()).toEqual(["PATCH", "GET"]);
+  expect(draft.status).not.toBe("Saved");
+  expect(draft.body).toEqual(body("Local only"));
+  expect(await draft.retry()).toBe(false);
+  expect(methods().filter((m) => m === "PATCH")).toHaveLength(1);
+});
+
+test("a masked create denial checks the captured owner's session before retry", async () => {
+  const draft = new NoteDraft({ user, folder });
+  draft.edit(body("Still mine"));
+  serve(
+    () => fault(400),
+    () => fault(401),
+  );
+  expect(await draft.flush()).toBe(false);
+  const checks = calls.filter((c) =>
+    c.url.pathname.endsWith("/users/auth-refresh"),
+  );
+  expect(checks.map((c) => c.headers.get("Authorization"))).toEqual([token]);
+  expect(draft.error).toMatch(/sign in|session|authenticat/i);
+  expect(await draft.retry()).toBe(false);
+  expect(methods().filter((m) => m === "POST")).toEqual(["POST"]);
+  expect(draft.body).toEqual(body("Still mine"));
 });
