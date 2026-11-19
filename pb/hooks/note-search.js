@@ -32,18 +32,28 @@ function validate(query) {
 // in stable order, carrying the outermost original offsets of every contributor.
 function nfc(tags) {
   const queues = new Map();
+  const joinerOffsets = [];
+  let inputOffset = 0;
   const input = tags.map(([point]) => point).join("");
   for (const tag of tags) {
     for (const part of tag[0].normalize("NFD")) {
+      if (part === "\u034f") joinerOffsets.push(inputOffset);
+      inputOffset++;
       if (!queues.has(part)) queues.set(part, { tags: [], next: 0 });
       queues.get(part).tags.push(tag);
     }
   }
+  let consumed = 0;
   return Array.from(input.normalize("NFC"), (point) => {
     let first = Infinity, last = -1;
     for (const part of point.normalize("NFD")) {
       const queue = queues.get(part);
+      // Real joiners bound canonical reordering. Only they consume an input tag.
+      if (part === "\u034f" && (!queue || joinerOffsets[queue.next] !== consumed)) {
+        return [point, NaN, NaN];
+      }
       const [, lo, hi] = queue.tags[queue.next++];
+      consumed++;
       first = Math.min(first, lo);
       last = Math.max(last, hi);
     }
@@ -110,7 +120,7 @@ function snippet(title, text, term) {
     const start = Array.from(folded.slice(0, index)).length;
     const end = start + Array.from(term).length;
     const [lo, hi] = /^[\x00-\x7f]*$/.test(source) ? [start, end] : originalSpan(points, folded, start, end);
-    if (!(lo >= 0 && lo < hi && hi <= points.length)) break;
+    if (!(lo >= 0 && lo < hi && hi <= points.length)) return plainSnippet(text);
     const slice = (a, b) => points.slice(a, b).join("");
     return {
       before: (lo > 32 ? "…" : "") + slice(Math.max(0, lo - 32), lo),
@@ -118,7 +128,14 @@ function snippet(title, text, term) {
       after: slice(hi, hi + 32) + (hi + 32 < points.length ? "…" : ""),
     };
   }
+  if (/\p{M}{31}/u.test(text)) return plainSnippet(text);
   throw new Error("The search result has no matching source text.");
+}
+
+function plainSnippet(text) {
+  const points = Array.from(text);
+  const before = points.slice(0, 32).join("") + (points.length > 32 ? "…" : "");
+  return { before, match: "", after: "" };
 }
 
 module.exports = { key, validate, snippet };

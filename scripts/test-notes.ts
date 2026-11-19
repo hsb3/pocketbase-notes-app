@@ -558,11 +558,11 @@ async function distantMarks() {
   const a = await account();
   const note = await writeText(
     a,
-    "a".repeat(80) + "q" + "\u0301".repeat(160) + "\u0300" + "b".repeat(80),
+    "a".repeat(80) + "q" + "\u0301".repeat(29) + "\u0300" + "b".repeat(80),
   );
   const [hit] = await hits(a.pb, "\u0300", [note.id]);
   assert.deepEqual(hit.snippet, {
-    before: "…" + "\u0301".repeat(32),
+    before: "…aaq" + "\u0301".repeat(29),
     match: "\u0300",
     after: "b".repeat(32) + "…",
   });
@@ -570,16 +570,40 @@ async function distantMarks() {
 
 async function composedSpan() {
   const a = await account();
-  const composed = await writeText(a, "A" + "\u0315".repeat(160) + "\u0300");
-  assert.match(composed.id, /^[a-z0-9]{15}$/);
-  const stored = await admin.sql.run(
-    `SELECT instr(search_key, 'À'), instr(search_key, char(847)) FROM notes WHERE id='${composed.id}'`,
-  );
-  console.log("Distant composition key indices (À and U+034F)", stored.rows);
+  const text = "A" + "\u0315".repeat(29) + "\u0300";
+  const composed = await writeText(a, text);
   const [span] = await hits(a.pb, "À", [composed.id]);
-  assert.deepEqual(span.snippet, {
-    before: "",
-    match: "A" + "\u0315".repeat(78) + "…" + "\u0315".repeat(79) + "\u0300",
+  assert.deepEqual(span.snippet, { before: "", match: text, after: "" });
+
+  const term = "café".repeat(40);
+  const original = "cafe\u0301".repeat(40);
+  const long = await writeText(a, "a".repeat(80) + original + "b".repeat(80));
+  const [bounded] = await hits(a.pb, term, [long.id]);
+  assert.deepEqual(bounded.snippet, {
+    before: "…" + "a".repeat(32),
+    match: original.slice(0, 79) + "…" + original.slice(-80),
+    after: "b".repeat(32) + "…",
+  });
+}
+
+async function streamSafeSearch() {
+  const a = await account();
+  const note = await writeText(
+    a,
+    "Garden\n" + "q" + "\u0301".repeat(160) + "\u0300 lantern",
+  );
+  const [word] = await hits(a.pb, "LANTERN", [note.id]);
+  assert.equal(word.snippet.match, "lantern");
+
+  const page = await searchPage(a.pb, "\u034f");
+  assert.equal(page.totalItems, 1);
+  assert.deepEqual(
+    page.items.map((r) => r.id),
+    [note.id],
+  );
+  assert.deepEqual(page.items[0].snippet, {
+    before: "Garden\nq" + "\u0301".repeat(24) + "…",
+    match: "",
     after: "",
   });
 }
@@ -1150,6 +1174,7 @@ try {
     ["search word after NUL", nulSearch],
     ["search distant marks", distantMarks],
     ["search composite span", composedSpan],
+    ["stream-safe search fallback", streamSafeSearch],
     ["search literal operands", literalSearch],
     ["search private late hit", searchPrivacy],
     ["search visible source", visibleSearch],

@@ -20,7 +20,7 @@ On the contained pinned server, verify the page index against the actual SQL of 
 
 The projection for the search request excludes full `text`, body, tasks, attachments, user and comparison key. There is no new collection, public route or change to the five access rules.
 
-A normal search returns HTTP 200 with PocketBase’s list envelope. A hit has a nonempty marked string. A first-page miss reports totalItems zero and an empty items array. A caller with B’s valid token and an anonymous caller get the same empty result for A’s unique term. Opening an authorized active note still uses the ordinary detail reader and R3 session checks.
+A normal search returns HTTP 200 with PocketBase’s list envelope. A mapped hit has a nonempty marked string. Under the owner ruling 2026-11-19, matching and highlighting beyond the 30th consecutive combining mark are best effort. If the server selected a row but its stream-safe fold has no original span for the hit, return that row with a plain snippet. Set `before` to the first 32 code points of the original note text, appending one ellipsis if clipped, and set both `match` and `after` to `""`. Render this snippet as plain text, omitting the mark element. Other words in the note retain normal search behavior. A first-page miss reports totalItems zero and an empty items array. A caller with B’s valid token and an anonymous caller get the same empty result for A’s unique term. Opening an authorized active note still uses the ordinary detail reader and R3 session checks.
 
 ## Navigation and focus
 
