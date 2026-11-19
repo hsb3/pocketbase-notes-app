@@ -28,6 +28,7 @@ async function seed(
   adminPassword: string,
   userPassword: string,
   reset = false,
+  overrides: Record<string, string> = {},
 ) {
   const child = Bun.spawn(
     ["sh", "scripts/seed.sh", ...(reset ? ["--reset-passwords"] : [])],
@@ -40,6 +41,7 @@ async function seed(
         PB_PASSWORD: adminPassword,
         SEED_USER_EMAIL: userEmail,
         SEED_USER_PASSWORD: userPassword,
+        ...overrides,
       },
       stdout: "pipe",
       stderr: "pipe",
@@ -55,6 +57,17 @@ async function login(collection: string, identity: string, secret: string) {
     .authWithPassword(identity, secret);
 }
 try {
+  if (process.env.CONTAINED_SEED_CLI === "1") {
+    for (const overrides of [
+      { PB_ENCRYPTION_KEY: crypto.randomUUID().replaceAll("-", "") },
+      { PB_URL: "http://127.0.0.1:8080" },
+    ] as Record<string, string>[]) {
+      const refused = await seed(replacement, replacement, true, overrides);
+      assert.notEqual(refused.code, 0);
+      assert.match(refused.error, /requires the isolated local PocketBase/);
+      await login("_superusers", email, password);
+    }
+  }
   assert.notEqual(
     (await seed(replacement, replacement)).code,
     0,
@@ -67,26 +80,67 @@ try {
     "Default seed must not reset an existing user",
   );
   await login("users", userEmail, password);
-  assert.equal((await seed(password, password)).code, 0);
+  const first = await seed(password, password);
+  assert.equal(first.code, 0, first.error);
   const before = await admin.collection("users").getOne(user.id);
   assert.equal(before.verified, false);
   assert.equal(before.name, "Preserve this name");
-  const entries = await admin
-    .collection("entries")
-    .getFullList({ filter: admin.filter("user = {:id}", { id: user.id }) });
-  assert(entries.length > 0);
+  const owned = {
+    filter: admin.filter("user = {:id}", { id: user.id }),
+    sort: "id",
+  };
+  const folders = admin.collection("folders");
+  const notes = admin.collection("notes");
+  const defaults = await folders.getFullList(owned);
+  assert.equal(defaults.length, 1);
+  assert.equal(defaults[0].is_default, true);
+  const samples = await notes.getFullList(owned);
+  assert.equal(samples.length, 3, "Expected three sample notes");
+  for (const note of samples) {
+    assert.equal(note.folder, defaults[0].id);
+    assert.equal(note.body.type, "doc");
+    assert.equal(note.title, note.body.content[0].content[0].text);
+    assert(note.excerpt.length > 0);
+  }
+  const manualFolder = await folders.create({
+    user: user.id,
+    name: "My folder",
+  });
+  const manual = await notes.create({
+    user: user.id,
+    folder: manualFolder.id,
+    body: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Keep my note" }],
+        },
+      ],
+    },
+  });
   assert.equal((await seed(password, password)).code, 0);
   assert.deepEqual(await admin.collection("users").getOne(user.id), before);
   assert.deepEqual(
-    await admin
-      .collection("entries")
-      .getFullList({ filter: admin.filter("user = {:id}", { id: user.id }) }),
-    entries,
+    (await notes.getFullList(owned)).filter((note) => note.id !== manual.id),
+    samples,
   );
-  assert.equal((await seed(replacement, replacement, true)).code, 0);
+  assert.deepEqual(await notes.getOne(manual.id), manual);
+  assert.deepEqual(await folders.getOne(manualFolder.id), manualFolder);
+  assert.deepEqual(await folders.getOne(defaults[0].id), defaults[0]);
+  for (const note of samples) await notes.delete(note.id);
+  const reset = await seed(replacement, replacement, true);
+  assert.equal(reset.code, 0, reset.error);
+  assert.deepEqual(
+    (await notes.getFullList(owned)).map((note) => note.id),
+    [manual.id],
+    "A manual-only notebook must stay intact on reseed",
+  );
+  assert.deepEqual(await notes.getOne(manual.id), manual);
   await login("_superusers", email, replacement);
   await login("users", userEmail, replacement);
   await assert.rejects(login("users", userEmail, password));
+  await assert.rejects(login("_superusers", email, password));
   const freshEmail = `fresh-admin-${crypto.randomUUID()}@example.test`;
   const freshUserEmail = `fresh-user-${crypto.randomUUID()}@example.test`;
   const fresh = Bun.spawn(["sh", "scripts/seed.sh"], {

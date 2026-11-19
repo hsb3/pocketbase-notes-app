@@ -82,7 +82,7 @@ Keeps secrets (`.env`, `*.pem`, keys/certs), `node_modules`, `pb/data`, and buil
 
 ### `.env.example`
 
-Template for `.env`, including backend credentials, local URLs, seed users, RustFS settings, port/container overrides and test overrides. Comments describe defaults and consumers. Secrets are left empty on purpose: `scripts/init-env.sh` (run by `make app`, `make start`, `make up*` and `make env`) copies the template when `.env` is missing and generates empty secrets without touching values that are set. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
+Template for `.env`, including backend credentials, local URLs, seed users, RustFS settings, port/container overrides and test overrides. `TEST_PB_URL` overrides the backend for `scripts/test-notes.ts`. Secrets are left empty on purpose: `scripts/init-env.sh` (run by `make app`, `make start`, `make up*` and `make env`) copies the template when `.env` is missing and generates empty secrets without touching values that are set. `VITE_*` values are public build-time configuration; the real `.env` is gitignored.
 
 `VITE_AUTH_BYPASS` skips the frontend guard only in development. `VITE_SIGNUP_ENABLED` controls the registration UI at build time and public account creation in the backend at runtime; only the exact value `true` enables it. Sharing, collaboration, AI and offline sync are not implemented and have no enable switch. SMTP/S3 enablement lives in persisted PocketBase settings; `make up-full` configures local providers. Editor capabilities and attachment limits live in code/schema; see [attachment behavior](../features/attachments.md).
 
@@ -230,4 +230,4 @@ The shell entry point forwards arguments to Bun. `make stack-seed` and `make app
 local target, creates missing accounts, verifies logins and seeds an empty notebook.
 `--reset-passwords` explicitly permits changes to the configured seed passwords;
 normal `make start`/`make seed` runs preserve them. `SEED_ARGS` forwards this option
-through the Makefile. `scripts/seed-entries.ts` no longer creates accounts itself.
+through the Makefile. `scripts/seed-notes.ts` uses the signed-in seed account to add sample documents to its default Notes folder only when the account has no notes.
