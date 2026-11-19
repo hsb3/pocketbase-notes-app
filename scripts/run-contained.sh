@@ -204,11 +204,11 @@ else
     '
     exit 0
   fi
-  tests=(node node_modules/playwright/cli.js test)
+  tests=(env CONTAINED_TEST=1 node node_modules/playwright/cli.js test)
   case $profile in
     recover)
       inside browser mkdir -p /tmp/r5-views
-      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/recover.json "${tests[@]}" tests/e2e/note-actions.spec.cjs --workers=1 --retries=0 --reporter=list,html,json)
+      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/recover.json "${tests[@]}" tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs --workers=1 --retries=0 --reporter=list,html,json)
       ;;
     search)
       inside browser mkdir -p /tmp/r4-search-views
@@ -229,7 +229,7 @@ else
     if [[ $profile = search ]]; then
       report=sc004.json views=r4-search-views states=(filled empty)
     else
-      report=recover.json views=r5-views states=(move-sheet delete-note)
+      report=recover.json views=r5-views states=(move-sheet delete-note folder-confirm trash-filled trash-empty)
     fi
     mkdir -p "$output"
     docker cp "$project-browser:/tmp/$report" "$output/$report" || test_status=1
@@ -246,7 +246,10 @@ def cases(suite):
             yield test
     for child in suite.get("suites", []):
         yield from cases(child)
-tests = list(cases(json.load(open(sys.argv[1]))))
+suites = json.load(open(sys.argv[1]))["suites"]
+expected = {"note-actions.spec.cjs", "recently-deleted.spec.cjs"}
+assert {s["file"].split("/")[-1] for s in suites if list(cases(s))} == expected, "Missing R5 suite"
+tests = list(cases({"suites": suites}))
 assert tests and all(t["status"] == "expected" and [r["status"] for r in t["results"]] == ["passed"] for t in tests), "Incomplete R5 browser cases"
 PYREC
       fi
