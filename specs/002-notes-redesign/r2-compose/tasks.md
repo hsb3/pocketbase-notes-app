@@ -60,7 +60,7 @@ Complete all current callers in the same integration branch. A static reference 
 
 - [x] T018 [P] After extracting needed helpers and mounting the replacement, delete all six files in `src/features/entries/` and both in `src/features/tasks/`. Keep private token reads callable via the new module. Remove legacy-only CSS rules from `src/styles/globals.css` where unused. Check the build and knip for callers. (C6)
 
-- [ ] T019 [P] Replace the smoke journey in `tests/e2e/smoke.spec.cjs`. Retarget auth, theme and capability checks to the new landing and menu. Remove `notebook.spec.cjs`, `tasks.spec.cjs`, `attachments.spec.cjs` only once replacement capture, privacy and attachment API coverage exists. Preserve each remaining auth assertion. (C2, C5, C6)
+- [x] T019 [P] Replace the smoke journey in `tests/e2e/smoke.spec.cjs`. Retarget auth, theme and capability checks to the new landing and menu. Remove `notebook.spec.cjs`, `tasks.spec.cjs`, `attachments.spec.cjs` only once replacement capture, privacy and attachment API coverage exists. Preserve each remaining auth assertion. (C2, C5, C6)
 
 - [ ] T020 [P] Retarget `deploy/railway/verify-{app,restore,signup}.ts` and `scripts/test-{deployment-accounts,restore}.ts` to folders, notes and autosave. Preserve attachment proof through the owner API, full source/restore record and byte comparisons, fault-injected failure cleanup and anonymous/cross-owner denials. Exercise local disposable fixtures using the contained targets. Leave real Railway execution to an owner-authorized deployment. (C6)
 

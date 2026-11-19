@@ -40,5 +40,5 @@ test("signup form is disabled by default while existing accounts can log in", as
   await page.locator('input[name="identity"]').fill(session.email);
   await page.locator('input[name="password"]').fill(session.password);
   await page.getByRole("button", { name: "Login", exact: true }).click();
-  await page.waitForURL("**/entries**");
+  await expect(page).toHaveURL("/folders/all");
 });

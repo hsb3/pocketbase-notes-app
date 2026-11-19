@@ -62,19 +62,20 @@ for (const [label, viewport] of [
       const seen = new Set();
       try {
         await signIn(page, session);
-        await expect(page).toHaveURL(/\/entries(?:\?|$)/);
+        await expect(page).toHaveURL("/folders/all");
 
-        const menu = page.getByRole("button", { name: /Jamie/ });
-        if (!(await menu.isVisible()))
-          await page.getByRole("button", { name: "Toggle Sidebar" }).click();
-        await menu.click();
+        if (label === "mobile")
+          await page
+            .getByRole("link", { name: "Folders", exact: true })
+            .click();
+        await page.getByRole("button", { name: /Jamie/ }).click();
         await page.getByRole("menuitem", { name: "Account security" }).click();
         await expect(page).toHaveURL(/\/account$/);
         await expect(page.getByTestId("mfa-status")).toHaveText("Status: Off");
         await setTwoStep(page, session, "On", seen);
 
         await page.goto("/auth/logout");
-        await signIn(page, session, "/entries?view=favorites");
+        await signIn(page, session, "/folders/all?page=2");
         await expect(
           page.getByRole("heading", { name: "Check your email" }),
         ).toBeVisible();
@@ -91,7 +92,10 @@ for (const [label, viewport] of [
         );
         await page.getByLabel("Sign-in code").fill(code);
         await page.getByRole("button", { name: "Verify and sign in" }).click();
-        await expect(page).toHaveURL(/\/entries\?.*view=favorites/);
+        await expect(page).toHaveURL("/folders/all?page=2");
+        await expect(
+          page.getByRole("heading", { name: "All Notes", exact: true }),
+        ).toBeVisible();
         expect(
           await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth,
@@ -104,7 +108,7 @@ for (const [label, viewport] of [
         await setTwoStep(page, session, "Off", seen);
         await page.goto("/auth/logout");
         await signIn(page, session);
-        await expect(page).toHaveURL(/\/entries(?:\?|$)/);
+        await expect(page).toHaveURL("/folders/all");
       } finally {
         if (seen.size)
           await fetch(`${mailpit}/api/v1/messages`, {
@@ -122,7 +126,7 @@ test("unverified accounts are told to verify before turning it on", async ({
   session,
 }) => {
   await signIn(page, session);
-  await expect(page).toHaveURL(/\/entries(?:\?|$)/);
+  await expect(page).toHaveURL("/folders/all");
   const response = await fetch(
     `${process.env.VITE_PB_URL}/api/collections/users/records/${session.account.id}`,
     {
@@ -172,7 +176,7 @@ test("resend waits for the cooldown, then the newest code signs in", async ({
     expect(second).not.toBe(first);
     await page.getByLabel("Sign-in code").fill(second);
     await page.getByRole("button", { name: "Verify and sign in" }).click();
-    await expect(page).toHaveURL(/\/entries(?:\?|$)/);
+    await expect(page).toHaveURL("/folders/all");
   } finally {
     await fetch(`${mailpit}/api/v1/messages`, {
       method: "DELETE",

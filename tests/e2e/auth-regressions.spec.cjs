@@ -16,10 +16,10 @@ for (const target of ["https://example.invalid/", "//example.invalid/"]) {
     await page.goto(`/auth/login?redirect=${encodeURIComponent(target)}`);
     await fillLogin(page, session);
     await page.getByRole("button", { name: "Login", exact: true }).click();
-    await expect(page).toHaveURL(/\/entries(?:\?|$)/);
+    await expect(page).toHaveURL("/folders/all");
     // The already-authenticated route guard must apply the same policy.
     await page.goto(`/auth/login?redirect=${encodeURIComponent(target)}`);
-    await expect(page).toHaveURL(/\/entries(?:\?|$)/);
+    await expect(page).toHaveURL("/folders/all");
   });
 }
 
@@ -44,7 +44,7 @@ test("login remains pending until the real authentication response completes", a
       await route.fulfill({ response });
     },
   );
-  await page.goto("/auth/login?redirect=%2Fentries%3Fview%3Dfavorites");
+  await page.goto("/auth/login?redirect=%2Ffolders%2Fall%3Fpage%3D2");
   await fillLogin(page, session);
   await page.getByRole("button", { name: "Login", exact: true }).click();
   await reached;
@@ -55,7 +55,10 @@ test("login remains pending until the real authentication response completes", a
   } finally {
     release();
   }
-  await expect(page).toHaveURL(/\/entries\?.*view=favorites/);
+  await expect(page).toHaveURL("/folders/all?page=2");
+  await expect(
+    page.getByRole("heading", { name: "All Notes", exact: true }),
+  ).toBeVisible();
 });
 
 test("password reset remains pending until Mailpit delivery completes", async ({
