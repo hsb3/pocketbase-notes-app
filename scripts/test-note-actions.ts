@@ -431,6 +431,24 @@ async function transitions(
     revision: String(revision),
   });
   await act("delete");
+  // A's current revision on a real tombstone: refusal must come from ownership, not a 409.
+  const tomb = await stored(admin, id);
+  const tombRead = await notes.getOne(id);
+  const tombTrash = (await trash()).items;
+  assert.match(String(tomb.deleted), stampShape);
+  assert.equal(tombRead.revision, revision);
+  const ghost = await rejected(
+    send("restore", { revision }, other, missing),
+    404,
+  );
+  assert.equal(
+    await rejected(send("restore", { revision }, other), 404),
+    ghost,
+  );
+  await rejected(send("restore", { revision }, guest), 401);
+  assert.deepEqual(await stored(admin, id), tomb);
+  assert.deepEqual(await notes.getOne(id), tombRead);
+  assert.deepEqual((await trash()).items, tombTrash);
   await rejected(notes.update(id, { revision: revision - 1, body: rich }), 409);
   await rejected(send("move", { revision, folder: source }), 400);
   await rejected(send("delete", { revision }), 400);
@@ -693,6 +711,28 @@ async function transitions(
   await admin.sql.run(
     `UPDATE notes SET deleted='2000-01-01 00:00:00.000Z' WHERE id='${d.id}'`,
   );
+  // A's valid snapshot, other sessions: refusal must come from ownership, not a 409.
+  const folderRead = await folders.getOne(custom.id);
+  const liveRows = await membership();
+  assert.equal((await preview()).snapshot, snapshot);
+  const absent = await rejected(
+    other.collection("folders").delete(missing, { query: { snapshot } }),
+    404,
+  );
+  assert.equal(
+    await rejected(
+      other.collection("folders").delete(custom.id, { query: { snapshot } }),
+      404,
+    ),
+    absent,
+  );
+  await rejected(
+    guest.collection("folders").delete(custom.id, { query: { snapshot } }),
+    404,
+  );
+  assert.deepEqual(await folders.getOne(custom.id), folderRead);
+  assert.deepEqual(await membership(), liveRows);
+  assert.equal((await preview()).snapshot, snapshot);
   assert.equal(await remove(snapshot), true);
   await rejected(remove(snapshot), 404);
   const finalRows = await membership();
