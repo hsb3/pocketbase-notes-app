@@ -1,0 +1,43 @@
+schema_version: "1.0"
+
+extension:
+  id: functionform-gate
+  name: "functionform gate"
+  version: "0.1.0"
+  description: "Runs the project's own gate command after implementation, and a quick gate when the agent stops"
+  author: functionform
+  license: MIT
+
+requires:
+  speckit_version: ">=1.3.0"
+  tools:
+    - name: git
+      required: true
+
+provides:
+  commands:
+    - name: speckit.functionform-gate.run
+      file: commands/run.md
+      description: "Run the project's full gate and report the result"
+    - name: speckit.functionform-gate.stop
+      file: commands/stop.md
+      description: "Quick gate run by the agent's stop event; blocks the stop when it fails"
+  config:
+    - name: "functionform-gate-config.yml"
+      template: "functionform-gate-config.template.yml"
+      description: "The project's full and quick gate commands"
+      required: true
+
+hooks:
+  after_implement:
+    command: speckit.functionform-gate.run
+    optional: false
+    description: "Run the project's full gate after implementation"
+
+events:
+  stop:
+    command: speckit.functionform-gate.stop
+
+tags:
+  - gate
+  - verification
