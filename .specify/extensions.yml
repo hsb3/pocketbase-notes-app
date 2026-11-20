@@ -1,0 +1,14 @@
+installed:
+- functionform-gate
+settings:
+  auto_execute_hooks: true
+hooks:
+  after_implement:
+  - extension: functionform-gate
+    command: speckit.functionform-gate.run
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.functionform-gate.run?
+    description: Run the project's full gate after implementation
+    condition: null

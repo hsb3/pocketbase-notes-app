@@ -45,3 +45,11 @@ ci-artifacts/
 
 # Docs site (VitePress) build output
 .vitepress/dist
+
+# Spec Kit machine-local state (catalog caches, install registry, dev render cache)
+.specify/extensions/.cache/
+.specify/extensions/.backup/
+.specify/extensions/.registry
+.specify/extensions/*/.specify-dev/
+.specify/presets/.cache/
+.specify/workflows/.cache/

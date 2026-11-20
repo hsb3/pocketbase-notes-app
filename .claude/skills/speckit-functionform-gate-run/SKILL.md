@@ -1,0 +1,1 @@
+../../../.specify/extensions/functionform-gate/.specify-dev/agent-commands/claude/speckit-functionform-gate-run/SKILL.md

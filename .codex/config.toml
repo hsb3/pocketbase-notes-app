@@ -23,3 +23,13 @@ enabled = true
 
 [plugins."unified-computer-use@openai-bundled"]
 enabled = true
+
+[[hooks.Stop]]
+matcher = "*"
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = "python3 .specify/events.py speckit.functionform-gate.stop stop 60"
+timeout = 65
+speckit_marker = true
+

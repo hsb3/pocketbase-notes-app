@@ -18,5 +18,20 @@
         "repo": "anthropics/claude-plugins-official"
       }
     }
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.specify/events.py\" speckit.functionform-gate.stop stop 60",
+            "timeout": 65,
+            "__speckit_event__": true
+          }
+        ]
+      }
+    ]
   }
 }
