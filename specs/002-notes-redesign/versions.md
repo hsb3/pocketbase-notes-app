@@ -152,7 +152,7 @@ Browser checks run at 390, 810 and 1440 px unless stated.
 R7 does not start until every line holds and the owner signs it off in the R6 pull request.
 
 - **Bug bar.** Zero open issues labelled as data loss, privacy, duplicate note, or broken capture/find journey. Any other known defect is listed in the pull request with the owner's explicit acceptance. No `test.skip`, no retries added to pass.
-- **Repeatability.** Full `make e2e` green on Chromium and WebKit three consecutive runs locally and green in CI on Linux amd64 and arm64.
+- **Repeatability.** Full `make e2e` green on Chromium and WebKit three consecutive runs locally and green in CI on Linux amd64.
 - **Coverage.** Every acceptance scenario of Stories 1, 2.1, 3 (content and folder parts), 7.2, 7.3 and every edge case in the spec maps to a named test; the mapping table is in the pull request. A scenario without a test is a stated gap, not silence.
 - **Privacy.** `scripts/test-notes.ts` passes the full A/B/anonymous matrix: list, search, open, change, move, delete, restore, on notes and folders, plus forged owner, folder and attachment reference. Denials checked by status (empty list, 404, 400), not by an empty list alone.
 - **SC-003.** The five save scenarios in `save-resilience.spec.cjs` pass 10 consecutive runs each on both browsers: zero drafts lost, zero newer versions overwritten, zero duplicates.

@@ -1,4 +1,5 @@
 const { test, expect } = require("./fixtures.cjs");
+const { doc, ownerData, seedNote } = require("./note-helpers.cjs");
 
 const mailpit = process.env.MAILPIT_URL || "http://127.0.0.1:8025";
 
@@ -61,6 +62,11 @@ for (const [label, viewport] of [
     }) => {
       const seen = new Set();
       try {
+        const owner = await ownerData(session);
+        const oldest = await seedNote(
+          owner,
+          doc("Page two after two-step sign-in"),
+        );
         await signIn(page, session);
         await expect(page).toHaveURL("/folders/all");
 
@@ -72,6 +78,8 @@ for (const [label, viewport] of [
         await page.getByRole("menuitem", { name: "Account security" }).click();
         await expect(page).toHaveURL(/\/account$/);
         await expect(page.getByTestId("mfa-status")).toHaveText("Status: Off");
+        for (let i = 1; i <= 20; i++)
+          await seedNote(owner, doc(`Newer note ${i}`));
         await setTwoStep(page, session, "On", seen);
 
         await page.goto("/auth/logout");
@@ -92,6 +100,11 @@ for (const [label, viewport] of [
         );
         await page.getByLabel("Sign-in code").fill(code);
         await page.getByRole("button", { name: "Verify and sign in" }).click();
+        const rows = page
+          .getByRole("navigation", { name: "Notes" })
+          .getByRole("link");
+        await expect(rows).toHaveCount(1);
+        await expect(rows).toHaveAttribute("href", `/notes/${oldest.id}`);
         await expect(page).toHaveURL("/folders/all?page=2");
         await expect(
           page.getByRole("heading", { name: "All Notes", exact: true }),
