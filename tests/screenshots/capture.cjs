@@ -114,56 +114,230 @@ async function open(page, title) {
     page.getByRole("textbox", { name: "Note", exact: true }),
   ).toContainText(title);
 }
+async function measure(page, name) {
+  const view = await page.evaluate(() => ({
+    width: document.documentElement.clientWidth,
+    overflow:
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+    scrollX,
+    focus:
+      document.activeElement.getAttribute("aria-label") ||
+      document.activeElement.tagName,
+  }));
+  console.log("view", name, JSON.stringify(view));
+  assert.equal(view.overflow, 0);
+  assert.equal(view.scrollX, 0);
+}
+
 async function shot(page, name) {
   await page.mouse.move(0, 0);
   await page.waitForTimeout(500);
+  await measure(page, name);
   await page.screenshot({ path: path.join(out, `${name}.png`) });
   console.log(`captured ${name}.png`);
 }
 
-async function ensureRichNote() {
-  const api = async (p, init = {}, token = "") => {
-    const r = await fetch(`${app}/api/${p}`, {
-      ...init,
-      headers: { "Content-Type": "application/json", Authorization: token },
-    });
-    if (!r.ok) throw new Error(`API ${p}: ${r.status} ${await r.text()}`);
-    return r.json();
-  };
-  const auth = await api("collections/users/auth-with-password", {
-    method: "POST",
-    body: JSON.stringify({ identity: email, password }),
+async function api(p, init = {}, token = "") {
+  const r = await fetch(`${app}/api/${p}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", Authorization: token },
   });
+  if (!r.ok) throw new Error(`API ${p}: ${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+const create = (auth, collection, fields) =>
+  api(
+    `collections/${collection}/records`,
+    {
+      method: "POST",
+      body: JSON.stringify({ user: auth.record.id, ...fields }),
+    },
+    auth.token,
+  );
+
+async function ensureRichNote(auth) {
   const filter = encodeURIComponent(`title = "${richTitle}"`);
   const found = await api(
     `collections/notes/records?filter=${filter}`,
     {},
     auth.token,
   );
-  if (found.totalItems) return;
   const defaults = await api(
     "collections/folders/records?filter=is_default%3Dtrue",
     {},
     auth.token,
   );
   assert.equal(defaults.totalItems, 1);
-  await api(
-    "collections/notes/records",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        user: auth.record.id,
-        folder: defaults.items[0].id,
-        body: richBody,
-      }),
+  const folder = defaults.items[0].id;
+  if (!found.totalItems)
+    await create(auth, "notes", { folder, body: richBody });
+  return folder;
+}
+
+async function recordFlow(page, auth, defaultFolder) {
+  const folder = await create(auth, "folders", { name: "Field notes" });
+  const spring = await create(auth, "notes", {
+    folder: defaultFolder,
+    body: {
+      type: "doc",
+      content: [
+        para(text("Spring planting")),
+        para(text("Sow calendula along the garden path.")),
+      ],
     },
-    auth.token,
+  });
+  const button = (name) => page.getByRole("button", { name, exact: true });
+  const link = (name) => page.getByRole("link", { name, exact: true });
+  const noteRow = (id) => page.locator(`a[href="/notes/${id}"]`);
+  const read = (id) => api(`collections/notes/records/${id}`, {}, auth.token);
+  const editor = page.getByRole("textbox", { name: "Note", exact: true });
+  const saved = page.getByRole("status", { name: "Save status", exact: true });
+  const search = page.getByRole("searchbox", { name: "Search" });
+  const beat = async (state) => {
+    await measure(page, state);
+    await page.waitForTimeout(1000);
+  };
+
+  await page.goto(`${app}/folders/all`);
+  await expect(button("Compose")).toBeVisible();
+  await beat("compose");
+  await button("Compose").click();
+  const title = "Garden plans";
+  const body = "Tomatoes go by the south fence this year.";
+  await editor.pressSequentially(title, { delay: 65 });
+  await editor.press("Enter");
+  await page.keyboard.type(body, { delay: 45 });
+  await expect(saved).toHaveText("Saved");
+  await expect(page).toHaveURL(/\/notes\/[a-z0-9]{15}$/);
+  const gardenId = new URL(page.url()).pathname.split("/").pop();
+  expect(await read(gardenId)).toMatchObject({
+    id: gardenId,
+    title,
+    folder: defaultFolder,
+    body: { type: "doc", content: [para(text(title)), para(text(body))] },
+  });
+  await beat("saved");
+  await button("Back").click();
+  const garden = noteRow(gardenId);
+  await expect(garden).toContainText(title);
+  await garden.click();
+  await expect(editor).toContainText(body);
+  await beat("reopened");
+  await button("Back").click();
+  const query = "south fence";
+  await search.fill(query);
+  await search.press("Enter");
+  await expect(garden.locator("mark")).toHaveText(query);
+  const resultURL = page.url();
+  await beat("search-result");
+  await garden.click();
+  await expect(page).toHaveURL(`${app}/notes/${gardenId}`);
+  await expect(editor).toContainText(body);
+  await beat("opened-result");
+  await button("Back").click();
+  await expect(page).toHaveURL(resultURL);
+  await expect(search).toHaveValue(query);
+  await expect(garden).toBeFocused();
+  await beat("restored-results");
+
+  await button("Clear").click();
+  const springRow = noteRow(spring.id);
+  await springRow.click();
+  await expect(editor).toContainText("Sow calendula");
+  await button("Note actions").click();
+  await page.getByRole("menuitem", { name: /Move/ }).click();
+  const dest = page
+    .getByRole("dialog")
+    .getByRole("button", { name: folder.name, exact: true });
+  await expect(dest).toBeEnabled();
+  await beat("move-sheet");
+  await dest.click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  expect(await read(spring.id)).toMatchObject({
+    id: spring.id,
+    folder: folder.id,
+    deleted: "",
+  });
+
+  const fieldNotes = link(folder.name);
+  await fieldNotes.click();
+  await expect(page).toHaveURL(`${app}/folders/${folder.id}`);
+  await expect(springRow).toContainText(spring.title);
+  await springRow.click();
+  await expect(page).toHaveURL(`${app}/notes/${spring.id}`);
+  await expect(editor).toContainText("Sow calendula");
+  await expect(saved).toHaveText("Saved");
+  await beat("spring-planting");
+  await button("Note actions").click();
+  const remove = page.getByRole("menuitem", { name: /Delete note/ });
+  await expect(remove).toBeVisible();
+  await beat("note-actions");
+  await remove.click();
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText("Delete Spring planting?");
+  await beat("delete-confirmation");
+  await confirm
+    .getByRole("button", { name: "Delete note", exact: true })
+    .click();
+  await expect(page).toHaveURL(`${app}/folders/${folder.id}`);
+  await expect(springRow).toHaveCount(0);
+  expect(await read(spring.id)).toMatchObject({
+    folder: folder.id,
+    deleted: expect.stringMatching(/Z$/),
+  });
+  await beat("deleted");
+  await link("Recently Deleted").click();
+  const restore = button("Restore Spring planting");
+  await expect(restore).toBeEnabled();
+  await beat("recently-deleted");
+  await restore.click();
+  await expect(
+    page.getByText("Restored to Field notes.", { exact: true }),
+  ).toBeVisible();
+  await beat("restored-announcement");
+  await fieldNotes.click();
+  await expect(springRow).toContainText(spring.title);
+  expect(await read(spring.id)).toMatchObject({
+    id: spring.id,
+    folder: folder.id,
+    deleted: "",
+  });
+  await beat("restored-row");
+  await button("Delete folder").click();
+  await expect(confirm).toContainText("1 active note");
+  await beat("folder-confirmation");
+  await confirm
+    .getByRole("button", { name: "Delete folder", exact: true })
+    .click();
+  await expect(page).toHaveURL(`${app}/folders/all`);
+  await expect(search).toBeFocused();
+  await expect(search).toBeInViewport({ ratio: 1 });
+  assert(await search.evaluate((el) => el.matches(":focus-visible")));
+  expect(await read(spring.id)).toMatchObject({
+    id: spring.id,
+    folder: "",
+    deleted: expect.stringMatching(/Z$/),
+  });
+  await beat("all-notes-search-focus");
+  console.log(
+    "verified recording IDs",
+    JSON.stringify({
+      garden: gardenId,
+      spring: spring.id,
+      fieldNotes: folder.id,
+    }),
   );
 }
 
 async function main() {
   fs.mkdirSync(out, { recursive: true });
-  await ensureRichNote();
+  const auth = await api("collections/users/auth-with-password", {
+    method: "POST",
+    body: JSON.stringify({ identity: email, password }),
+  });
+  const defaultFolder = await ensureRichNote(auth);
   const browser = await chromium.launch();
 
   try {
@@ -212,23 +386,7 @@ async function main() {
       videoDir,
       storageState,
     );
-    await page.goto(`${app}/folders/all`);
-    await page.getByRole("button", { name: "Compose" }).click();
-    const editor = page.getByRole("textbox", { name: "Note", exact: true });
-    await editor.pressSequentially("Garden plans", { delay: 65 });
-    await editor.press("Enter");
-    await page.keyboard.type("Tomatoes go by the south fence this year.", {
-      delay: 45,
-    });
-    await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
-      "Saved",
-    );
-    await page.getByRole("button", { name: "Back", exact: true }).click();
-    await open(page, "Garden plans");
-    await expect(editor).toContainText(
-      "Tomatoes go by the south fence this year.",
-    );
-    await page.waitForTimeout(1000);
+    await recordFlow(page, auth, defaultFolder);
     const video = page.video();
     await page.context().close();
     fs.renameSync(await video.path(), path.join(out, "core-loop.webm"));
