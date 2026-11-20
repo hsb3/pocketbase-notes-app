@@ -1,19 +1,32 @@
 # Owner check · physical Safari and timed cross-device capture
 
-**Decision before setup.** Recommend a fresh synthetic stack on the Mac, temporarily bound to its private Wi-Fi IPv4 address. This tests the exact R6 candidate, allows real session invalidation and keeps the existing `notes-play` database separate. Its usual Mac-only address is `http://127.0.0.1:8100` (demo login `user@example.com`, password `user-changeme-123`, two-step off). Loopback on an iPhone addresses the iPhone. Changing only STACK_PORT does not change the bind interface.
+## SC-006 goal card · show this first
 
-A private authenticated HTTPS tunnel to a disposable loopback stack would also support clipboard and encrypted transport, with a tunnel account/client, access controls and iPhone trust to establish first. The Railway URL offers HTTPS but requires a verified matching build and a disposable identity on a real service. Do not run deployment or account drills there. Record the owner's transport choice. Crews run all automated stacks through the contained runner. The owner alone runs the following hands-on session on trusted, non-public Wi-Fi after choosing LAN.
+**On the phone, create Garden and capture a note titled “Seed order” with the body “Buy calendula for the south wall”. On the desktop, find it by its body word and open it.**
 
-**HTTP scope.** The built client defaults to the same origin. Password auth uses the PocketBase browser auth store (local storage, bearer token), independent on each device. The sidebar preference cookie has no Secure requirement. Draft IDs use `crypto.getRandomValues`, available on HTTP. Async clipboard in the conflict dialog needs a secure context. Copy draft, OAuth and MFA email links are outside this phone exercise. HTTP carries the throwaway login and notes in clear on that network. Stop if the WLAN is untrusted or isolates peers. [Web Crypto interface](https://www.w3.org/TR/webcrypto/#crypto-interface) · [Async clipboard](https://www.w3.org/TR/clipboard-apis/#navigator-interface) · [Potentially trustworthy origins](https://www.w3.org/TR/secure-contexts/#is-origin-trustworthy)
+Show only this card once both devices are signed in at All Notes. The observer handles setup, starts the stopwatch at the first action, stops it when the opened desktop note shows the body, and gives no hints. Save the first attempt immediately in the result table, even if it fails or a later guided check fails. Pass requires exactly one match, the correct title, folder and full body, no assistance and ≤120 seconds. Any repeat uses a fresh account and a separate row.
 
-## Start the candidate
+## Choose the transport before setup
 
-Use a Mac terminal at the integrated R6 checkout. Use the commit selected for review; compare the printed SHA with the PR candidate. Start a Bash session with `bash`, then paste this block. Keep that shell for verification and shutdown. Docker Desktop must be running. Use the two URLs and random phone password printed at the end of this block.
+1. Record the owner's explicit transport approval in `$R6_OUT/phone/results.tsv`. The recommended option exposes the disposable candidate to trusted private Wi-Fi. The coordinator can run the start and stop blocks for the owner. The owner performs the phone checks.
+2. Check the network. HTTP sends the disposable password and synthetic writing in clear. Use private authenticated HTTPS to the same candidate if the network is untrusted or isolates devices. An existing Railway build requires verified identity and authorization for invalidation. Leave the phone result pending if that proof is unavailable.
+3. Use the disposable account below. The Mac's ordinary `notes-play` at `http://127.0.0.1:8100` is loopback-only. The password flow uses same-origin PocketBase and local browser storage. Draft IDs use getRandomValues. Clipboard, OAuth and email links have separate requirements. [Web Crypto](https://www.w3.org/TR/webcrypto/#crypto-interface) · [Clipboard](https://www.w3.org/TR/clipboard-apis/#navigator-interface) · [Secure contexts](https://www.w3.org/TR/secure-contexts/#is-origin-trustworthy)
+
+## Start the candidate · operator instructions
+
+1. Get the absolute evidence folder path from the coordinator. It contains `w6.sha` from the completed machine proof.
+2. Open Bash on the Mac with Docker running.
+3. Paste the preparation block. Enter the evidence path at the prompt. It exports the exact recorded Git commit to a new directory and prints each published port. A mismatched map aborts before startup.
 
 ```bash
 set -euo pipefail
-R6_SHA=$(git rev-parse HEAD)
-R6_ROOT=$(git rev-parse --show-toplevel)
+umask 077
+read -r -p 'R6 evidence folder: ' R6_OUT
+test -d "$R6_OUT" && test -s "$R6_OUT/w6.sha" || exit 1
+R6_SHA=$(cat "$R6_OUT/w6.sha")
+R6_ROOT=/Users/henry/Developer/pocketbase-notes-app/.worktrees/r6-gate
+[[ $R6_SHA =~ ^[0-9a-f]{40}$ ]]
+test "$(git -C "$R6_ROOT" rev-parse --verify "$R6_SHA^{commit}")" = "$R6_SHA"
 R6_WIFI=$(networksetup -listallhardwareports | awk '/Hardware Port: (Wi-Fi|AirPort)/ {getline; print $2; exit}')
 R6_LAN=$(ipconfig getifaddr "${R6_WIFI:?Wi-Fi interface required}")
 python3 - "$R6_LAN" <<'PY'
@@ -21,12 +34,13 @@ import ipaddress, sys
 ip = ipaddress.IPv4Address(sys.argv[1])
 assert any(ip in ipaddress.ip_network(n) for n in ('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')), 'Use trusted private Wi-Fi'
 PY
-umask 077
-mkdir -p /private/tmp/agents/pocketbase-notes-app/owner-r6-phone
+mkdir -p /private/tmp/agents/pocketbase-notes-app/owner-r6-phone "$R6_OUT/phone"
 R6_DIR=$(mktemp -d /private/tmp/agents/pocketbase-notes-app/owner-r6-phone/session.XXXXXXXX)
 git -C "$R6_ROOT" archive "$R6_SHA" | tar -x -C "$R6_DIR"
 cd "$R6_DIR"
-R6_PROJECT=r6-phone-$(openssl rand -hex 4)
+R6_PROJECT=r6-phone-$(openssl rand -hex 8)
+printf '%s\n' "$R6_PROJECT" > phone.project
+printf 'Candidate %s\nSession directory %s\nProject %s\n' "$R6_SHA" "$R6_DIR" "$R6_PROJECT" | tee "$R6_OUT/phone/$R6_PROJECT.txt"
 R6_LOGIN=r6-phone@example.test
 R6_PASS=$(openssl rand -hex 12)
 R6_NEXT=$(openssl rand -hex 12)
@@ -38,32 +52,75 @@ services:
       - "$R6_LAN:8216:8080"
 YAML
 make env
-phone_compose() {
-  docker compose --project-directory . -p "$R6_PROJECT" -f deploy/local/docker-compose-stack.yml -f phone.yml "$@"
-}
 export STACK_PORT=8216 STACK_MAILPIT_PORT=8217 STACK_RUSTFS_CONSOLE_PORT=8218
 export SEED_USER_EMAIL="$R6_LOGIN" SEED_USER_PASSWORD="$R6_PASS"
-phone_compose config --quiet
+phone_compose() {
+  docker compose --project-directory "$R6_DIR" -p "$R6_PROJECT" -f "$R6_DIR/deploy/local/docker-compose-stack.yml" -f "$R6_DIR/phone.yml" "$@"
+}
+phone_compose --profile setup config --format json | python3 -c '
+import json,sys
+actual=sorted((s,p.get("host_ip",""),str(p["published"]),p["target"]) for s,v in json.load(sys.stdin)["services"].items() for p in v.get("ports",[]))
+for row in actual: print(*row)
+assert actual==sorted([("pocketbase","127.0.0.1","8216",8080),("pocketbase",sys.argv[1],"8216",8080),("mailpit","127.0.0.1","8217",8025),("rustfs","127.0.0.1","8218",9001)])' "$R6_LAN" | tee "$R6_OUT/phone/$R6_PROJECT.ports"
+```
+
+4. Check the displayed map. Only PocketBase should appear on Wi-Fi port 8216. Mac loopback should list ports 8216, 8217 and 8218.
+5. Paste the start block in the same Bash session after approval. It installs project-scoped cleanup before building. Success prints two login URLs and a disposable password. Keep this shell open for the password change.
+
+```bash
+trap 'phone_compose --profile setup down' EXIT
+trap 'exit 130' INT
+trap 'exit 143' HUP TERM
 phone_compose --profile setup build
 phone_compose up -d --wait --wait-timeout 90
 phone_compose run --rm storage-init
 phone_compose run --rm setup bun scripts/configure-services.ts
 phone_compose run --rm setup bun scripts/seed.ts
 curl -fsS "http://$R6_LAN:8216/api/health"
-printf '\nCandidate %s | project %s\nMac http://127.0.0.1:8216/auth/login\niPhone http://%s:8216/auth/login\nLogin %s / %s\n' "$R6_SHA" "$R6_PROJECT" "$R6_LAN" "$R6_LOGIN" "$R6_PASS"
+printf '\nMac http://127.0.0.1:8216/auth/login\niPhone http://%s:8216/auth/login\nLogin %s / %s\n' "$R6_LAN" "$R6_LOGIN" "$R6_PASS"
 ```
 
-Compose must support `!override`. Only PocketBase gains a LAN mapping. Mailpit and the storage console remain loopback. On iPhone join the same Wi-Fi, open the printed LAN URL in Safari and sign in. On desktop sign in separately to the printed Mac URL. Start at All Notes on both, with no Garden folder in this fresh account. Record hardware, OS, browser versions, SHA, network and date. A connection error, wrong candidate or missing device leaves the hands-on lines **not tested**.
+## Begin the owner session
 
-## SC-006 · run this first
+1. Join the approved Wi-Fi network on the iPhone.
+2. Sign in at the printed iPhone URL in Safari. All Notes should open.
+3. Sign in at the printed Mac URL in a desktop browser. The same account should open with no Garden folder.
+4. Complete the goal card at the top of this page without viewing the guided checks.
+5. Have the observer save the first result before continuing.
 
-Give the owner only this goal during the timed exercise. Put a stopwatch beside the devices, hide the following physical-check instructions and provide no hints. Start at the first action after sign-in. **On the phone, create Garden and capture a note titled “Seed order” with the body “Buy calendula for the south wall”. On the desktop, find it by the body word and open it.** Stop when the actual desktop note and body are visible. Record seconds, assistance and number of results. Pass requires one correct result in Garden, exact words, elapsed ≤120 seconds and no assistance. Keep the first attempt including failures. Any later attempt gets its own row. Use a fresh synthetic account/stack for a repeat.
+## Guided check · keyboard and autosave
 
-## Physical phone · guided verification
+1. Open Garden on the iPhone. Its note list should appear.
+2. Tap Compose once. The software keyboard should open with the caret in the editor.
+3. Type `Keyboard check` followed by several lines. The latest line should remain visible above the keyboard.
+4. Dismiss the keyboard. The last line should remain readable and **Saved** should appear.
+5. Open the note on desktop. The words should match the phone.
 
-1. In Safari open Folders → Garden → Compose. Tap Compose **once** and type `Keyboard check`, Return, then several lines. The software keyboard opens without a second tap, the caret and latest typed line stay above it. Dismiss the keyboard, check the final line is readable and the note remains selected. Wait for Saved. On desktop open the same note and compare the words.
-2. On the phone select all writing in this saved test note and clear it. With no attachment, saving must report the validation problem. Tap the app's Back button, choose **Keep editing**, type `Recovered after leave`, wait for Saved and reopen. Pass requires a real leave prompt, retained local state and the repaired text on the desktop after reload. For a native leave check, while the saved note is again invalid and dirty, attempt a Safari reload, choose to stay if prompted, and record the actual Safari behavior separately. If Safari navigates away, record failure/limitation and recreate the synthetic test note for the next step.
-3. With the phone editing a saved note, use this block in the same Mac shell to invalidate **only the throwaway user** as in the automated expiry test. Keep the Safari tab open. The Mac loopback stack targets the correct project through the shell function. Do not use a saved admin login or reset the notes-play user.
+## Guided check · leave and repair
+
+1. Clear the writing in the saved phone note. An error should say the note needs writing or an attachment.
+2. Tap the app's Back control. A leave prompt should appear.
+3. Tap **Keep editing**. The empty draft should still be open.
+4. Type `Recovered after leave`. The local text should reappear.
+5. Tap **Retry**. The repaired draft should start saving.
+6. Wait for **Saved**. The repaired note is ready for the desktop check.
+
+## Guided check · desktop read and native reload
+
+1. Reload the note on desktop. It should show `Recovered after leave`.
+2. Clear the phone note again. The validation error should appear.
+3. Attempt a Safari reload. Record whether Safari offers a native prompt.
+4. Choose to stay if prompted. Record what writing remains. A missing prompt or a navigation is an observation to retain.
+5. Return to the list. If the app guards departure, choose the explicit discard option for this disposable edit. The saved desktop copy should still exist.
+
+## Guided check · prepare a fresh expiry note
+
+1. Tap Compose on the phone. A fresh editor should open.
+2. Enter a two-line note. Use `Expiry check` followed by the printed project name as the title, and `Before expiry` as the body.
+3. Wait for **Saved**. Leave the phone on that note.
+4. Open that uniquely titled note on desktop. Its body should say `Before expiry`.
+5. Record the desktop note URL/ID. This identifies the saved, valid note for the expiry check.
+6. Have the operator paste this block in the original Mac shell. It changes the disposable account's password and prints its replacement.
 
 ```bash
 phone_compose run --rm -e R6_NEXT="$R6_NEXT" setup bun -e '
@@ -75,15 +132,49 @@ await pb.collection("users").update(u.id, {password: process.env.R6_NEXT, passwo
 printf 'Temporary replacement password: %s\n' "$R6_NEXT"
 ```
 
-4. On the phone append `Held for this account` and pause. The now-invalid session must lead to sign-in with the private writing hidden. If a **Sign in** action is offered, tap it. Reauthenticate there as `r6-phone@example.test` with the replacement password. The same note and latest unsaved words must return. Tap **Retry** if offered, wait for Saved, sign in again on desktop and reopen. Pass requires exactly one note with the full repaired text and appended words. Record the actual sequence, including any failure. This proves recovery from server invalidation; no token editing or browser emulation.
-5. Stop only this stack from the same shell when finished. `phone_compose down` removes its containers and network, stops LAN exposure and retains the disposable volumes. Record the project for later owner cleanup. The unrelated notes-play stack continues to use its original port.
+## Guided check · recover the same writing
 
-| Date/time and time zone | Candidate SHA and project | Device, OS, browser/version; desktop pairing | Check | Observed result / seconds / evidence | Pass, fail or not tested |
-|---|---|---|---|---|---|
-| | | | SC-006 first unaided attempt | | |
-| | | | Caret, keyboard open/dismissed, text visible | | |
-| | | | Autosave and independent desktop read | | |
-| | | | In-app leave guard and native leave observation | | |
-| | | | Expiry, same-account draft restoration and final read | | |
+1. Append a line `Held for this account` on the phone. When the save reaches the server, the private draft should disappear behind sign-in.
+2. Tap **Sign in** if offered. The sign-in form should appear.
+3. Sign in as `r6-phone@example.test` with the replacement password. The same note and latest words should return.
+4. Tap **Retry**. The held edit should start saving.
+5. Wait for **Saved**. The edit should now be available on both devices.
 
-Omit credentials from the record. Copy the completed table into the R6 PR and link the evidence from the gate ledger. Any loss or inaccessible capture/find step goes to the bug bar. Android, VoiceOver, external keyboards, OAuth and the future formatting bar retain their separate verification status. [Manual release checks](../../../docs/testing/verification.md#remaining-manual-release-checks)
+## Guided check · confirm the recovered note on desktop
+
+1. Sign back in on desktop using the replacement password. All Notes should open.
+2. Search for the unique title. There should be exactly one match.
+3. Open the match. The note ID should match the earlier URL and both body lines should be intact.
+
+## Stop the stack · works from a new shell
+
+1. Get the session directory from the printed setup receipt in `$R6_OUT/phone/r6-phone-*.txt` for this project.
+2. Open a new Bash shell.
+3. Paste the stop block. Enter that session directory at the prompt. Compose stops only the recorded project and retains its volumes. An empty container listing confirms the LAN listener has stopped.
+
+```bash
+set -euo pipefail
+read -r -p 'Phone session directory: ' R6_DIR
+cd "$R6_DIR"
+R6_PROJECT=$(cat phone.project)
+[[ $R6_PROJECT =~ ^r6-phone-[0-9a-f]{16}$ ]]
+docker compose --project-directory . -p "$R6_PROJECT" -f deploy/local/docker-compose-stack.yml -f phone.yml --profile setup down
+remaining=$(docker ps -q --filter "label=com.docker.compose.project=$R6_PROJECT")
+test -z "$remaining"
+printf 'Stopped %s. Volumes retained.\n' "$R6_PROJECT"
+```
+
+## Result table
+
+Record rows in `$R6_OUT/phone/results.tsv`. Add date/time zone, W6 SHA, project, transport approval, device, OS, Safari version, paired desktop/browser and observer to each row. Omit passwords. Record actual outcomes, including failed or untested cells.
+
+| Check | Observation / saved ID | Seconds | Assistance given (none or exact hint) | Match count | Pass / fail / not tested |
+|---|---|---:|---|---:|---|
+| SC-006 first attempt | Title, body and folder | | | | |
+| Keyboard and caret before/after dismissal | | — | | — | |
+| Autosave and desktop read | | — | | — | |
+| In-app leave, Retry and desktop read | | — | | — | |
+| Native reload observation | | — | | — | |
+| Expiry, restored words and independent final read | | — | | | |
+
+Copy the results into the PR. Missing physical evidence leaves the relevant gate open. A lost draft or inaccessible capture/find step returns to G1. [Manual release checks](../../../docs/testing/verification.md#remaining-manual-release-checks)
