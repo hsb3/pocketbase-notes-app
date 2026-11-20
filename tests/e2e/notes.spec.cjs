@@ -367,7 +367,19 @@ test("rich paste and private image survive a body-only save and reopen", async (
   await login(page, session);
   await page.goto(`/notes/${note.id}`);
   const last = editor(page).locator(":scope > p").last();
+  // ProseMirror takes the browser caret on selectionchange after the click.
+  await last.evaluate((p) => {
+    function onSelectionChange() {
+      const selection = document.getSelection();
+      if (selection?.isCollapsed && p.contains(selection.anchorNode)) {
+        p.caretReadyForPaste = true;
+        document.removeEventListener("selectionchange", onSelectionChange);
+      }
+    }
+    document.addEventListener("selectionchange", onSelectionChange);
+  });
   await last.click();
+  await expect(last).toHaveJSProperty("caretReadyForPaste", true);
   await last.evaluate((p) => {
     const data = new DataTransfer();
     data.setData("text/html", "<p><strong>Seed</strong> <em>order</em></p>");
