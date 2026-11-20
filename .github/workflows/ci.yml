@@ -79,7 +79,8 @@ jobs:
           - arch: amd64
             runner: ubuntu-24.04
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
+    # Tests take about 18 minutes; a slow browser install has taken 13.
+    timeout-minutes: 40
     env:
       CI: 'true'
     steps:
