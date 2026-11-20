@@ -297,12 +297,15 @@ function journeys(width, height) {
     for (const theme of ["light", "dark"]) {
       await p.goto("/folders");
       await press(p.getByRole("button", { name: /Jamie/ }));
-      await press(
-        p.getByRole("menuitemradio", {
-          name: theme === "light" ? "Light" : "Dark",
-          exact: true,
-        }),
-      );
+      const accountMenu = p.getByRole("menu");
+      await expect(accountMenu).toBeVisible();
+      const choice = accountMenu.getByRole("menuitemradio", {
+        name: theme === "light" ? "Light" : "Dark",
+        exact: true,
+      });
+      await press(choice);
+      await expect(choice).toBeChecked();
+      await expect(p.locator("html")).toHaveCSS("color-scheme", theme);
       await p.keyboard.press("Escape");
       await p.goto("/folders/" + owner.folder);
       await press(rowOf(p, note));
