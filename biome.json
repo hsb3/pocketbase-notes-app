@@ -22,7 +22,8 @@
       "!**/.claude/skills/**",
       "!**/.specify/**",
       "!**/test-results/**",
-      "!**/playwright-report/**"
+      "!**/playwright-report/**",
+      "!!**/.worktrees"
     ]
   },
   "tailwind": {
