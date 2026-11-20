@@ -272,7 +272,8 @@ function journeys(width, height) {
     });
     for (const theme of ["light", "dark"]) {
       await p.goto("/folders");
-      await activate(p, p.getByRole("button", { name: /Jamie/ }));
+      const account = p.getByRole("button", { name: /Jamie/ });
+      await activate(p, account);
       // The theme is only set up here; a click waits for the menu to settle.
       const choice = p.getByRole("menuitemradio", {
         name: theme === "light" ? "Light" : "Dark",
@@ -282,6 +283,7 @@ function journeys(width, height) {
       await expect(p.locator("html")).toHaveCSS("color-scheme", theme);
       if (await choice.isVisible()) await p.keyboard.press("Escape");
       await expect(choice).toBeHidden();
+      await expect(account).toBeFocused();
       await activate(p, link(p, garden.name));
       await expect(p.getByRole("heading", { name: garden.name })).toBeVisible();
       const entry = await historyEntry(p);
@@ -817,10 +819,24 @@ function journeys(width, height) {
           },
           { times: 1 },
         );
-        await activate(p, isPreview ? trigger(p) : link(p, "Recently Deleted"));
+        if (isPreview) await folderDialog(p);
+        else await activate(p, link(p, "Recently Deleted"));
         await reading.wait;
-        if (isPreview) await p.keyboard.press("Escape");
-        if (width === 390) await activate(p, link(p, "Folders"));
+        if (isPreview) {
+          const dialog = p.getByRole("alertdialog");
+          await expect(dialog.getByRole("status")).toHaveText(
+            "Loading preview…",
+          );
+          await p.keyboard.press("Escape");
+          await expect(dialog).toHaveCount(0);
+          await expect(trigger(p)).toBeFocused();
+        }
+        if (width === 390) {
+          await activate(p, link(p, "Folders"));
+          await expect(
+            p.getByRole("region", { name: "Folders", exact: true }),
+          ).toBeVisible();
+        }
         await secondOwner(session, async (other) => {
           const b = await ownerData(other);
           const bNote = await seedNote(b, doc("Second notebook"));
