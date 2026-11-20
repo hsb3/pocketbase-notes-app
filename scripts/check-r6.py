@@ -51,6 +51,7 @@ def attachment(result, name, label):
 def compose(result, engine):
     trials = {}
     for line in "".join(s.get("text", "") for s in result["stdout"]).splitlines():
+        line = re.sub(r"\x1b\[[0-9;]*m", "", line)
         match = re.fullmatch(r"SC-001 (\w+) (\d+) (.+)", line)
         if not match:
             continue
