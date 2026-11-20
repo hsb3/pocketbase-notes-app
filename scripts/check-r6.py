@@ -215,7 +215,7 @@ def policy(mode, root):
     commands = [line.strip() for name, body in zip(jobs[1::2], jobs[2::2])
                 if name in ("e2e", "recover") for line in body.splitlines()
                 if re.search(r'playwright test|bun run test:e2e|make test-browser-contained|run-contained\.sh'
-                             r'|--(?:retries|grep|project|shard|last-failed)\b', line)]
+                             r'|--(?:retries|grep(?:-invert)?|project|shard|last-failed)(?=[=\s]|$)', line)]
     if mode == "inherited":
         expected = ["run: bun run test:e2e",
                     "VITE_SIGNUP_ENABLED=true PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/signup-enabled "
