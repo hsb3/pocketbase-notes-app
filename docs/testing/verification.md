@@ -33,10 +33,23 @@ Choose one profile per invocation, for example `make test-api-contained CONTAINE
 | `test-browser-contained` | `recover` | Exercise note moves, note and folder deletion, restore, interrupted replies and keyboard focus. Retains the [recovery report and screenshots](#move-delete-and-restore). |
 | `test-browser-contained` | `operator` | Run the operator commands against local services, including autosave, file access, failed-write cleanup, signup policy and Mailpit email. |
 | `test-browser-contained` | `signup`, `signup-disabled` | Exercise registration with the selected policy in Chromium and WebKit. Enabled signup sets both the frontend build flag and the backend runtime flag. |
-| `test-browser-contained` | `performance` | Short Chromium production benchmark. Copies the report under `test-results/<project>/performance/`. |
+| `test-browser-contained` | `performance` | Chromium editor loading benchmark and [Chromium/WebKit flicker measurements](#note-list-and-editor-continuity). Copies the report under `test-results/<project>/performance/`. |
 | `test-browser-contained` | `screenshots` | Seed a notebook and capture the responsive workspace. Copies images and video under `test-results/<project>/screenshots/`. Host FFmpeg renders the phone strip and GIF. |
 
 To regenerate the checked-in PocketBase types, run `scripts/run-contained.sh codegen`. This uses a seeded disposable stack, compares two generations and copies the result to `src/services/pocketbase-types.ts`. The default API gate only compares.
+
+### Note list and editor continuity
+
+Run the contained profile, then pass the directory printed after `Performance smoke report` to the scorer (Python 3.10+).
+
+```sh
+CONTAINED_PROFILE=performance scripts/run-contained.sh browser
+python3 scripts/score-flicker.py PATH_TO_PRINTED_REPORT_DIRECTORY --gate
+```
+
+Chromium and WebKit each run three trials on ordinary loopback and three with 120 ms added to note reads. In the delayed trials, seven keys are typed while a successful save reply is held. The CSV contains one row per save, warm note switch and confirmed move. It reports list, untouched row and editor identity changes, loading placeholders seen during animation frames, key timings and frame gaps. The HTML report also includes a Chromium filmstrip for the first trial in each condition. Headless frame callbacks and screenshots cannot establish what reached a physical display or how a screen reader announced the change.
+
+Measurement cases can pass while the notebook flickers. Omit `--gate` for CSV alone. With it, the scorer exits 1 if a save or move loses list or editor continuity, or a warm switch samples a full-pane loading placeholder. **The verdict is non-gating and red by design until the flicker fix lands.** The fix task makes this check required. [Notebook flicker on save, switch and move (#57)](https://github.com/hsb3/pocketbase-notes-app/issues/57)
 
 ### Save recovery
 
