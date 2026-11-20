@@ -33,9 +33,16 @@ TEST_K6_IMAGE=$(awk '/image: grafana\/k6:/ {print $2}' tests/load/compose.load.y
 compose=(docker compose --env-file /dev/null --project-directory . -p "$project"
   -f deploy/local/docker-compose-stack.yml -f deploy/local/docker-compose-test.yml)
 label="label=com.docker.compose.project=$project"
+full_output=
 cleanup() {
-  local status=$? ids id remaining
+  local status=$? ids id remaining item
   trap - EXIT
+  if [[ -n $full_output ]]; then
+    mkdir -p "$full_output" || status=1
+    for item in full.list.json full.json journey; do
+      docker cp "$project-browser:/tmp/$item" "$full_output/" || status=1
+    done
+  fi
   # Docker lists newest first, so namespace users are removed before PocketBase.
   ids=$(docker ps -aq --filter "$label") || status=1
   for id in $ids; do
@@ -206,6 +213,12 @@ else
   fi
   tests=(env CONTAINED_TEST=1 node node_modules/playwright/cli.js test)
   case $profile in
+    default)
+      full_output=$output
+      inside browser mkdir -p /tmp/journey
+      inside browser env R6_JOURNEY_DIR=/tmp/journey PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/full.list.json "${tests[@]}" --list --reporter=json
+      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/full.json R6_JOURNEY_DIR=/tmp/journey "${tests[@]}" --reporter=list,html,json)
+      ;;
     recover)
       inside browser mkdir -p /tmp/r5-views
       tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/recover.json "${tests[@]}" tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs --workers=1 --retries=0 --reporter=list,html,json)
