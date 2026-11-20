@@ -119,11 +119,11 @@ email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_UR
 ### `playwright.config.ts`
 
 Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium and WebKit execution,
-failure traces and screenshots. By default the suite excludes `registration-enabled.spec.cjs` and checks that signup is closed. With `VITE_SIGNUP_ENABLED=true`, it selects only that file and expects a working registration form and a real account creation. `TEST_APP_URL` selects the built app for the contained suite and the hosted default E2E phase. If unset, Playwright starts Vite for development scenarios. See [testing](../testing/verification.md).
+failure traces and screenshots. By default the suite excludes `registration-enabled.spec.cjs` and checks that signup is closed. With `VITE_SIGNUP_ENABLED=true`, it selects only that file and expects a working registration form and a real account creation. `TEST_APP_URL` selects the built app for the contained suite and the hosted default E2E phase. If unset, Playwright starts Vite for development scenarios. Plain runs use the production purge schedule and exclude the twelve `@ageing` cases. The default contained run and the parallel amd64 recovery job set `CONTAINED_TEST=1` to include them. Recovery runs both note-action and recently-deleted files in full and archives discovery and first-attempt results. See [testing](../testing/verification.md).
 
 ### `.github/`
 
-Workflows: `ci.yml` (Quality, Docs links, Workflow lint, native amd64 E2E),
+Workflows: `ci.yml` (Quality, Docs links, Workflow lint, native amd64 E2E and Recover),
 `codeql.yml` (code scanning), `docs.yml` (builds the docs site; deploys it to Pages
 from `main`), `performance.yml` (manual editor baseline) and `release.yml` (publishes a
 GitHub release from a `v*` tag, using `.github/scripts/release-notes.sh`). `dependabot.yml`

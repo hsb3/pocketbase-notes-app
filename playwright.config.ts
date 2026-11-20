@@ -29,6 +29,7 @@ export default defineConfig({
   })),
   testMatch: signup ? enabledSignup : "**/*.spec.cjs",
   testIgnore: signup ? [] : enabledSignup,
+  grepInvert: process.env.CONTAINED_TEST === "1" ? undefined : /@ageing/,
   timeout: 120_000,
   expect: { timeout: 10_000 },
   workers: 1,

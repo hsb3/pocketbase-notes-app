@@ -165,3 +165,30 @@ jobs:
           if [ -f .env ]; then
             make down-full
           fi
+
+  recover:
+    name: Recover (amd64)
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run contained recovery tests
+        run: CONTAINED_PROFILE=recover make test-browser-contained
+      - name: Collect recovery reports
+        if: always()
+        run: |
+          mkdir -p ci-artifacts/recover
+          cp test-results/notes-test-*/recover*.json ci-artifacts/recover/
+          test -s ci-artifacts/recover/recover.list.json
+          test -s ci-artifacts/recover/recover.json
+      - name: Save recovery reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: recover-amd64
+          path: ci-artifacts/
+          retention-days: 7
+          if-no-files-found: error

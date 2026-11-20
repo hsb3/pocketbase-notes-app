@@ -113,26 +113,38 @@ def journey(cases, directory, engine, width, theme):
         print(cell, data)
 
 
-def full(base, mode, directory):
-    require(mode in ("baseline", "journey", "transition"), mode)
+def baseline(base):
     raw = Path(base).read_bytes()
     require(hashlib.sha256(raw).hexdigest() ==
             "5abdf3b192ab5f91e8ad515f9de06c27c61ca4ac8548d7a9699075b93aca0721", "Wrong baseline")
-    expected = {(f, tuple(t), e) for f, t, e in map(json.loads, raw.splitlines())}
+    return {(f, tuple(t), e) for f, t, e in map(json.loads, raw.splitlines())}
+
+
+def pair(directory, name, expected, early=False):
+    directory = Path(directory)
+    for filename in (name + ".list.json", name + ".json"):
+        cases = inventory(directory / filename)
+        require(cases.keys() == expected,
+                f"{filename}: missing {sorted(expected - cases.keys())}; unexpected {sorted(cases.keys() - expected)}")
+    for k, test in cases.items():
+        skip = early and k[0] == ROOT + "registration-enabled.spec.cjs"
+        status = "skipped" if skip else "passed"
+        require(test["expectedStatus"] == status and test["status"] == ("skipped" if skip else "expected")
+                and [(r["status"], r["retry"]) for r in test["results"]] == [(status, 0)], k)
+    skips = sum(t["status"] == "skipped" for t in cases.values())
+    print(f"{name}: {len(cases)} keys, {len(cases)-skips} passed once, {skips} skipped")
+    return cases
+
+
+def full(base, mode, directory):
+    require(mode in ("baseline", "journey", "transition"), mode)
+    expected = baseline(base)
     if mode != "baseline":
         expected.update(journey_key(e, w, t) for e in ENGINES for w in WIDTHS for t in THEMES)
     if mode == "transition":
         expected = {k for k in expected if k[0] != ROOT + "registration-enabled.spec.cjs"}
     directory = Path(directory)
-    for filename in ("full.list.json", "full.json"):
-        cases = inventory(directory / filename)
-        require(cases.keys() == expected,
-                f"{filename}: missing {sorted(expected - cases.keys())}; unexpected {sorted(cases.keys() - expected)}")
-    for k, test in cases.items():
-        skip = k[0] == ROOT + "registration-enabled.spec.cjs"
-        status = "skipped" if skip else "passed"
-        require(test["expectedStatus"] == status and test["status"] == ("skipped" if skip else "expected")
-                and [(r["status"], r["retry"]) for r in test["results"]] == [(status, 0)], k)
+    cases = pair(directory, "full", expected, early=mode != "transition")
     for e in ENGINES:
         compose(cases[key("compose-timing", "SC-001 warm Compose accepts one scheduled key per tap", e)]["results"][0], e)
         for w in WIDTHS:
@@ -140,12 +152,25 @@ def full(base, mode, directory):
             if mode != "baseline":
                 for t in THEMES:
                     journey(cases, directory, e, w, t)
-    skips = sum(t["status"] == "skipped" for t in cases.values())
-    print(f"{len(cases)} keys, {len(cases)-skips} passed once, {skips} skipped")
+    return expected
+
+
+def compare(base, full_dir, plain, signup, recover):
+    default = full(base, "transition", full_dir)
+    pinned = baseline(base)
+    ageing = {(ROOT + "recently-deleted.spec.cjs", (f"Folder recovery at {w}px", title), e)
+              for w in WIDTHS for e in ENGINES for title in (
+                  "fresh decision after 409, authoritative 410 and elapsed deadline",
+                  "restore held command receives genuine 404 after a competing removal")}
+    require(ageing <= pinned, "Ageing cases missing from baseline")
+    pair(plain, "plain", default - ageing)
+    pair(signup, "signup", pinned - default)
+    pair(recover, "recover", {k for k in pinned if k[0] in
+         (ROOT + "note-actions.spec.cjs", ROOT + "recently-deleted.spec.cjs")})
 
 
 def policy(mode, root):
-    require(mode in ("inherited", "transition"), mode)
+    require(mode in ("inherited", "transition", "final"), mode)
     root = Path(root)
     guards = {
         "registration-enabled": [('process.env.VITE_SIGNUP_ENABLED !== "true"', "Run the explicit signup-enabled check.")],
@@ -154,6 +179,8 @@ def policy(mode, root):
     }
     if mode == "transition":
         del guards["registration-enabled"]
+    if mode == "final":
+        guards.clear()
     for path in [*root.glob("tests/e2e/*.spec.cjs"), root / "tests/performance/editor.spec.cjs",
                  root / "playwright.config.ts", root / "playwright.performance.config.ts"]:
         source = path.read_text()
@@ -162,7 +189,8 @@ def policy(mode, root):
             source, count = re.subn(pattern, "", source)
             require(count == 1, f"{path}: expected one {condition}")
         for match in re.finditer(r'\btest(?:\s*\.\s*\w+)*\s*\.\s*(?:skip|fixme|only|fail(?:ing)?)\b'
-                                 r'|\bretries\s*:[^,}\n]+', source):
+                                 r'''|['"]?retries['"]?\s*:\s*[^,}\n]+'''
+                                 r'|\btype\s*:\s*["\'](?:skip|fixme|fail)["\']', source):
             require(re.fullmatch(r'retries\s*:\s*0\s*', match[0]), f"{path}: {match[0]}")
     package = json.loads((root / "package.json").read_text())["scripts"]
     for name, command in [("test:e2e", "bun run test:api && playwright test"),
@@ -177,12 +205,17 @@ def policy(mode, root):
         "", *SIGNUP_COMMANDS, *reports, *PROFILE_COMMANDS,
     ]
     expected = ["tests=(env CONTAINED_TEST=1 node node_modules/playwright/cli.js test", *selection, "|| test_status=$?"]
+    if mode == "final":
+        expected = ['tests=(env "${browser_env[@]}" node node_modules/playwright/cli.js test', "",
+                    "tests+=(" + RECOVER,
+                    *SIGNUP_COMMANDS, *reports, *PROFILE_COMMANDS[1:], "|| test_status=$?"]
     require(commands == expected, f"{runner}: {commands}")
     ci = ".github/workflows/ci.yml"
     jobs = re.split(r"^  ([\w-]+):[ \t]*$", (root / ci).read_text(), flags=re.M)
     commands = [line.strip() for name, body in zip(jobs[1::2], jobs[2::2])
                 if name in ("e2e", "recover") for line in body.splitlines()
-                if re.search(r'playwright test|bun run test:e2e', line)]
+                if re.search(r'playwright test|bun run test:e2e|make test-browser-contained|run-contained\.sh'
+                             r'|--(?:retries|grep|project|shard|last-failed)\b', line)]
     if mode == "inherited":
         expected = ["run: bun run test:e2e",
                     "VITE_SIGNUP_ENABLED=true PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/signup-enabled "
@@ -194,13 +227,16 @@ def policy(mode, root):
             expected.extend([f"PLAYWRIGHT_JSON_OUTPUT_FILE=ci-artifacts/{profile}/{profile}.list.json "
                              f"bunx playwright test --list --reporter=json{output}",
                              f"bunx playwright test --reporter=list,html,json{output}"])
+        if mode == "final":
+            expected.append("run: CONTAINED_PROFILE=recover make test-browser-contained")
     require(commands == expected, f"{ci}: {commands}")
     print(f"{mode} declarations and Playwright commands verified")
 
 
 REPORT = " --workers=1 --retries=0 --reporter=list,html,json"
+RECOVER = "tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs --workers=1 --retries=0"
 PROFILE_COMMANDS = [
-    "tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs" + REPORT,
+    RECOVER + " --reporter=list,html,json",
     "tests/e2e/search.spec.cjs tests/e2e/search-timing.spec.cjs" + REPORT,
     "tests/e2e/save-resilience.spec.cjs --grep @sc003" + REPORT,
     "--config=playwright.performance.config.ts",
@@ -219,9 +255,11 @@ if __name__ == "__main__":
                 print(json.dumps(k, ensure_ascii=False, separators=(",", ":")))
         elif command == "full":
             full(*args)
+        elif command == "compare":
+            compare(*args)
         elif command == "policy":
             policy(*args)
         else:
-            sys.exit("Expected inventory, full or policy")
+            sys.exit("Expected inventory, full, compare or policy")
     except (ValueError, OSError, KeyError, TypeError, IndexError, AttributeError) as error:
         sys.exit(str(error))

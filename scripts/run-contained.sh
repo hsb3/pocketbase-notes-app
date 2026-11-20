@@ -10,7 +10,7 @@ fi
 
 profile=${CONTAINED_PROFILE:-default}
 case "$1/$profile" in
-  api/default|api/accounts|api/restore|api/load|browser/recover|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
+  api/default|api/accounts|api/restore|api/load|browser/recover|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/plain|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
   *) echo "Unsupported contained profile: $1/$profile" >&2; exit 2 ;;
 esac
 
@@ -212,9 +212,11 @@ else
     '
     exit 0
   fi
-  tests=(env CONTAINED_TEST=1 node node_modules/playwright/cli.js test)
+  browser_env=(CONTAINED_TEST=1)
+  if [[ $profile = plain ]]; then browser_env=(-u CONTAINED_TEST); fi
+  tests=(env "${browser_env[@]}" node node_modules/playwright/cli.js test)
   case $profile in
-    default|signup|signup-disabled)
+    default|plain|signup|signup-disabled|recover)
       report=$profile
       case $profile in
         default)
@@ -223,6 +225,10 @@ else
           inside browser mkdir -p /tmp/journey
           tests=(env R6_JOURNEY_DIR=/tmp/journey "${tests[@]}")
           ;;
+        recover)
+          inside browser mkdir -p /tmp/r5-views
+          tests+=(tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs --workers=1 --retries=0)
+          ;;
         signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
         signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;
       esac
@@ -230,10 +236,6 @@ else
       report_files+=("$report.list.json" "$report.json")
       inside browser env PLAYWRIGHT_JSON_OUTPUT_FILE="/tmp/$report.list.json" "${tests[@]}" --list --reporter=json
       tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE="/tmp/$report.json" "${tests[@]}" --reporter=list,html,json)
-      ;;
-    recover)
-      inside browser mkdir -p /tmp/r5-views
-      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/recover.json "${tests[@]}" tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs --workers=1 --retries=0 --reporter=list,html,json)
       ;;
     search)
       inside browser mkdir -p /tmp/r4-search-views
