@@ -5,7 +5,7 @@ Prove that one writer can capture, find, file and recover private writing on pho
 | Gate | Acceptance |
 |---|---|
 | G1 Bug bar | Zero unresolved data loss, privacy, duplicate-note or broken capture/find defects. Enumerate every other known defect and obtain individual owner acceptance in the PR. No retries to pass. Put any requested features in the issue backlog. |
-| G2 Repeatability | Three consecutive full local API + Chromium/WebKit runs at the same candidate, hosted CI green on deployment Linux amd64, all applicable tests accounted for. Resolve environment-specific skips with the owner. |
+| G2 Repeatability | Three consecutive full local API + Chromium/WebKit runs at the same candidate, hosted CI green on deployment Linux amd64, all applicable tests accounted for. Run the 12 contained ageing cases in a parallel bounded amd64 recover job. |
 | G3 Coverage | Map all six Story 1 scenarios, Story 2.1, Story 3.1–3 content/folder parts, Stories 7.2–3 and all five spec edges to named checks or explicit gaps. Include the table in the PR. |
 | G4 Privacy | A/B/guest controls on the notes, folders, action and file APIs. Check status, representation and independent persisted state. |
 | G5 SC-003 | Ten consecutive complete recovery matrices, zero lost drafts, overwritten newer versions or duplicates. |

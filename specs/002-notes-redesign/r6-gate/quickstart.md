@@ -60,7 +60,7 @@ gate() {
 | `defects/<slug>.md` | One file per report, with issue/body or observation, SHA, evidence path/cell, G1 class, repro or inference, owner decision/date. Stable slugs in plan G1. For a new issue use its number. Each gets one PR decision line. |
 | `W1/attempt.*/baseline-list.log`, `W1/attempt.*/baseline-keys.log`, `<wave>/attempt.*/<name>.{command,log}`, `exits.tsv`, `gates.tsv` in that attempt | Original discovery, normalized keys, command/exit receipts for contained, shared, checker and negative runs. Preserve every attempt. |
 | `w6.sha`, `w6-attempt.txt`, `measurements.tsv`, `privacy.tsv`, `visual/manifest.tsv`, `phone/results.tsv` | Accepted W6 clean SHA and absolute attempt path, timing rows and A/B/guest HTTP/readback rows with raw source pointers, per-cell visual decisions, physical/unaided results. |
-| `ageing-decision.txt`, `ci/dispatch.json`, `ci/runs/<id>/artifacts/`, `ci/pr.json`, `signoff.md` | Owner/date/reason, tested SHAs and hosted receipts, final head, merge ref, run/job URLs, individual decisions and owner sign-off. Put updated identities in the PR and external ledger. |
+| `ci/dispatch.json`, `ci/runs/<id>/attempt.*/artifacts/`, `ci/pr.json`, `signoff.md` | Tested SHAs and hosted receipts, final head, merge ref, run/job URLs, individual decisions and owner sign-off. Put updated identities in the PR and external ledger. |
 
 At intake set `phase=initial`; in T014 use `phase=final`. Run from the intended repository. Stop on a truncated inventory (raise the limit and repeat with a new receipt).
 ```bash
@@ -133,7 +133,7 @@ receipt journey-check python3 scripts/check-r6.py full "$BASE" journey "$R6_RUN/
 receipt w1-policy python3 scripts/check-r6.py policy inherited .
 ```
 
-`full` reads `full.list.json` and `full.json` from the named directory. Verify the selected keys in **both**, all expected attempts, global errors, SC-001 trial stdout and SC-002 inline timing attachments. In baseline/early journey mode allow exactly the two disabled-build signup skips, all 12 ageing keys must pass. Journey mode also requires the new matrix. With a copy of a real report, remove one timing cell and require this same checker to fail; preserve inputs, commands and exits.
+`full` reads `full.list.json` and `full.json` from the named directory. Verify the selected keys in **both**, all expected attempts, global errors, SC-001 trial stdout and SC-002 inline timing attachments. In baseline/early journey mode allow exactly the two disabled-build signup skips, all 12 ageing keys must pass. Journey mode also requires the new matrix. Exercise the missing timing cell using the negative-control pattern below.
 
 ## Plain CI and fixture accounting
 
@@ -142,46 +142,69 @@ The allowed delta from the baseline is exactly **12 additions**: file `tests/e2e
 | Input | Selector and standard files saved on success and failure |
 |---|---|
 | Full | Built default/off, `CONTAINED_TEST=1`, both projects, all ordinary specs except registration-enabled after T004; all ageing cases. `full.list.json`, `full.json`. |
-| Plain | Built default/off, no `CONTAINED_TEST` in the browser, production cron. Same ordinary selection, exclude only `@ageing` on approval; on waiver select all 12 and observe their skips. `plain.list.json`, `plain.json`. Hosted default uses this same selection. |
+| Plain | Built default/off, no `CONTAINED_TEST` in the browser, production cron. Same ordinary selection, exclude only `@ageing`. `plain.list.json`, `plain.json`. Hosted default uses this same selection. |
 | Signup | `VITE_SIGNUP_ENABLED=true` → only `tests/e2e/registration-enabled.spec.cjs`; signup-disabled runs `tests/e2e/registration.spec.cjs` on the off build. Both projects. `signup.list.json`, `signup.json` and `signup-disabled.list.json`, `signup-disabled.json`. Hosted enabled step retains its Vite frontend. |
 | Recover | Built, contained, both engines, both entire files `tests/e2e/note-actions.spec.cjs` and `tests/e2e/recently-deleted.spec.cjs`; require all their baseline keys including the fixed 12. `recover.list.json`, `recover.json`. |
 | Other profiles | Resilience selects save-resilience `@sc003` → `sc003.json`; search selects search + search-timing → `sc004.json`; performance uses `playwright.performance.config.ts` → `performance/index.html`; screenshots runs `tests/screenshots/capture.cjs` → `screenshots/`. |
 
-Create the list with the **same config, environment, file filters and grep** as execution, adding `--list --reporter=json`. Save the named JSON execution report independently. Preserve partial reports/logs on failure; missing or unreadable evidence fails the check. T004 arranges always-upload of ordinary plain and enabled signup pairs on hosted CI under `ci-artifacts/{plain,signup}/` even if an earlier step fails. T005 adds the recover pair on approval. W3a implements this archive layout before the fork so a waiver requires no workflow edits. Download and inspect the actual archives.
+Create the list with the **same config, environment, file filters and grep** as execution, adding `--list --reporter=json`. Save the named JSON execution report independently. Preserve partial reports/logs on failure; missing or unreadable evidence fails the check. T004 arranges always-upload of ordinary plain and enabled signup pairs on hosted CI under `ci-artifacts/{plain,signup}/` even if an earlier step fails. T005 adds the recover pair. Download and inspect the actual archives.
 
-The fixed ageing keys belong to `tests/e2e/recently-deleted.spec.cjs`, ancestor `Folder recovery at WIDTHpx`, and the two exact leaves `fresh decision after 409, authoritative 410 and elapsed deadline` and `restore held command receives genuine 404 after a competing removal`. Both engines × three widths = 12. The folder-removal sibling remains plain. Signup has exactly the baseline's two `enabled signup stays pending and retries verification without recreating the account` keys, no named ancestors. Freeze the owner decision in `ageing-decision.txt` with **approved** or **waived** on line one, then owner, date and reason.
+The fixed ageing keys belong to `tests/e2e/recently-deleted.spec.cjs`, ancestor `Folder recovery at WIDTHpx`, and the two exact leaves `fresh decision after 409, authoritative 410 and elapsed deadline` and `restore held command receives genuine 404 after a competing removal`. Both engines × three widths = 12. The folder-removal sibling remains plain. Signup has exactly the baseline's two `enabled signup stays pending and retries verification without recreating the account` keys, no named ancestors.
 
 ```bash
-MODE=$(head -1 "$R6_OUT/ageing-decision.txt")
-receipt declared python3 scripts/check-r6.py policy "$MODE" .
-receipt compare python3 scripts/check-r6.py compare "$BASE" "$MODE" "$R6_RUN/full.files" "$R6_RUN/plain.files" "$R6_RUN/signup.files" "$R6_RUN/recover.files"
+receipt declared python3 scripts/check-r6.py policy final .
+receipt compare python3 scripts/check-r6.py compare "$BASE" "$R6_RUN/full.files" "$R6_RUN/plain.files" "$R6_RUN/signup.files" "$R6_RUN/recover.files"
 ```
 
-`compare` takes directories in that order and opens **both** standard files in each. Reject missing, unexpected, duplicate or mismatched keys, global errors, unexpected statuses, skipped/pending attempts, repeated attempts or nonzero retry index. For the named waiver skips only, require actual skipped results. Require a single expected first-attempt pass for every other selected key. Full ∪ plain ∪ signup (both discovery and actual keyed outcomes) must equal the independent baseline plus the enumerated changes. Full = expected minus signup. Signup is exclusive and passes both keys on the enabled build. On approval plain = full minus ageing. On waiver plain selects full, passes full minus ageing and skips exactly ageing. In **both** branches local full and recover must pass the 12 actual ageing keys. Hosted plain/signup obey the same checks in both branches; on approval require all 12 actual passes in hosted recover too. On waiver retain the 12 hosted skips and local recover proof next to the signed decision.
+`compare` checks both standard files in each directory. Discovery and actual results must each equal the independent expected keys. Full has 336 (baseline + journey minus signup), plain has 324 (full minus ageing), signup has two and recover has 122 (both entire files). Full ∪ plain ∪ signup has 338. Reject missing, unexpected or duplicate keys, global errors, skipped/pending tests, repeated attempts and nonzero retry indices. Each selected case passes on its first attempt. Require all 12 ageing passes in full and recover and both enabled-signup passes. T014 substitutes each hosted run’s actual plain, signup and recover pairs.
 
-`policy` is a failing declared-policy check, separate from attempt validation. Inspect test declarations (including describe/configure and test-level overrides), Playwright configs and all launcher commands in tests, scripts, package.json and CI. Compare suppression sites/conditions and retry settings to the approved list. Inherited allows only the two existing conditional ageing sites and one registration guard; after T004 registration has none. The W3a command `policy transition .` permits the two inherited ageing guards after T004. Waived allows only the two ageing guards with their original conditions; approved allows none. Reject focused/expected-failure/fixme/other skip declarations and positive or unresolved retry overrides even on first-attempt passes. Application Retry buttons, service-health retries, polling and protected fixture guards are distinct. Check MFA audit 5 separately on intended on/off configurations. A text inventory whose two outcomes both exit zero is insufficient.
+`policy` checks declarations independently of actual attempts. Limit it to test/test.describe annotations and retry configuration in the selected `tests/e2e/*.spec.cjs` and `tests/performance/editor.spec.cjs`, project/config retries in `playwright.config.ts` and `playwright.performance.config.ts`, and the Playwright selections/flags in `scripts/run-contained.sh`, `package.json`’s `test:e2e` and `test:performance` commands and the E2E/recover steps in `.github/workflows/ci.yml`. Inherited permits only the two existing conditional ageing skips and one registration guard. W3a uses `policy transition .` for the two ageing guards. Final permits none. Reject focused, expected-failure, fixme and additional skip declarations, positive retries, or an unrecognized override on these paths. Name the file and declaration for coordinator review. Preserve fixture guards, application Retry, health checks and the separate MFA audit.
 
-Run three negative controls on copies, leaving originals intact; use the same checker invocations above. Preserve mutated inputs/diff, exact commands, numeric **nonzero** exits and rejected key/site under `$R6_RUN/negatives/{ordinary,ageing,retry}/`. An unexpected zero stops the wave.
+**Negative controls.** Start with a passing check. Copy only the inputs being mutated into the named directory under `$R6_RUN/negatives`. Keep originals read-only. Use the following helper in each wave after [evidence setup](#evidence-setup) (in the standalone T014 shell, set `R6_RUN=$run` first). Each unique receipt must contain the checker’s diagnostic and numeric nonzero exit. A duplicate receipt, missing diagnostic or unexpected pass fails the wave.
 
-1. Remove the chromium key `tests/e2e/admin-shortcut.spec.cjs` → `ordinary accounts never see the admin shortcut` from discovery **and** results of both full and plain, retaining its multi-case file and all other cases. Compare must report the missing baseline key.
-2. Remove the webkit, 810px `restore held command receives genuine 404 after a competing removal` key from otherwise-green recover results (and its list, for the stronger check). Compare must reject it. Repeat against the downloaded hosted recover pair when approved; use actual local recover in the waiver branch.
-3. On a verification copy, declare a positive retry setting for one previously first-attempt-green test. Keep its passing first attempt; the separate policy command must reject the declaration.
+```bash
+expect_rejection() {
+  local dir="$NEG/$1" diagnostic=$2 status=0
+  shift 2
+  mkdir -p "$dir"
+  test ! -e "$dir/check.command" || return 2
+  printf '%q ' python3 scripts/check-r6.py "$@" > "$dir/check.command"
+  if python3 scripts/check-r6.py "$@" > "$dir/check.log" 2>&1; then
+    echo "Unexpected pass: $dir" >&2
+  else
+    status=$?
+  fi
+  printf '%s\n' "$status" > "$dir/check.exit"
+  (( status != 0 )) && grep -F -- "$diagnostic" "$dir/check.log"
+}
+NEG="$R6_RUN/negatives"
+mkdir -p "$NEG"/{timing,ordinary,ageing,retry}
+```
+
+| Wave / copied input and mutation | Command after mutation (diagnostic identifies the rejected cell, key or declaration) |
+|---|---|
+| W1: copy `journey.files` to `$NEG/timing/full`. Remove only the `SC-002 healthy` timing attachment for chromium at 390px from `full.json`. | `expect_rejection timing 'SC-002 healthy chromium 390' full "$BASE" journey "$NEG/timing/full"` |
+| W3b: copy `full.files` and `plain.files` to `$NEG/ordinary/full` and `$NEG/ordinary/plain`. In all four list/result files remove just the chromium key for `tests/e2e/admin-shortcut.spec.cjs` / `ordinary accounts never see the admin shortcut`. | `expect_rejection ordinary 'ordinary accounts never see the admin shortcut' compare "$BASE" "$NEG/ordinary/full" "$NEG/ordinary/plain" "$R6_RUN/signup.files" "$R6_RUN/recover.files"` |
+| W3b: copy `recover.files` to `$NEG/ageing/recover`. In both files remove only the webkit / Folder recovery at 810px / `restore held command receives genuine 404 after a competing removal` key. | `expect_rejection ageing 'restore held command receives genuine 404 after a competing removal' compare "$BASE" "$R6_RUN/full.files" "$R6_RUN/plain.files" "$R6_RUN/signup.files" "$NEG/ageing/recover"` |
+| W3b: export the clean tested checkout to `$NEG/retry/tree`. Set `retries: 1` in its `playwright.config.ts`, keeping the first-attempt-green report intact. | `expect_rejection retry 'retries: 1' policy final "$NEG/retry/tree"` |
+
+Require the full diagnostic to identify the exact engine/width/key or retry declaration and value even where the command matches a substring. T014 repeats the ageing control on a copy of the dispatch recover archive under `$NEG/hosted-ageing/recover`, with the same single-key mutation. Run `expect_rejection hosted-ageing 'restore held command receives genuine 404 after a competing removal' compare "$BASE" "$W6_RUN/full-3-browser.files" "$HOSTED/plain" "$HOSTED/signup" "$NEG/hosted-ageing/recover"`. Preserve the passing originals, mutations, logs and exits.
 
 ## Three full runs and ten recovery runs
 
-Use one clean W6 SHA. Run `MODE=$(head -1 "$R6_OUT/ageing-decision.txt")`. The runner allows 29 minutes plus one minute for cleanup per invocation. Each full round uses default API, default browser and signup, with three empty cleanup inventories per invocation. Stop at the first red; a candidate repair resets both consecutive series.
+Use one clean W6 SHA. The runner allows 29 minutes plus one minute for cleanup per invocation. Each full round uses default API, default browser and signup, with three empty cleanup inventories per invocation. Stop at the first red; a candidate repair resets both consecutive series.
 
 ```bash
 test -z "$(git status --porcelain --untracked-files=normal)"
 test "$(git rev-parse HEAD)" = "$R6_SHA"
-receipt declared python3 scripts/check-r6.py policy "$MODE" .
+receipt declared python3 scripts/check-r6.py policy final .
 gate plain env CONTAINED_PROFILE=plain make test-browser-contained
 gate recover env CONTAINED_PROFILE=recover make test-browser-contained
 for round in 1 2 3; do
   gate "full-$round-api" make test-api-contained
   gate "full-$round-browser" make test-browser-contained
   gate "full-$round-signup" env CONTAINED_PROFILE=signup make test-browser-contained
-  receipt "compare-$round" python3 scripts/check-r6.py compare "$BASE" "$MODE" "$R6_RUN/full-$round-browser.files" "$R6_RUN/plain.files" "$R6_RUN/full-$round-signup.files" "$R6_RUN/recover.files"
+  receipt "compare-$round" python3 scripts/check-r6.py compare "$BASE" "$R6_RUN/full-$round-browser.files" "$R6_RUN/plain.files" "$R6_RUN/full-$round-signup.files" "$R6_RUN/recover.files"
 done
 for round in {1..10}; do
   gate "recovery-$round" env CONTAINED_PROFILE=resilience make test-browser-contained
@@ -231,28 +254,57 @@ Local component proofs use separate capped stacks. Accounts exercises seed, oper
 After T014's five-doc comparison and final shared checks, the coordinator pushes the immutable integrated `r6-gate` branch. The existing `.github/workflows/ci.yml` has `workflow_dispatch` on the default branch; no new trigger task. Before opening the PR, the coordinator runs:
 
 ```bash
+set -euo pipefail
 HEAD_SHA=$(git rev-parse HEAD)
 test "$(git ls-remote origin refs/heads/r6-gate | cut -f1)" = "$HEAD_SHA"
-receipt dispatch gh workflow run ci.yml --ref r6-gate
+gh workflow run ci.yml --ref r6-gate
 gh run list --workflow ci.yml --event workflow_dispatch --branch r6-gate --commit "$HEAD_SHA" --json databaseId,headSha,event,createdAt,url
 ```
 
-Use the run ID returned by dispatch or match that dispatch time/event/branch/SHA unambiguously. Set `RUN_ID` to that ID. Preserve evidence even if watch reports red:
+Select the exact event, dispatch time, branch and SHA. For the authorized PR, obtain the actual tested merge SHA from the run’s checkout log (`gh run view RUN_ID --log`, checkout’s final `git log -1`), corroborate the PR head and run ID, and retain the checkout evidence. Make that commit available locally from the PR merge ref. Compare the entire tested tree with the accepted head (`git diff ACCEPTED_HEAD TESTED_MERGE --`). Apply the [changed-input procedure](#candidate-tree-before-dispatch) to any material runtime, test, configuration or workflow difference before accepting that PR proof. A moved head or merge base needs fresh applicable evidence.
+
+Run the same block from a **fresh Bash shell at the accepted integrated head** for each event. Enter `dispatch` or `pr`, the run ID and the verified checkout SHA. Each run has its own archives, timings and checker receipt. The comparison uses the accepted local full report and all three actual hosted pairs. A failed watch or download still leaves all available evidence.
 
 ```bash
-status=0
-receipt dispatch-watch gh run watch "$RUN_ID" --exit-status || status=$?
-receipt dispatch-data gh run view "$RUN_ID" --json event,headBranch,headSha,url,jobs,conclusion
-cp "$R6_RUN/dispatch-data.log" "$R6_OUT/ci/dispatch.json"
-mkdir -p "$R6_OUT/ci/runs/$RUN_ID"
-cp "$R6_RUN/dispatch-data.log" "$R6_OUT/ci/runs/$RUN_ID/jobs.json"
-receipt dispatch-archives gh run download "$RUN_ID" --dir "$R6_OUT/ci/runs/$RUN_ID/artifacts"
-test "$status" = 0
+set -euo pipefail
+umask 077
+read -r -p 'R6 evidence folder: ' R6_OUT
+read -r -p 'Event (dispatch or pr): ' kind
+read -r -p 'Verified run ID: ' RUN_ID
+read -r -p 'Tested checkout SHA: ' tested
+[[ $kind =~ ^(dispatch|pr)$ && $RUN_ID =~ ^[0-9]+$ && $tested =~ ^[0-9a-f]{40}$ ]]
+BASE=specs/002-notes-redesign/r6-gate/baseline-6ee597e.jsonl
+head_sha=$(git rev-parse HEAD)
+W6_RUN=$(cat "$R6_OUT/w6-attempt.txt")
+test "$(cat "$W6_RUN/commit.txt")" = "$(cat "$R6_OUT/w6.sha")"
+out="$R6_OUT/ci/runs/$RUN_ID"
+mkdir -p "$out"
+run=$(mktemp -d "$out/attempt.XXXXXXXX")
+HOSTED="$run/artifacts/test-results-amd64/ci-artifacts"
+RECOVER="$run/artifacts/recover-amd64/recover"
+
+watch=0 data=0 timing=0 archive=0 compare=0
+gh run watch "$RUN_ID" --exit-status > "$run/watch.log" 2>&1 || watch=$?
+gh run view "$RUN_ID" --json databaseId,event,headBranch,headSha,url,jobs,conclusion > "$run/jobs.json" 2>"$run/jobs.err" || data=$?
+jq -r 'def row($url): [.name,.startedAt,.completedAt,
+  (try ((.completedAt|fromdateiso8601)-(.startedAt|fromdateiso8601)) catch null),
+  .conclusion,$url] | @tsv;
+  .jobs[] | .url as $u | row($u), (.steps[] | row($u))' "$run/jobs.json" > "$run/timing.tsv" || timing=$?
+gh run download "$RUN_ID" --dir "$run/artifacts" > "$run/archive.log" 2>&1 || archive=$?
+cmd=(python3 scripts/check-r6.py compare "$BASE" "$W6_RUN/full-3-browser.files" "$HOSTED/plain" "$HOSTED/signup" "$RECOVER")
+printf '%q ' "${cmd[@]}" > "$run/compare.command"
+"${cmd[@]}" > "$run/compare.log" 2>&1 || compare=$?
+jq -n --arg head "$head_sha" --arg tested "$tested" --arg receipts "$run" --argjson id "$RUN_ID" \
+  --rawfile jobs "$run/jobs.json" --rawfile durations "$run/timing.tsv" --argjson watch "$watch" --argjson data "$data" --argjson timing "$timing" --argjson archive "$archive" --argjson cmp "$compare" \
+  '{headSha:$head,testedSha:$tested,runId:$id,run:((try ($jobs|fromjson) catch null)),timings:$durations,receipts:$receipts,watchExit:$watch,jobsExit:$data,timingExit:$timing,archiveExit:$archive,compareExit:$cmp}' \
+  > "$run/result.json"
+cp "$run/result.json" "$R6_OUT/ci/$kind.json"
+for status in "$watch" "$data" "$timing" "$archive" "$compare"; do
+  (( status == 0 )) || exit "$status"
+done
 ```
 
-Require the resolved SHA = final head, event = workflow_dispatch, branch = r6-gate, and all required jobs successful: **Quality**, **Docs links**, **Workflow lint**, **E2E (amd64)** and **Recover (amd64)** when approved. Verify the ordered steps and exits. Set `HOSTED` to the downloaded `test-results-amd64/ci-artifacts` directory and `W6_RUN=$(cat "$R6_OUT/w6-attempt.txt")`. For approval use the downloaded `recover-amd64/recover` directory for `RECOVER`; for waiver use `$W6_RUN/recover.files`. Run `receipt hosted-compare python3 scripts/check-r6.py compare "$BASE" "$MODE" "$W6_RUN/full-3-browser.files" "$HOSTED/plain" "$HOSTED/signup" "$RECOVER"`. Retain the per-run archives and timing receipts on failures as well. Record the declaration check independently on the clean final checkout. Write per-job and per-step start, completion, elapsed seconds, conclusion and the containing job URL from the jobs JSON to `$R6_OUT/ci/dispatch-timing.tsv`. Measure each timed job from startedAt to completedAt including browser install and uploads; exclude queue time. The E2E and optional recover job each must finish green within 2,400 seconds. Prior E2E durations were 17m58s and 34m38s, with 22m35s spent installing browsers in the slower run. On timeout/overrun stop before PR, preserve timings, have the coordinator authorize a bounded workflow change moving independent checks to a parallel job. Re-run on the new frozen candidate; retain all cases, zero retries and the same cap.
-
-On the authorized PR, record the PR head, actual tested merge-ref SHA, run ID/job URLs, conclusions and durations in `ci/pr.json` and the PR body. Use the run's check-suite/checkout evidence to distinguish merge SHA from PR head. Record the owner's sign-off against that immutable candidate externally. A head or merge-base change requires fresh applicable checks.
+Check `jobs.json` and the checkout log against the entered identities. Dispatch must be `workflow_dispatch` on `r6-gate` at the accepted head. The PR must be `pull_request` for the accepted PR head with the recorded tested merge SHA. Require green **Quality**, **Docs links**, **Workflow lint**, **E2E (amd64)** and **Recover (amd64)**, the ordered steps and passing inventory comparison. Run the separate declaration check on the clean final checkout. In `timing.tsv` require **each** E2E and recover job to finish within 2,400 seconds from job start to completion, including installation and upload, excluding queue time. Historical E2E jobs took 17m58s and 34m38s, including a 22m35s browser install in the slower run. On timeout, preserve receipts and stop for coordinator-authorized reslicing of independent checks. Rerun with the same cases, zero retries and the same per-job cap. For dispatch, also apply the [hosted recover negative](#plain-ci-and-fixture-accounting) against the downloaded originals. For the PR, include both SHAs, run/job URLs, conclusions, durations and comparison exit in the PR and link the receipts from `ci/pr.json`. Sign-off uses that verified identity.
 
 ## Visual evidence
 
@@ -260,14 +312,17 @@ T002 saves full-width evidence for Folders, ordinary list, saved editor, body-se
 
 Extend **one** recording in `tests/screenshots/capture.cjs`: start with its existing Compose → type → Saved → Back → reopen sequence, add body-search/open/Back and move; port ALL recovery beats from the local artifact `reports/r5-w5b-trash-ui-evidence/main-flow.spec.cjs` (compare to main-flow.webm): Field notes, Spring planting, actual delete confirmation, trash, restore, restored announcement and row, folder confirmation/count, confirm deletion, All Notes/search focus, verify detached/tombstoned ID via API. Preserve the prior seed/open fixtures or explicitly create them through the UI/API. Append any visible correction of a confirmed major R6 defect. Use named Save status and assertions between actions. Preserve the core-loop.webm, rendered GIF and mobile.png outputs for existing callers. Inspect playback from first Compose to final focus in the accepted candidate.
 
-Keep complete synthetic captures under the evidence directory. For the README, derive compact screenshots from the contained originals; run in the evidence directory with R6_SRC set to the captures directory. The R2 originals measured 45,621 and 31,814 bytes with this exact command. Measure the actual outputs **before checkout writeback**. Copy only the two current JPEGs once W5c's entire size fits.
+Keep complete synthetic captures under the evidence directory. W5c receives the **accepted W5b attempt’s absolute path** from the coordinator. Draft the final `README.md` in the W5c attempt and run this block there before copying any of the three files into the checkout. Start at JPEG q=5. If over budget, rerun at q=7, inspect legibility at 1:1 and remeasure. If still over or unreadable, stop for reslicing.
 
 ```bash
-R6_SRC="$R6_RUN/screens.files/screenshots"  # use the accepted W5b attempt, or captures.files in W6
+read -r -p 'Accepted W5b attempt directory: ' W5B_RUN
+test -d "$W5B_RUN/screens.files/screenshots"
+R6_SRC="$W5B_RUN/screens.files/screenshots"
+quality=5
 for name in notebook-light mobile; do
-  ffmpeg -v error -i "$R6_SRC/$name.png" -vf scale=960:-2 -frames:v 1 -c:v mjpeg -q:v 5 "$R6_RUN/m1-$name.jpg"
+  ffmpeg -y -v error -i "$R6_SRC/$name.png" -vf scale=960:-2 -frames:v 1 -c:v mjpeg -q:v "$quality" "$R6_RUN/m1-$name.jpg"
 done
-wc -c "$R6_RUN"/m1-*.jpg
+wc -c "$R6_RUN"/{README.md,m1-notebook-light.jpg,m1-mobile.jpg} | awk '{print} END {exit !($2 == "total" && $1 <= 92000)}'
 ```
 
-For **every evidence task**, record the previous script plus R6 steps, previous release comparison and chosen images. Compare SHA-256 of each candidate against *all* files under releases/R5; exclude byte-identical files regardless of name. A different hash can reflect cursor/time/seed text; compare like states visually and exclude those differences too. Inspect prior releases for already-shipped screens absent from the sparse R5 folder. Write `$R6_OUT/visual/manifest.tsv` with candidate SHA, source file, engine, width, theme, state, measured overflow, focus/visible-state verdict, reviewer/date, SHA-256, R5 or older comparator path/hash, keep/drop and reason. Include the recording as its own row. After merge the coordinator adds only genuinely new/changed screens and a cumulative recording only if its visible content changed to `~/.local/share/agent-artifacts/pocketbase-notes-app/releases/R6/`, updates the releases README row and uses the same selection on the progress page. Raw gate captures, contact sheets, README derivatives and the full R6 suite remain retrievable separately. Enter the WebM in the same manifest. Compare hash and visible sequence against R5 and corresponding older recordings. Drop a byte match or a visually unchanged recording even when encoding, cursor, time or seed text differs. Keep the complete raw recording in the attempt directory. Record zero selected files if nothing visibly changed. Earlier releases stay intact.
+For **every evidence task**, record the previous script plus R6 steps, previous release comparison and chosen images. Compare SHA-256 of each candidate against *all* files under releases/R5; exclude byte-identical files regardless of name. A different hash can reflect cursor/time/seed text; compare like states visually and exclude those differences too. Inspect prior releases for already-shipped screens absent from the sparse R5 folder. Write `$R6_OUT/visual/manifest.tsv` with candidate SHA, source file, engine, width, theme, state, measured overflow, focus/visible-state verdict, reviewer/date, SHA-256, R5 or older comparator path/hash, keep/drop and reason. Include the WebM as its own row and compare the visible sequence. After merge the coordinator adds only genuinely new/changed screens and a cumulative recording only if its visible content changed to `~/.local/share/agent-artifacts/pocketbase-notes-app/releases/R6/`, updates the releases README row and uses the same selection on the progress page. Raw gate captures, contact sheets, README derivatives and the full R6 suite remain retrievable separately. Record zero selected files if nothing visibly changed. Earlier releases stay intact.
