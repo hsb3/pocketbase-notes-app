@@ -119,7 +119,7 @@ email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_UR
 ### `playwright.config.ts`
 
 Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium and WebKit execution,
-failure traces and screenshots. `TEST_APP_URL` selects the built app for the contained suite and the hosted default E2E phase. If unset, Playwright starts Vite for development scenarios. See [testing](../testing/verification.md).
+failure traces and screenshots. By default the suite excludes `registration-enabled.spec.cjs` and checks that signup is closed. With `VITE_SIGNUP_ENABLED=true`, it selects only that file and expects a working registration form and a real account creation. `TEST_APP_URL` selects the built app for the contained suite and the hosted default E2E phase. If unset, Playwright starts Vite for development scenarios. See [testing](../testing/verification.md).
 
 ### `.github/`
 

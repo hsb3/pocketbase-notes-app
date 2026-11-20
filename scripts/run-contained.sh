@@ -33,14 +33,15 @@ TEST_K6_IMAGE=$(awk '/image: grafana\/k6:/ {print $2}' tests/load/compose.load.y
 compose=(docker compose --env-file /dev/null --project-directory . -p "$project"
   -f deploy/local/docker-compose-stack.yml -f deploy/local/docker-compose-test.yml)
 label="label=com.docker.compose.project=$project"
-full_output=
+report_files=()
+report_output=
 cleanup() {
   local status=$? ids id remaining item
   trap - EXIT
-  if [[ -n $full_output ]]; then
-    mkdir -p "$full_output" || status=1
-    for item in full.list.json full.json journey; do
-      docker cp "$project-browser:/tmp/$item" "$full_output/" || status=1
+  if [[ -n $report_output ]]; then
+    mkdir -p "$report_output" || status=1
+    for item in "${report_files[@]}"; do
+      docker cp "$project-browser:/tmp/$item" "$report_output/" || status=1
     done
   fi
   # Docker lists newest first, so namespace users are removed before PocketBase.
@@ -180,7 +181,7 @@ if [[ $1 != browser ]]; then
   }
   inside setup bun test scripts/local-target.test.ts
   docker exec -i -e CONTAINED_TEST=1 "$project-pocketbase" sh -s < scripts/test-r2-upgrade.sh
-  inside setup bun run test:api
+  inside setup env VITE_SIGNUP_ENABLED="$VITE_SIGNUP_ENABLED" bun run test:api
 else
   idle browser
   output="test-results/$project"
@@ -213,11 +214,22 @@ else
   fi
   tests=(env CONTAINED_TEST=1 node node_modules/playwright/cli.js test)
   case $profile in
-    default)
-      full_output=$output
-      inside browser mkdir -p /tmp/journey
-      inside browser env R6_JOURNEY_DIR=/tmp/journey PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/full.list.json "${tests[@]}" --list --reporter=json
-      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/full.json R6_JOURNEY_DIR=/tmp/journey "${tests[@]}" --reporter=list,html,json)
+    default|signup|signup-disabled)
+      report=$profile
+      case $profile in
+        default)
+          report=full
+          report_files+=(journey)
+          inside browser mkdir -p /tmp/journey
+          tests=(env R6_JOURNEY_DIR=/tmp/journey "${tests[@]}")
+          ;;
+        signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
+        signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;
+      esac
+      report_output=$output
+      report_files+=("$report.list.json" "$report.json")
+      inside browser env PLAYWRIGHT_JSON_OUTPUT_FILE="/tmp/$report.list.json" "${tests[@]}" --list --reporter=json
+      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE="/tmp/$report.json" "${tests[@]}" --reporter=list,html,json)
       ;;
     recover)
       inside browser mkdir -p /tmp/r5-views
@@ -233,8 +245,6 @@ else
     performance)
       tests=(env PERF_SMOKE=1 "PERF_COMMIT=$(git rev-parse HEAD)" "PERF_WORKTREE=$(git status --short)" "${tests[@]}" --config=playwright.performance.config.ts)
       ;;
-    signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
-    signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;
   esac
   test_status=0
   inside browser "${tests[@]}" || test_status=$?
@@ -291,6 +301,9 @@ PYREC
     docker cp "$project-browser:/app/test-results" "$output/"
     echo "Browser failure artifacts: $output" >&2
     exit 1
+  fi
+  if [[ $profile = signup ]]; then
+    inside setup env VITE_SIGNUP_ENABLED="$VITE_SIGNUP_ENABLED" bun scripts/test-mfa.ts
   fi
   if [[ $profile = performance ]]; then
     mkdir -p "$output"

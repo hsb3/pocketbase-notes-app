@@ -121,13 +121,26 @@ jobs:
         # The built app served by PocketBase: compose-timing needs production editor chunks.
         env:
           TEST_APP_URL: http://127.0.0.1:8080
-        run: bun run test:e2e
+          VITE_SIGNUP_ENABLED: 'false'
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ci-artifacts/plain/plain.json
+        run: |
+          mkdir -p ci-artifacts/plain
+          PLAYWRIGHT_JSON_OUTPUT_FILE=ci-artifacts/plain/plain.list.json bunx playwright test --list --reporter=json
+          bun run test:api
+          bunx playwright test --reporter=list,html,json
       - name: Verify account lifecycle and deployment drills
         run: bun run test:accounts
       - name: Verify explicitly enabled registration
+        env:
+          VITE_SIGNUP_ENABLED: 'true'
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/signup-enabled
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ci-artifacts/signup/signup.json
         run: |
-          VITE_SIGNUP_ENABLED=true docker compose --project-directory . -f deploy/local/docker-compose-full.yml up -d --no-deps --wait pocketbase
-          VITE_SIGNUP_ENABLED=true PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/signup-enabled bunx playwright test tests/e2e/registration-enabled.spec.cjs --output=test-results/signup-enabled
+          docker compose --project-directory . -f deploy/local/docker-compose-full.yml up -d --no-deps --wait pocketbase
+          mkdir -p ci-artifacts/signup
+          PLAYWRIGHT_JSON_OUTPUT_FILE=ci-artifacts/signup/signup.list.json bunx playwright test --list --reporter=json --output=test-results/signup-enabled
+          bunx playwright test --reporter=list,html,json --output=test-results/signup-enabled
+          bun scripts/test-mfa.ts
       - name: Collect service logs
         if: always()
         run: |

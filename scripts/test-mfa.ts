@@ -352,28 +352,33 @@ try {
       "Sessions from before turning it on must end",
     );
 
-  // Audit 5: a public sign-up cannot start with it on (skipped when sign-up is off).
+  // Audit 5: public registration follows the configured mode.
   const signupEmail = `mfa-signup-${crypto.randomUUID()}@example.com`;
-  try {
-    const signup = await new PocketBase(url).collection("users").create({
-      email: signupEmail,
-      password: signupEmail,
-      passwordConfirm: signupEmail,
-      mfaEnabled: true,
-    });
-    created.push(signup.id);
+  const signup = new PocketBase(url).collection("users").create({
+    email: signupEmail,
+    password: signupEmail,
+    passwordConfirm: signupEmail,
+    mfaEnabled: true,
+  });
+  if (process.env.VITE_SIGNUP_ENABLED === "true") {
+    const { id } = await signup;
+    created.push(id);
     assert.equal(
-      (await admin.collection("users").getOne(signup.id)).mfaEnabled,
+      (await admin.collection("users").getOne(id)).mfaEnabled,
       false,
       "Sign-up must not turn on two-step sign-in",
     );
-    console.log("PASS: public sign-up starts with two-step sign-in off");
-  } catch (error) {
-    if (!(error instanceof ClientResponseError && error.status === 403))
-      throw error;
     console.log(
-      "SKIP: public sign-up check (sign-up is disabled on this backend)",
+      "PASS: enabled public signup created a user with mfaEnabled false",
     );
+  } else {
+    await assert.rejects(
+      signup.then((record) => created.push(record.id)),
+      (error: unknown) =>
+        error instanceof ClientResponseError && error.status === 403,
+      "Disabled signup must return 403",
+    );
+    console.log("PASS: disabled public signup returned 403");
   }
 
   console.log(

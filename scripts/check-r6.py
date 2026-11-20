@@ -114,13 +114,15 @@ def journey(cases, directory, engine, width, theme):
 
 
 def full(base, mode, directory):
-    require(mode in ("baseline", "journey"), mode)
+    require(mode in ("baseline", "journey", "transition"), mode)
     raw = Path(base).read_bytes()
     require(hashlib.sha256(raw).hexdigest() ==
             "5abdf3b192ab5f91e8ad515f9de06c27c61ca4ac8548d7a9699075b93aca0721", "Wrong baseline")
     expected = {(f, tuple(t), e) for f, t, e in map(json.loads, raw.splitlines())}
-    if mode == "journey":
+    if mode != "baseline":
         expected.update(journey_key(e, w, t) for e in ENGINES for w in WIDTHS for t in THEMES)
+    if mode == "transition":
+        expected = {k for k in expected if k[0] != ROOT + "registration-enabled.spec.cjs"}
     directory = Path(directory)
     for filename in ("full.list.json", "full.json"):
         cases = inventory(directory / filename)
@@ -135,20 +137,23 @@ def full(base, mode, directory):
         compose(cases[key("compose-timing", "SC-001 warm Compose accepts one scheduled key per tap", e)]["results"][0], e)
         for w in WIDTHS:
             timings(cases, e, w)
-            if mode == "journey":
+            if mode != "baseline":
                 for t in THEMES:
                     journey(cases, directory, e, w, t)
-    print(f"{len(cases)} keys, {len(cases)-2} passed once, 2 disabled signup skips")
+    skips = sum(t["status"] == "skipped" for t in cases.values())
+    print(f"{len(cases)} keys, {len(cases)-skips} passed once, {skips} skipped")
 
 
 def policy(mode, root):
-    require(mode == "inherited", mode)
+    require(mode in ("inherited", "transition"), mode)
     root = Path(root)
     guards = {
         "registration-enabled": [('process.env.VITE_SIGNUP_ENABLED !== "true"', "Run the explicit signup-enabled check.")],
         "recently-deleted": [(p + 'process.env.CONTAINED_TEST !== "1"', "Ageing a note needs the contained stack")
                              for p in ("", 'kind === "restore" && ')],
     }
+    if mode == "transition":
+        del guards["registration-enabled"]
     for path in [*root.glob("tests/e2e/*.spec.cjs"), root / "tests/performance/editor.spec.cjs",
                  root / "playwright.config.ts", root / "playwright.performance.config.ts"]:
         source = path.read_text()
@@ -167,26 +172,42 @@ def policy(mode, root):
     lines = (root / runner).read_text().splitlines()
     commands = [line.strip().split('"${tests[@]}"')[-1].removesuffix(")").strip()
                 for line in lines if re.search(r'\btests\+?=|\$\{tests\[@\]\}|playwright/cli\.js test', line)]
-    require(commands == COMMANDS, f"{runner}: {commands}")
+    reports = ["--list --reporter=json", "--reporter=list,html,json"]
+    selection = reports + PROFILE_COMMANDS + SIGNUP_COMMANDS if mode == "inherited" else [
+        "", *SIGNUP_COMMANDS, *reports, *PROFILE_COMMANDS,
+    ]
+    expected = ["tests=(env CONTAINED_TEST=1 node node_modules/playwright/cli.js test", *selection, "|| test_status=$?"]
+    require(commands == expected, f"{runner}: {commands}")
     ci = ".github/workflows/ci.yml"
-    commands = [line.strip() for line in (root / ci).read_text().splitlines()
+    jobs = re.split(r"^  ([\w-]+):[ \t]*$", (root / ci).read_text(), flags=re.M)
+    commands = [line.strip() for name, body in zip(jobs[1::2], jobs[2::2])
+                if name in ("e2e", "recover") for line in body.splitlines()
                 if re.search(r'playwright test|bun run test:e2e', line)]
-    require(commands == ["run: bun run test:e2e",
-            "VITE_SIGNUP_ENABLED=true PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/signup-enabled bunx playwright test "
-            "tests/e2e/registration-enabled.spec.cjs --output=test-results/signup-enabled"], f"{ci}: {commands}")
-    print("Inherited declarations and Playwright commands verified")
+    if mode == "inherited":
+        expected = ["run: bun run test:e2e",
+                    "VITE_SIGNUP_ENABLED=true PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/signup-enabled "
+                    "bunx playwright test tests/e2e/registration-enabled.spec.cjs --output=test-results/signup-enabled"]
+    else:
+        expected = []
+        for profile in ("plain", "signup"):
+            output = "" if profile == "plain" else " --output=test-results/signup-enabled"
+            expected.extend([f"PLAYWRIGHT_JSON_OUTPUT_FILE=ci-artifacts/{profile}/{profile}.list.json "
+                             f"bunx playwright test --list --reporter=json{output}",
+                             f"bunx playwright test --reporter=list,html,json{output}"])
+    require(commands == expected, f"{ci}: {commands}")
+    print(f"{mode} declarations and Playwright commands verified")
 
 
 REPORT = " --workers=1 --retries=0 --reporter=list,html,json"
-COMMANDS = [
-    "tests=(env CONTAINED_TEST=1 node node_modules/playwright/cli.js test",
-    "--list --reporter=json", "--reporter=list,html,json",
+PROFILE_COMMANDS = [
     "tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs" + REPORT,
     "tests/e2e/search.spec.cjs tests/e2e/search-timing.spec.cjs" + REPORT,
     "tests/e2e/save-resilience.spec.cjs --grep @sc003" + REPORT,
     "--config=playwright.performance.config.ts",
+]
+SIGNUP_COMMANDS = [
     "signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;",
-    "signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;", "|| test_status=$?",
+    "signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;",
 ]
 
 

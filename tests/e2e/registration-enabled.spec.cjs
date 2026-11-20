@@ -4,10 +4,6 @@ test("enabled signup stays pending and retries verification without recreating t
   page,
   session,
 }, testInfo) => {
-  test.skip(
-    process.env.VITE_SIGNUP_ENABLED !== "true",
-    "Run the explicit signup-enabled check.",
-  );
   const email = `registration-${crypto.randomUUID()}@example.com`;
   const password = crypto.randomUUID();
   let createdId;
@@ -33,6 +29,9 @@ test("enabled signup stays pending and retries verification without recreating t
   );
   try {
     await page.goto("/auth/register");
+    await expect(
+      page.getByRole("button", { name: "Register", exact: true }),
+    ).toBeVisible();
     await page.locator('input[name="name"]').fill("Registration test");
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(password);
@@ -63,6 +62,7 @@ test("enabled signup stays pending and retries verification without recreating t
       .click();
     await expect(page).toHaveURL(/\/auth\/email-verification/);
     expect(creates).toBe(1);
+    expect(createdId).toBeTruthy();
   } finally {
     release();
     if (createdId)
