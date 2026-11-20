@@ -8,6 +8,14 @@
       "source": "bundled",
       "installed_at": "2026-11-16T17:26:30.071714+00:00",
       "updated_at": "2026-11-16T17:26:30.071717+00:00"
+    },
+    "functionform": {
+      "name": "functionform SDD cycle",
+      "version": "0.1.0",
+      "description": "specify \u2192 plan \u2192 tasks \u2192 analyze with three review gates, then implement, converge and the project gate, fixing until the gate is green (3 tries)",
+      "source": "local",
+      "installed_at": "2026-11-20T22:41:27.029065+00:00",
+      "updated_at": "2026-11-20T22:42:13.420235+00:00"
     }
   }
 }
