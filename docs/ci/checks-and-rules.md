@@ -9,7 +9,10 @@ GitHub Actions runs `.github/workflows/ci.yml` on every pull request targeting
 | --- | --- |
 | `Quality` | Frozen dependency install, dependency audit, local-target safety tests, Biome, unused-code check (knip), agent-context check (`scripts/ai-context.py check`), setup/test-script type checks, frontend/config type checks and production build |
 | `E2E (amd64)` | Native Ubuntu Docker build, fresh PocketBase + Mailpit + RustFS, live API tests and Chromium and WebKit browser scenarios |
-| `E2E (arm64)` | The same full-stack checks on native ARM Linux |
+
+E2E runs on amd64 only, because that is the architecture the app is deployed on. The
+arm64 image used for local development on Apple Silicon is built and booted by the
+contained gates (`make test-api-contained`, `make test-browser-contained`).
 
 Two more jobs in the same workflow run on every pull request but are not required
 by the ruleset:

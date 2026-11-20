@@ -37,10 +37,6 @@
           {
             "context": "E2E (amd64)",
             "integration_id": 15368
-          },
-          {
-            "context": "E2E (arm64)",
-            "integration_id": 15368
           }
         ]
       }

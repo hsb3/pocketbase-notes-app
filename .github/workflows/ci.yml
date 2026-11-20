@@ -73,13 +73,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # amd64 is the deployment target. The arm64 image is built and booted by the
+        # contained gates on Apple Silicon (make test-*-contained).
         include:
           - arch: amd64
             runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
+    # Tests take about 18 minutes; a slow browser install has taken 13.
+    timeout-minutes: 40
     env:
       CI: 'true'
     steps:

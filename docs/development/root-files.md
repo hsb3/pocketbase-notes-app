@@ -123,7 +123,7 @@ failure traces and screenshots. `TEST_APP_URL` selects the built app for the con
 
 ### `.github/`
 
-Workflows: `ci.yml` (Quality, Docs links, Workflow lint, native amd64/arm64 E2E),
+Workflows: `ci.yml` (Quality, Docs links, Workflow lint, native amd64 E2E),
 `codeql.yml` (code scanning), `docs.yml` (builds the docs site; deploys it to Pages
 from `main`), `performance.yml` (manual editor baseline) and `release.yml` (publishes a
 GitHub release from a `v*` tag, using `.github/scripts/release-notes.sh`). `dependabot.yml`
