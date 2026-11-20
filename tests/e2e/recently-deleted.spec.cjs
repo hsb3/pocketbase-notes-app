@@ -465,6 +465,7 @@ function journeys(width, height) {
     const { owner, garden, note } = await fixture(p, session);
     await remove(owner, note);
     await openTrash(p);
+    await expect(restore(p, note.title)).toBeVisible();
     const before = await detail(owner, note);
     await peerDelete(owner, garden);
     const detached = await detail(owner, note);
@@ -479,8 +480,13 @@ function journeys(width, height) {
       if (r.url().endsWith(path)) requests.push(r.postDataJSON());
     });
     const stale = p.waitForResponse((r) => r.url().endsWith(path));
+    const refresh = p.waitForResponse(listRequest);
     await activate(p, restore(p, note.title));
     expect((await stale).status()).toBe(409);
+    expect(await (await refresh).json()).toMatchObject({
+      items: [{ id: note.id, revision: detached.revision }],
+    });
+    await expect(announcement(p, "Review its current state.")).toBeVisible();
     await expect(restore(p, note.title)).toBeFocused();
     expect(requests).toEqual([{ revision: before.revision }]);
     expect(await detail(owner, note)).toEqual(detached);
