@@ -30,6 +30,7 @@ Choose one profile per invocation, for example `make test-api-contained CONTAINE
 | `test-api-contained` | `load` | Short k6 smoke of list, create, update and download. [Capacity testing](load-testing.md) uses a separate workload. |
 | `test-browser-contained` | `resilience` | Check all 30 combinations of recovery scenario, viewport and engine. Retains Playwright JSON under `test-results/<project>/sc003.json`. |
 | `test-browser-contained` | `search` | Check cross-folder results, draft navigation, keyboard focus and layout. Retains the [search timings and screenshots](#cross-folder-search). |
+| `test-browser-contained` | `recover` | Exercise note moves, note and folder deletion, restore, interrupted replies and keyboard focus. Retains the [recovery report and screenshots](#move-delete-and-restore). |
 | `test-browser-contained` | `operator` | Run the operator commands against local services, including autosave, file access, failed-write cleanup, signup policy and Mailpit email. |
 | `test-browser-contained` | `signup`, `signup-disabled` | Exercise registration with the selected policy in Chromium and WebKit. Enabled signup sets both the frontend build flag and the backend runtime flag. |
 | `test-browser-contained` | `performance` | Short Chromium production benchmark. Copies the report under `test-results/<project>/performance/`. |
@@ -63,6 +64,14 @@ Each timing case starts with 20 active notes in each of five folders. Each of 20
 | WebKit | 1440 | 20/20 | 31.0 | 46.0 | 56.0 |
 
 All 46 search cases passed on one attempt. In the API gate, a second account and an anonymous reader each found zero results for the first account’s unique term. The first account’s own deleted note also yielded zero results. Physical-phone keyboard behavior and cross-device sign-off remain R6 checks. [Tested commits, individual timings and retained evidence](../../specs/002-notes-redesign/r4-search/tasks.md#r4-gate-evidence)
+
+### Move, delete and restore
+
+Run `make test-browser-contained CONTAINED_PROFILE=recover`. The two R5 suites drive Chromium and WebKit at 390, 810 and 1440 CSS px, with one worker and zero retries. Independent record reads verify the note’s folder, revision and deletion state. Keyboard tests cover Cancel, stale previews, missing notes, lost replies and read-only verification after the initiating control disappears. The runner saves `recover.json` and `r5-views/` under the printed project’s `test-results/` directory. The five captured states are Move, Delete note, folder confirmation, populated trash and empty trash in both themes.
+
+In the release evidence bundle, `reports/r5-w5b-trash-ui-evidence/r5-views/` holds the full capture set and `reports/r5-w5b-trash-ui-evidence/main-flow.webm` shows the flow. Use `reports/r5-w5c-contrast-evidence/r5-views/` for the final Delete note button in both themes. [Measured results by commit](../../specs/002-notes-redesign/r5-recover/tasks.md#r5-gate-evidence)
+
+The default API gate exercises the retention boundary in the pinned PocketBase JS runtime, forces a folder transaction rollback and reads private RustFS objects before and after a real purge. Historical upgrade fixtures exclude the purge hook and verify its absence through the admin API. On the fresh default API and default/recover browser stacks, the runner writes `zz-manual-cron.pb.js` only inside the disposable preparation container. Its native `$app.onServe().bindFunc` callback verifies exactly one production `expired-notes` job at `17 3 * * *`, then re-registers that job’s native `run` under the same ID at the never-due `0 0 30 2 *` before continuing startup. The scheduler keeps running for backups and hourly cleanup. After health and authentication the fixture verifies both job registrations, invokes the real purge and requires a fresh successful zero-removal summary before seeding notes.
 
 ## Commands and coverage
 

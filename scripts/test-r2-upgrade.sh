@@ -5,6 +5,7 @@ set -eu
 exec python3 - <<'PY'
 from contextlib import closing, contextmanager
 from pathlib import Path
+import hashlib
 import json
 import os
 import re
@@ -13,7 +14,7 @@ import sqlite3
 import subprocess
 import tempfile
 import time
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -28,7 +29,12 @@ def api(path, data=None, token=None, method=None):
     if data is not None:
         request.data = json.dumps(data).encode()
     with urlopen(request, timeout=5) as response:
-        return json.load(response)
+        raw = response.read()
+        if response.status == 204:
+            assert raw == b"", (path,raw)
+            return None
+        assert response.status == 200, (path,response.status)
+        return json.loads(raw)
 
 def login(collection, email):
     return api(f"collections/{collection}/auth-with-password", {"identity": email, "password": password})["token"]
@@ -56,6 +62,8 @@ def server():
                     time.sleep(0.1)
             else:
                 raise RuntimeError("Staged PocketBase health timeout")
+            jobs = api("crons", token=login("_superusers", os.environ["PB_EMAIL"]))
+            assert all(job["id"] != "expired-notes" for job in jobs), jobs
             yield
         finally:
             process.terminate()
@@ -238,16 +246,17 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
             ("user",0), ("updated",1), ("id",1), ("deleted",0)]
         assert history(db) == base_history + [r4]
         print(f"First up: {len(repaired)} changed keys across {len(first)} complete rows", flush=True)
-    shutil.copytree("/pb/pb_hooks", hooks, dirs_exist_ok=True)
+    for name in ["attachment-cleanup.js", "attachments.pb.js", "capabilities.pb.js", "comparison-key.js",
+                 "entry-validation.js", "folders.pb.js", "mfa.pb.js", "note-search.js", "notes.pb.js", "signup.pb.js"]:
+        shutil.copy(Path("/pb/pb_hooks") / name, hooks)
+    shutil.copy("/pb/pb_hooks/note-lifecycle.js", hooks)
     (hooks / "00-fixture.pb.js").write_text("""
     onRecordsListRequest((e) => {
       for (const note of e.records) note.set("fixture_private", "must stay hidden");
       e.next();
     }, "notes");""")
 
-    with server():
-        token = login("users", "r1@example.test")
-        owner_hits(token)
+    def check_page_plan(token, active_rule):
         offset = trace.stat().st_size
         check_hits(token, "LANTERN", {nul:"lantern"})
         with trace.open("rb") as log:
@@ -260,13 +269,19 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
         [sql] = page_sql
         assert re.fullmatch("[a-z0-9]{15}",current)
         # Accept only the pinned engine's complete synthetic owner page before passing it to EXPLAIN.
-        expected = f"""SELECT `notes`.* FROM `notes` WHERE (('users' = 'users' AND `notes`.`user` = '{current}')) AND (((`notes`.`deleted` = '' OR `notes`.`deleted` IS NULL) AND `notes`.`search_key` LIKE '%LANTERN%' ESCAPE '\\')) ORDER BY `notes`.`updated` DESC, `notes`.`id` DESC LIMIT 20"""
-        assert sql == expected, "Unexpected statement for the marked owner page"
+        extra_rule = " AND (`notes`.`deleted` = '' OR `notes`.`deleted` IS NULL)" if active_rule else ""
+        expected = f"""SELECT `notes`.* FROM `notes` WHERE (('users' = 'users' AND `notes`.`user` = '{current}'{extra_rule})) AND (((`notes`.`deleted` = '' OR `notes`.`deleted` IS NULL) AND `notes`.`search_key` LIKE '%LANTERN%' ESCAPE '\\')) ORDER BY `notes`.`updated` DESC, `notes`.`id` DESC LIMIT 20"""
+        assert sql == expected, ("Unexpected statement for the marked owner page", sql, expected)
         plan = api("sql", {"query":"EXPLAIN QUERY PLAN " + sql}, admin)["rows"]
         version = api("sql", {"query":"SELECT sqlite_version()"}, admin)["rows"][0][0]
         assert any("SEARCH" in r[-1] and index + " (user=?)" in r[-1] for r in plan), plan
         assert not any("TEMP B-TREE" in r[-1] for r in plan), plan
         print("Owner page SQL:",sql,"\nSQLite:",version,"plan:",plan)
+
+    with server():
+        token = login("users", "r1@example.test")
+        owner_hits(token)
+        check_page_plan(token, False)
         added = create("notes",token,user=current,folder=folder["id"],body=body("Ash\0wicker"))
         changed = api("collections/notes/records/" + edit, {"body":body(accented), "revision":initial[edit]["revision"]}, token, "PATCH")
         assert added["revision"] == 1 and changed["revision"] == initial[edit]["revision"] + 1
@@ -347,4 +362,312 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
         assert [(f["user"], f["name_key"], f["is_default"]) for f in folders] == [(fresh, "NOTES", True)]
     print("PASS staged upgrade, stable defaults after replay, unchanged custom folder and R1 note, "
           "projected R1 preview, entries removed, superusers excluded, fresh user provisioned")
+
+    r5 = "1795000400_active_notes_and_purge.js"
+    purge = "idx_notes_purge"
+    definition = "CREATE INDEX `idx_notes_purge` ON `notes` (deleted, id) WHERE deleted > ''"
+    owner_rule = '@request.auth.collectionName = "users" && user = @request.auth.id'
+    active_rule = owner_rule + ' && deleted = ""'
+
+    def snapshot():
+        with closing(sqlite3.connect(dbfile)) as db:
+            related = [db.execute(f"SELECT * FROM {name} ORDER BY id").fetchall()
+                       for name in ("folders", "attachments")]
+            related_meta = db.execute("""SELECT fields,listRule,viewRule,createRule,updateRule,deleteRule,indexes
+                FROM _collections WHERE name IN ('folders','attachments') ORDER BY name""").fetchall()
+            related_indexes = db.execute("""SELECT name,sql FROM sqlite_master WHERE type='index'
+                AND tbl_name IN ('folders','attachments') ORDER BY name""").fetchall()
+            return (rows(db), related), (metadata(db), related_meta, related_indexes), history(db)
+
+    def listed(token):
+        page = api("collections/notes/records?fields=id&perPage=100", token=token)
+        assert page["totalItems"] == len(page["items"])
+        return sorted(r["id"] for r in page["items"])
+
+    before_rows, before_schema, before_history = snapshot()
+    r4_meta = before_schema[0]
+    assert before_rows[0] == post and r4_meta == meta
+    assert r4_meta[1][0] == owner_rule and purge not in r4_meta[3]
+    assert before_rows[0][deleted]["deleted"] == date
+    with server():
+        token = login("users", "r1@example.test")
+        ids = listed(token)
+        assert ids == sorted(post) and boundary in ids and deleted in ids, ids
+        print("R4 unfiltered owner list:", ids, "deleted:", deleted, date,
+              "rule:", r4_meta[1][0], "purge index:", r4_meta[3].get(purge), flush=True)
+        if not (source / r5).exists():
+            assert deleted not in ids, ("R5 expected exclusion on R4", deleted, ids)
+
+    shutil.copy("/pb/pb_hooks/note-actions.pb.js", hooks)
+    shutil.copy(source / r5, migrations)
+    up()
+    same_rows, r5_schema, r5_history = snapshot()
+    r5_meta = r5_schema[0]
+    assert same_rows == before_rows and r5_history == before_history + [r5]
+    assert r5_schema[1:] == before_schema[1:]
+    fields, rules, indexes, physical = r5_meta
+    assert fields == r4_meta[0] and rules == [active_rule, *r4_meta[1][1:]]
+    assert indexes == r4_meta[2] + [definition]
+    assert {n:s for n,s in physical.items() if n != purge} == r4_meta[3]
+    assert physical[purge].split(" WHERE ")[1] == "deleted > ''", physical[purge]
+    with closing(sqlite3.connect(dbfile)) as db:
+        [idx] = [r for r in db.execute("PRAGMA index_list(notes)") if r[1] == purge]
+        assert idx[2:] == (0,"c",1), idx
+        assert [(r[2],r[3],r[4]) for r in db.execute("PRAGMA index_xinfo(idx_notes_purge)") if r[5]] == [
+            ("deleted",0,"BINARY"), ("id",0,"BINARY")]
+
+    with server():
+        token = login("users", "r1@example.test")
+        assert listed(token) == sorted(set(post) - {deleted})
+        check_page_plan(token, True)
+        created = create("notes", token, user=current, folder=folder["id"], body=body("R5 create"))
+        updated = api("collections/notes/records/" + edit,
+                      {"revision":post[edit]["revision"], "body":body("R5 edit\nUnderstory")}, token, "PATCH")
+        for row, expected_rev in [(created,1), (updated,post[edit]["revision"] + 1)]:
+            assert row["revision"] == expected_rev
+            assert api("collections/notes/records/" + row["id"], token=token) == row
+        check_hits(token, "UNDERSTORY", {edit:"Understory"})
+        custom = create("folders", token, user=current, name="Post up")
+        member = create("notes", token, user=current, folder=folder["id"], body=body("Folder survivor"))
+        mid = member["id"]
+        for verb, rev, args in [("move",1,{"folder":custom["id"]}), ("delete",2,{}), ("restore",3,{})]:
+            changed = api(f"notebook/notes/{mid}/{verb}", {"revision":rev, **args}, token)
+            assert changed["revision"] == rev+1 and changed["folder"] == custom["id"]
+        fid = custom["id"]
+        digest = hashlib.sha256(json.dumps([fid,[[mid,4,""]]],separators=(",",":")).encode()).hexdigest()
+        path = f"collections/folders/records/{fid}?snapshot={digest}"
+        preview = api(f"notebook/folders/{fid}/delete-preview", token=token)
+        assert preview == {"id":fid,"name":"Post up","activeCount":1,"snapshot":digest}
+        assert api(path, token=token, method="DELETE") is None
+        after_member = api(f"collections/notes/records/{mid}", token=token)
+        assert after_member["folder"] == "" and after_member["revision"] == 5 and after_member["deleted"]
+        with closing(sqlite3.connect(dbfile)) as db:
+            assert not db.execute("SELECT id FROM folders WHERE id=?", (fid,)).fetchall()
+        print("Confirmed folder removed", fid, "surviving tombstone", mid, after_member["deleted"], flush=True)
+        retained_date = "2026-03-01 01:02:03.456Z"
+        created_id = created["id"]
+        assert re.fullmatch("[a-z0-9]{15}",created_id)
+        assert api("sql", {"query":f"UPDATE notes SET deleted='{retained_date}' WHERE id='{created_id}'"}, admin)["affectedRows"] == 1
+        assert api("collections/notes/records/" + created_id, token=token)["deleted"] == retained_date
+
+    saved_rows, saved_schema, saved_history = snapshot()
+    saved = saved_rows[0]
+    assert saved_schema == r5_schema and saved_history == r5_history
+    assert set(saved) == set(post) | {created_id,mid}
+    assert saved[edit]["search_key"] == "R5 EDIT\nUNDERSTORY" and saved[created_id]["search_key"] == "R5 CREATE"
+    assert saved[created_id]["deleted"] == retained_date
+    assert all(saved[i] == r for i,r in post.items() if i != edit)
+    assert saved_rows[1] == before_rows[1]
+
+    # Run bound queries in PocketBase's SQLite engine. Its admin SQL HTTP endpoint takes no bindings.
+    with closing(sqlite3.connect(dbfile)) as db:
+        assert db.execute("UPDATE notes SET deleted='zz-invalid' WHERE id=? AND deleted=''",(boundary,)).rowcount == 1
+        db.commit()
+    scan_hook = hooks / "01-scan-fixture.pb.js"
+    scan_hook.write_text("""
+    onBootstrap((e) => {
+      e.next();
+      const [owner, expired, retained, invalid, expiredDate, retainedDate, folderMember] = FIXTURES;
+      const cutoff = "2026-02-01 00:00:00.000Z";
+      const valid = "(deleted <> '0001-01-01 00:00:00.000Z' AND COALESCE(strftime('%Y-%m-%d %H:%M:%fZ',deleted,'+0 days') = deleted COLLATE BINARY, 0))";
+      function query(sql, params, shape) {
+        const rows = arrayOf(new DynamicModel(shape));
+        e.app.db().newQuery(sql).bind(params).all(rows);
+        return rows;
+      }
+      function equal(actual, expected) {
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) throw Error(JSON.stringify({actual, expected}));
+      }
+      for (const [range, hit, stamp, bounds] of [
+        ["deleted <= {:cutoff}", expired, expiredDate, "(deleted>? AND deleted<?)"],
+        ["deleted > {:cutoff} AND NOT " + valid, invalid, "zz-invalid", "(deleted>?)"],
+      ]) {
+        const sql = "SELECT deleted,id FROM notes WHERE deleted > '' AND " + range +
+          " AND (deleted,id) > ({:lastDeleted},{:lastId}) ORDER BY deleted,id LIMIT 100";
+        for (const [lastDeleted,lastId,expected] of [["","",[hit]], [stamp,hit,[]]]) {
+          const params = {cutoff,lastDeleted,lastId};
+          equal(query(sql, params, {deleted:"",id:""}).map(r => r.id), expected);
+          const plan = query("EXPLAIN QUERY PLAN " + sql, params, {id:0,parent:0,notused:0,detail:""}).map(r => r.detail);
+          if (!plan.some(p => p.includes("USING COVERING INDEX idx_notes_purge " + bounds)) ||
+              plan.some(p => p.includes("TEMP B-TREE"))) throw Error(JSON.stringify(plan));
+          console.log("R5 bound scan",JSON.stringify({sql,params,plan,expected}));
+        }
+      }
+      const where = " FROM notes WHERE user={:owner} AND deleted>{:cutoff} AND " + valid;
+      const params = {owner,cutoff};
+      equal(query("SELECT count(*) AS n" + where, params, {n:0})[0].n, 2);
+      const page = query("SELECT id,folder,title,revision,deleted" + where + " ORDER BY deleted DESC,id DESC LIMIT 20",
+        params, {id:"",folder:"",title:"",revision:0,deleted:""});
+      equal(page.map(r => [r.id,r.deleted]), [folderMember,[retained,retainedDate]]);
+      console.log("PASS R5 bound plans and valid trash count/page");
+    });""".replace("FIXTURES",json.dumps([current,deleted,created_id,boundary,date,retained_date,[mid,after_member["deleted"]]])))
+    offset = trace.stat().st_size
+    try:
+        with server():
+            pass
+    finally:
+        with trace.open("rb") as log:
+            log.seek(offset)
+            scan_lines = [line for line in log.read().decode().splitlines()
+                          if "R5 bound" in line or "Error" in line or "error" in line.lower() and "fixture" in line]
+            print("\n".join(scan_lines), flush=True)
+    assert any("PASS R5 bound plans and valid trash count/page" in line for line in scan_lines)
+    scan_hook.unlink()
+    with closing(sqlite3.connect(dbfile)) as db:
+        assert db.execute("UPDATE notes SET deleted='' WHERE id=? AND deleted='zz-invalid'",(boundary,)).rowcount == 1
+        db.commit()
+    assert snapshot() == (saved_rows, r5_schema, r5_history)
+
+    down(r5)
+    assert snapshot() == (saved_rows, before_schema, before_history)
+    # An unexpected same-name index must abort up without overwriting the operator's metadata.
+    wrong = definition.replace("deleted, id", "id, deleted")
+    with closing(sqlite3.connect(dbfile)) as db:
+        db.execute("UPDATE _collections SET indexes=? WHERE name='notes'", (json.dumps(r4_meta[2] + [wrong]),))
+        db.execute(wrong)
+        db.commit()
+    unexpected = snapshot()
+    failed = subprocess.run([*offline,"migrate","up"], capture_output=True,text=True)
+    assert failed.returncode != 0 and purge in failed.stdout + failed.stderr, (failed.returncode,failed.stdout,failed.stderr)
+    assert snapshot() == unexpected
+    with closing(sqlite3.connect(dbfile)) as db:
+        db.execute("DROP INDEX idx_notes_purge")
+        db.execute("UPDATE _collections SET indexes=? WHERE name='notes'", (json.dumps(r4_meta[2]),))
+        db.commit()
+    assert snapshot() == (saved_rows, before_schema, before_history)
+    up()
+    assert snapshot() == (saved_rows, r5_schema, r5_history)
+    with server():
+        token = login("users", "r1@example.test")
+        assert listed(token) == sorted(set(saved) - {deleted,created_id,mid})
+        check_hits(token, "UNDERSTORY", {edit:"Understory"})
+    print("R5 post-write down/up:", len(saved), "complete rows, edit revision", updated["revision"],
+          "retained", created_id, retained_date, "unexpected index refusal exit", failed.returncode)
+
+    def set_raw(ident, value):
+        with closing(sqlite3.connect(dbfile)) as db:
+            assert db.execute("UPDATE notes SET deleted=? WHERE id=?", (value,ident)).rowcount == 1
+            db.commit()
+            assert db.execute("SELECT deleted FROM notes WHERE id=?", (ident,)).fetchone() == (value,)
+
+    def stored(ident):
+        with closing(sqlite3.connect(dbfile)) as db:
+            return rows(db)[ident]
+
+    def request(path, data=None, method=None):
+        try:
+            return 200, api(path, data, token, method)
+        except HTTPError as err:
+            return err.code, json.load(err)
+
+    with server():
+        actor = user(admin, "r5-dates@example.test")
+        token = login("users", "r5-dates@example.test")
+        home = api("collections/folders/records",token=token)["items"][0]["id"]
+        target = create("folders",token,user=actor,name="Date controls")["id"]
+        # This staged database uses local file storage, so inspect the file independently of HTTP.
+        form = ("--r5\r\nContent-Disposition: form-data; name=\"user\"\r\n\r\n" + actor +
+                "\r\n--r5\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\nprivate.txt" +
+                "\r\n--r5\r\nContent-Disposition: form-data; name=\"file\"; filename=\"private.txt\"" +
+                "\r\nContent-Type: text/plain\r\n\r\nprivate reserved bytes\r\n--r5--\r\n")
+        upload = Request(origin+"/api/collections/attachments/records", data=form.encode(),
+                         headers={"Authorization":token,"Content-Type":"multipart/form-data; boundary=r5"})
+        with urlopen(upload,timeout=5) as response:
+            file = json.load(response)
+        key = root / "data/storage" / file["collectionId"] / file["id"] / file["file"]
+        def file_state():
+            with closing(sqlite3.connect(dbfile)) as db:
+                return db.execute("SELECT * FROM attachments WHERE id=?", (file["id"],)).fetchone(), key.read_bytes()
+        attachment = file_state()
+        assert attachment[0] and attachment[1] == b"private reserved bytes"
+
+        assert listed(token) == []
+        def fixture(label, date):
+            row = create("notes", token, user=actor, folder=home, body=body(label), attachments=[file["id"]])
+            set_raw(row["id"],date)
+            return row["id"]
+
+        empty = fixture("Active control", "")
+        expired_id = fixture("Expired control", "2020-01-01 00:00:00.001Z")
+        recent = fixture("Retained control", time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime(time.time()-86400))+".000Z")
+        bad_dates = ["0001-01-01 00:00:00.000Z","0000-invalid","2099-02-30 00:00:00.000Z","zz-invalid"]
+        bad = [fixture("Corrupt control", value) for value in bad_dates]
+        patch_control = fixture("Independent malformed PATCH", bad_dates[1])
+        assert listed(token) == [empty]
+        assert request("collections/notes/records/"+empty)[1]["deleted"] == ""
+        assert request("collections/notes/records/"+expired_id)[1]["deleted"] == stored(expired_id)["deleted"]
+
+        errors = []
+        def check(ident, verb, code, payload=None):
+            before = stored(ident)
+            path = ("collections/notes/records/"+ident if verb in ("GET","PATCH")
+                    else "notebook/notes/"+ident+"/"+verb)
+            status, result = request(path, payload, verb if verb in ("GET","PATCH") else "POST")
+            after = stored(ident)
+            actual = (status, before == after, file_state() == attachment)
+            evidence = {"path":path,"verb":verb,"request":payload,"expected":code,"actual":status,
+                        "response":result,"before":before,"after":after,"fileUnchanged":actual[2]}
+            print("R5 fixture", json.dumps(evidence,default=lambda x:x.hex()), flush=True)
+            if actual != (code,True,True):
+                errors.append((ident,verb,code,actual))
+
+        def transition(verb, revision, destination):
+            payload = {"revision":revision, **({"folder":destination} if verb == "move" else {})}
+            before = stored(empty)
+            status, result = request("notebook/notes/"+empty+"/"+verb, payload, "POST")
+            after = stored(empty)
+            print("R5 successful fixture action",verb,status,result,flush=True)
+            assert status == 200 and result == {"id":empty,"user":actor,"revision":revision+1,
+                "folder":destination,"deleted":after["deleted"]}, result
+            assert after == dict(before, folder=destination, deleted=result["deleted"], revision=revision+1)
+            assert bool(result["deleted"]) == (verb == "delete")
+
+        transition("move",1,target)
+        check(empty,"move",409,{"revision":1,"folder":home})
+        check(empty,"delete",409,{"revision":1})
+        transition("delete",2,target)
+        check(empty,"restore",409,{"revision":2})
+        transition("restore",3,target)
+        check(expired_id,"restore",410,{"revision":1})
+        for ident in bad:
+            check(ident,"restore",409,{"revision":2})
+            check(ident,"GET",500)
+            check(ident,"move",500,{"revision":1,"folder":target})
+            check(ident,"delete",500,{"revision":1})
+            check(ident,"restore",500,{"revision":1})
+            check(ident,"PATCH",500,{"revision":1,"body":body("Integrity edit")})
+        check(patch_control,"PATCH",500,{"revision":1,"body":body("Independent edit")})
+        trash_status, trash = request("notebook/recently-deleted")
+        assert not errors, errors
+        assert trash_status == 200 and trash["totalItems"] == 1 and [r["id"] for r in trash["items"]] == [recent], trash
+    trace_text = trace.read_text()
+    for ident in [*bad,patch_control]:
+        assert re.search(r"Invalid note deletion timestamp[^\n]*"+ident, trace_text), ident
+
+    with (hooks/"00-fixture.pb.js").open("a") as out:
+        out.write("""
+    onBootstrap((e) => {
+      e.next();
+      const life = require(`${__hooks}/note-lifecycle.js`);
+      for (const [start,end] of [
+        ["2026-03-01 13:14:15.123Z","2026-03-31T13:14:15.123Z"],
+        ["2026-10-15 13:14:15.123Z","2026-11-14T13:14:15.123Z"],
+        ["2024-02-01 13:14:15.123Z","2024-03-02T13:14:15.123Z"],
+      ]) {
+        const deadline = life.deadline(start);
+        const fixed = Date.parse(end);
+        const allowed = [-1,0,1].map(delta => life.canRestore(start,fixed+delta));
+        console.log("R5 fixed UTC boundary",start,new Date(deadline).toISOString(),JSON.stringify(allowed));
+        if (deadline !== fixed || JSON.stringify(allowed) !== "[true,false,false]") throw Error("R5 UTC boundary");
+      }
+      console.log("PASS R5 production UTC boundaries");
+    });""")
+    offset = trace.stat().st_size
+    try:
+        with server():
+            pass
+    finally:
+        segment = trace.read_bytes()[offset:].decode()
+        print("\n".join(l for l in segment.splitlines() if "R5 " in l or "Error:" in l),flush=True)
+    assert "PASS R5 production UTC boundaries" in segment
 PY

@@ -73,6 +73,16 @@ The R2 migration drops `entries` and its records. Preserve a pre-upgrade backup,
   the pre-change backup into a separate instance first (see the restore drill),
   verify it, then plan the replacement of the live data.
 
+## Verify files after note purge
+
+The daily `expired-notes` job logs each exclusive attachment key before its transaction commits. PocketBase removes the storage prefix asynchronously after commit. A transaction can roll back, a worker can fail, or an in-flight thumbnail can finish after the worker lists the prefix. A successful job or an API 404 alone cannot confirm physical removal. There is no durable retry for leftover objects.
+
+1. In private PocketBase logs, collect **Purge attachment key** events by run, account (`owner`), note, attachment and prefix. Retain the exact keys and their `expectedOriginal`, `observed` and `possibleDerivative` flags. Match any later **Failed to delete storage prefix** error by prefix. Review or export these events before log retention expires. The job requires retained info and error logs and room for at least 8192 bytes per event.
+2. Confirm the instance, authoritative database and private attachment store or bucket. Pause writes on every instance sharing the store, including restores, uploads and imports. Stop admitting file and thumbnail requests and drain existing requests, generation workers and pending writes before examining any keys.
+3. Using private storage credentials, stat the expected original, every observed key and every possible derivative, including the logged `100x100` thumbnail even when it was never observed or no worker error appeared. Check the committed database directly for the purged note and attachment, **all** surviving note references (including deleted notes), and any current record reusing the attachment ID or prefix. If an identifier or key was reused, a reference remains, ownership is uncertain or inspection fails, leave the object intact.
+4. With writers and file requests still paused, remove only individual logged keys verified present, unreferenced and attributable to that purge. Never delete a prefix recursively. Independently stat each exact key again in private storage. Record confirmed absence separately from denied or unreachable results, and verify surviving shared files still return their expected bytes.
+5. Record outcomes privately against the run and keys, including any unresolved objects, before resuming service. [Retention and shared files](../docs/features/attachments.md#saving-and-removing-references)
+
 ## Backups
 
 Two independent layers protect the data:

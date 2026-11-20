@@ -9,6 +9,8 @@ import {
   verifyOwner,
 } from "./data";
 
+import type { NoteState } from "./actions";
+
 type SavedNote = Awaited<ReturnType<typeof saveNote>>;
 type Submission = Pick<
   SavedNote,
@@ -141,6 +143,71 @@ export class NoteDraft {
 
   get revision() {
     return this.baseline?.revision ?? 0;
+  }
+
+  get title() {
+    return this.baseline?.title ?? "";
+  }
+
+  adoptMove(state: NoteState) {
+    if (
+      !this.baseline ||
+      !this.current ||
+      state.id !== this.id ||
+      state.user !== this.user ||
+      (state.revision !== this.revision + 1 &&
+        !(state.revision === this.revision && state.folder === this.folder)) ||
+      !state.folder ||
+      state.deleted
+    )
+      return false;
+    this.baseline = {
+      ...this.baseline,
+      folder: state.folder,
+      revision: state.revision,
+    };
+    this.resume();
+    this.options.onChange?.();
+    return true;
+  }
+
+  async discardForAction() {
+    if (this.submissions.length && !this.rejection) {
+      const result = await this.reconcile();
+      if (!result || !this.current) return false;
+    }
+    if (!this.current || !this.baseline) return false;
+    this.body = this.baseline.body;
+    this.editorVersion++;
+    this.acknowledge(this.baseline, this.generation);
+    return true;
+  }
+
+  unavailable() {
+    this.fail("unavailable", "Note unavailable");
+  }
+
+  replaceSaved(note: SavedNote) {
+    if (
+      !this.current ||
+      note.id !== this.id ||
+      note.user !== this.user ||
+      note.deleted
+    )
+      return;
+    if (this.dirty) {
+      this.changedElsewhere();
+      return;
+    }
+    this.body = note.body;
+    this.editorVersion++;
+    this.acknowledge(note, this.generation);
+    this.resume();
+  }
+
+  changedElsewhere() {
+    this.resume();
+    this.fail("conflict", "The saved version differs. Review the conflict.");
   }
 
   get busy() {

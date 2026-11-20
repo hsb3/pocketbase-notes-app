@@ -10,7 +10,7 @@ fi
 
 profile=${CONTAINED_PROFILE:-default}
 case "$1/$profile" in
-  api/default|api/accounts|api/restore|api/load|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
+  api/default|api/accounts|api/restore|api/load|browser/recover|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
   *) echo "Unsupported contained profile: $1/$profile" >&2; exit 2 ;;
 esac
 
@@ -103,6 +103,18 @@ COPYFILE_DISABLE=1 tar --exclude='._*' -cf - package.json bun.lock bunfig.toml i
   pb/hooks pb/migrations scripts/*.ts deploy/docker/Dockerfile deploy/local/prepare-test.sh \
   tests/e2e playwright.config.ts "${inputs[@]}" | docker exec -i "$project-prepare" tar -xf -
 inside prepare sh deploy/local/prepare-test.sh "$profile"
+if [[ $1/$profile = api/default || $1/$profile = browser/default || $1/$profile = browser/recover ]]; then
+  docker exec -i "$project-prepare" sh -c 'cat > /pb/pb_hooks/zz-manual-cron.pb.js' <<'JS'
+$app.onServe().bindFunc((e) => {
+  const cron = e.app.cron();
+  const jobs = cron.jobs().filter(j => j.id() === "expired-notes");
+  if (jobs.length !== 1 || jobs[0].expression() !== "17 3 * * *") throw Error("Missing production purge schedule");
+  console.log("Verified production cron", jobs[0].id(), jobs[0].expression());
+  cron.add("expired-notes", "0 0 30 2 *", jobs[0].run);
+  e.next();
+});
+JS
+fi
 docker stop -t 1 "$project-prepare" >/dev/null
 
 start rustfs
@@ -129,6 +141,9 @@ if [[ $profile = accounts ]]; then
 fi
 idle setup
 inside setup bun run scripts/configure-services.ts
+if [[ $1/$profile = api/default || $1/$profile = browser/default || $1/$profile = browser/recover ]]; then
+  inside setup bun scripts/test-attachments.ts --cron-ready
+fi
 if [[ $profile = load ]]; then
   idle k6
   inside k6 mkdir /tmp/results
@@ -189,8 +204,12 @@ else
     '
     exit 0
   fi
-  tests=(node node_modules/playwright/cli.js test)
+  tests=(env CONTAINED_TEST=1 node node_modules/playwright/cli.js test)
   case $profile in
+    recover)
+      inside browser mkdir -p /tmp/r5-views
+      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/recover.json "${tests[@]}" tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs --workers=1 --retries=0 --reporter=list,html,json)
+      ;;
     search)
       inside browser mkdir -p /tmp/r4-search-views
       tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/sc004.json "${tests[@]}" tests/e2e/search.spec.cjs tests/e2e/search-timing.spec.cjs --workers=1 --retries=0 --reporter=list,html,json)
@@ -206,24 +225,46 @@ else
   esac
   test_status=0
   inside browser "${tests[@]}" || test_status=$?
-  if [[ $profile = search ]]; then
+  if [[ $profile = search || $profile = recover ]]; then
+    if [[ $profile = search ]]; then
+      report=sc004.json views=r4-search-views states=(filled empty)
+    else
+      report=recover.json views=r5-views states=(move-sheet delete-note folder-confirm trash-filled trash-empty)
+    fi
     mkdir -p "$output"
-    docker cp "$project-browser:/tmp/sc004.json" "$output/sc004.json" || test_status=1
-    docker cp "$project-browser:/tmp/r4-search-views" "$output/" || test_status=1
+    docker cp "$project-browser:/tmp/$report" "$output/$report" || test_status=1
+    docker cp "$project-browser:/tmp/$views" "$output/" || test_status=1
     if (( test_status == 0 )); then
-      python3 scripts/check-sc004.py "$output/sc004.json" || test_status=1
+      if [[ $profile = search ]]; then
+        python3 scripts/check-sc004.py "$output/$report" || test_status=1
+      else
+        python3 - "$output/$report" <<'PYREC' || test_status=1
+import json, sys
+def cases(suite):
+    for spec in suite.get("specs", []):
+        for test in spec["tests"]:
+            yield test
+    for child in suite.get("suites", []):
+        yield from cases(child)
+suites = json.load(open(sys.argv[1]))["suites"]
+expected = {"note-actions.spec.cjs", "recently-deleted.spec.cjs"}
+assert {s["file"].split("/")[-1] for s in suites if list(cases(s))} == expected, "Missing R5 suite"
+tests = list(cases({"suites": suites}))
+assert tests and all(t["status"] == "expected" and [r["status"] for r in t["results"]] == ["passed"] for t in tests), "Incomplete R5 browser cases"
+PYREC
+      fi
       for engine in chromium webkit; do
         for width in 390 810 1440; do
           for theme in light dark; do
-            for state in filled empty; do
-              file="$output/r4-search-views/$engine-$width-$theme-$state.png"
+            for state in "${states[@]}"; do
+              file="$output/$views/$engine-$width-$theme-$state.png"
               [[ -s $file ]] || { echo "Missing screenshot: $file" >&2; test_status=1; }
             done
           done
         done
       done
     fi
-    echo "SC-004 report: $output/sc004.json"
+    echo "Browser report: $output/$report"
   fi
   if [[ $profile = resilience ]]; then
     mkdir -p "$output"

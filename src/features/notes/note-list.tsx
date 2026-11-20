@@ -1,5 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Search, SquarePen, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  SquarePen,
+  Trash2,
+  X,
+} from "lucide-react";
 import {
   useEffect,
   useLayoutEffect,
@@ -36,6 +43,8 @@ export function NoteList({
   refresh,
   compose,
   canCompose,
+  deleteFolder,
+  deletingFolder,
   position,
   showingList,
   fromList,
@@ -57,6 +66,8 @@ export function NoteList({
   refresh: number;
   compose: (position: ListPosition) => void;
   canCompose: boolean;
+  deleteFolder?: () => void;
+  deletingFolder: boolean;
   position?: ListPosition;
   showingList: boolean;
   fromList: boolean;
@@ -70,6 +81,7 @@ export function NoteList({
   const [field, setField] = useState(q);
   // biome-ignore lint/correctness/useExhaustiveDependencies: Navigation and the leave dialog end the local field edit.
   useLayoutEffect(() => setField(q), [q, entryKey, choosing]);
+  const heading = useRef<HTMLHeadingElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const composeButton = useRef<HTMLButtonElement>(null);
@@ -108,9 +120,13 @@ export function NoteList({
     };
   }, [user, folder, page, q, sp, refresh, retry]);
   useEffect(() => {
-    if (q && rows && !rows.items.length && sp > Math.max(1, rows.totalPages))
+    if (
+      rows &&
+      !rows.items.length &&
+      effectivePage > Math.max(1, rows.totalPages)
+    )
       clampPage(Math.max(1, rows.totalPages));
-  }, [q, sp, rows, clampPage]);
+  }, [effectivePage, rows, clampPage]);
 
   useLayoutEffect(() => {
     if (!showingList) {
@@ -134,6 +150,7 @@ export function NoteList({
           : document.getElementById("row-" + position.focus);
       (target ?? input.current)?.focus({ preventScroll: true });
     } else if (focusSearch) input.current?.focus({ preventScroll: true });
+    else if (folder !== "all") heading.current?.focus({ preventScroll: true });
     restored.current = entryKey;
   }, [showingList, rows, position, entryKey, focusSearch, folder, page, q, sp]);
   function listPosition(focus: string): ListPosition {
@@ -168,9 +185,27 @@ export function NoteList({
           Folders
         </Link>
       </Button>
-      <h2 className="col-start-1 row-start-2 self-center truncate px-4 py-3 text-2xl font-semibold tracking-tight max-md:col-span-2 md:row-start-1">
-        {title}
-      </h2>
+      <header className="col-start-1 row-start-2 flex min-w-0 items-center gap-1 px-3 py-2 max-md:col-span-2 md:row-start-1">
+        <h2
+          ref={heading}
+          tabIndex={-1}
+          className="min-w-0 truncate text-2xl font-semibold tracking-tight"
+        >
+          {title}
+        </h2>
+        {deleteFolder && (
+          <Button
+            id="delete-folder"
+            variant="ghost"
+            size="icon"
+            aria-label="Delete folder"
+            disabled={deletingFolder}
+            onClick={deleteFolder}
+          >
+            <Trash2 />
+          </Button>
+        )}
+      </header>
       <form
         role="search"
         aria-label="Search notes"
@@ -234,11 +269,16 @@ export function NoteList({
         {current?.error ? (
           <div role="alert">
             {current.error}{" "}
-            <Button variant="outline" size="sm" onClick={reload}>
+            <Button
+              autoFocus={showingList}
+              variant="outline"
+              size="sm"
+              onClick={reload}
+            >
               Retry
             </Button>
           </div>
-        ) : !rows || (q && !rows.items.length && sp > 1) ? (
+        ) : !rows || (!rows.items.length && effectivePage > 1) ? (
           <p>Loading notes…</p>
         ) : !rows.items.length ? (
           <Empty>

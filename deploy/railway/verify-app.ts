@@ -37,7 +37,9 @@ async function main() {
     await editor.press("End");
     await editor.press("Enter");
     await page.keyboard.insertText(text);
-    await expect(page.getByRole("status")).toHaveText("Saved");
+    await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+      "Saved",
+    );
     await page.waitForURL(/\/notes\/[a-z0-9]{15}$/);
     const id = new URL(page.url()).pathname.split("/").pop()!;
     await page.reload();

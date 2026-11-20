@@ -243,7 +243,9 @@ test("production editor loading baseline", async ({
             if (!shell) {
               await editor.press("ControlOrMeta+z");
               await expect(editor).not.toContainText("baseline-input");
-              await expect(page.getByRole("status")).toHaveText("Saved");
+              await expect(
+                page.getByRole("status", { name: "Save status" }),
+              ).toHaveText("Saved");
             }
           }
         } finally {

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import PocketBase, { ClientResponseError } from "pocketbase";
+import { markRetained, noteActions } from "./test-note-actions";
 
 const url = process.env.TEST_PB_URL || process.env.VITE_PB_URL;
 assert(
@@ -692,16 +693,7 @@ async function searchPrivacy() {
   for (const pb of [b.pb, anonymous]) await hits(pb, "Late-A-Word", []);
   for (const pb of [a.pb, anonymous]) await hits(pb, "B-only-word", []);
   if (process.env.CONTAINED_TEST === "1") {
-    assert.match(note.id, /^[a-z0-9]{15}$/);
-    assert.equal(
-      (
-        await admin.sql.run(
-          `UPDATE notes SET deleted='2026-01-01 00:00:00.000Z' WHERE id='${note.id}'`,
-        )
-      ).affectedRows,
-      1,
-    );
-    assert.ok((await admin.collection("notes").getOne(note.id)).deleted);
+    await markRetained(admin, note.id);
     for (const pb of [a.pb, b.pb, anonymous]) await hits(pb, "Late-A-Word", []);
   }
 }
@@ -923,12 +915,8 @@ async function noteList(a: Account, b: Account) {
     assert.equal(Object.hasOwn(updated, "excerpt"), false);
   }
   if (process.env.CONTAINED_TEST === "1") {
-    assert.match(row.id, /^[a-z0-9]{15}$/);
-    const aged = await admin.sql.run(
-      `UPDATE notes SET deleted = '2026-01-01 00:00:00.000Z' WHERE id = '${row.id}'`,
-    );
-    assert.equal(aged.affectedRows, 1);
-    assert.ok((await notes.getOne(row.id)).deleted);
+    const removed = await markRetained(admin, row.id);
+    assert.equal((await notes.getOne(row.id)).deleted, removed);
     const active = await notes.getList(1, 20, { ...query, fields });
     assert.equal(active.totalItems, 19);
     assert.ok(active.items.every((r) => r.id !== row.id));
@@ -1164,6 +1152,17 @@ try {
   // Run independent cases even on the pre-hook schema to keep each failure visible.
   const failures: string[] = [];
   for (const [label, run] of [
+    ...(process.env.CONTAINED_TEST === "1"
+      ? [
+          [
+            "unfiltered active notes and owner tombstone",
+            async () => {
+              const owner = await account();
+              await noteActions(admin, owner.pb, await draft(owner));
+            },
+          ] as const,
+        ]
+      : []),
     ["folder access", () => folderAccess(a, b)],
     ["nonempty folder", () => nonemptyFolder(a)],
     ["folder names", () => folderNames(a, b)],

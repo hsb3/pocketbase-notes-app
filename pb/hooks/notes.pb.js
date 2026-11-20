@@ -60,15 +60,26 @@ onRecordUpdateRequest((e) => {
     throw new ApiError(409, "A current numeric revision is required.");
   }
   e.app.runInTransaction((tx) => {
-    const current = tx.findRecordById("notes", e.record.id);
+    const life = require(`${__hooks}/note-lifecycle.js`);
+    const current = life.ownedNote(tx, e.record.id, e.record.original().getString("user"));
     const expected = submitted.revision;
-    if (expected !== current.getInt("revision") || expected !== e.record.original().getInt("revision")) {
+    if (expected !== current.revision || expected !== e.record.original().getInt("revision")) {
       throw new ApiError(409, "A newer version was saved. Copy this draft before reloading.");
     }
+    life.checkDeleted(tx, current.id, current.deleted);
+    if (current.deleted) throw new BadRequestError("A note must be active.");
     e.app = tx;
     e.record.set("revision", expected + 1);
     e.next();
   });
+}, "notes");
+
+onRecordViewRequest((e) => {
+  const life = require(`${__hooks}/note-lifecycle.js`);
+  const current = life.ownedNote(e.app, e.record.id, e.record.getString("user"));
+  life.checkDeleted(e.app, current.id, current.deleted);
+  e.requestEvent.response.header().set("Cache-Control", "private, no-store");
+  e.next();
 }, "notes");
 
 onRecordDeleteRequest((e) => {
