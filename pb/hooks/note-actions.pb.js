@@ -68,6 +68,39 @@ for (const verb of ["move", "delete", "restore"]) {
   }, $apis.requireAuth("users"));
 }
 
+// Pin is metadata-only (constitution III): no revision check, and raw SQL leaves `updated` alone.
+routerAdd("POST", "/api/notebook/notes/{id}/pin", (e) => {
+  const life = require(`${__hooks}/note-lifecycle.js`);
+  const id = e.request.pathValue("id");
+  const user = e.auth.id;
+  e.response.header().set("Cache-Control", "private, no-store");
+  if (!/^[a-z0-9]{15}$/.test(id)) throw new NotFoundError("Note unavailable.");
+  const raw = readerToString(e.request.body, Number.MAX_SAFE_INTEGER);
+  const mediaType = e.request.header.get("Content-Type").split(";")[0].trim().toLowerCase();
+  let result;
+  e.app.runInTransaction((tx) => {
+    const note = life.ownedNote(tx, id, user);
+    let body;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      throw new BadRequestError("Expected a JSON object.");
+    }
+    if (e.request.url.rawQuery || mediaType !== "application/json" ||
+        !body || typeof body !== "object" || Array.isArray(body) ||
+        Object.keys(body).length !== 1 || typeof body.pinned !== "boolean") {
+      throw new BadRequestError("Invalid note action.");
+    }
+    life.checkDeleted(tx, id, note.deleted);
+    if (note.deleted) throw new BadRequestError("This note is deleted.");
+    // Zero affected rows means the note already had this value.
+    tx.db().newQuery("UPDATE notes SET pinned={:pinned} WHERE id={:id} AND user={:user} AND deleted='' AND pinned<>{:pinned}")
+      .bind({ id, user, pinned: body.pinned }).execute();
+    result = { id, user, folder: note.folder, deleted: "", revision: note.revision, pinned: body.pinned };
+  });
+  return e.json(200, result);
+}, $apis.requireAuth("users"));
+
 routerAdd("GET", "/api/notebook/recently-deleted", (e) => {
   const life = require(`${__hooks}/note-lifecycle.js`);
   e.response.header().set("Cache-Control", "private, no-store");

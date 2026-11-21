@@ -20,7 +20,7 @@ Decisions and rejected options: [research.md](research.md).
 
 **Primary Dependencies**: Existing only: `pocketbase` SDK ^0.28, shadcn primitives, `lucide-react` (`Pin` icon)
 
-**Storage**: SQLite through PocketBase. One new bool field and one partial index ([data model](data-model.md))
+**Storage**: SQLite through PocketBase. One new bool field and one index ([data model](data-model.md))
 
 **Testing**: Bun API scripts (`scripts/test-*.ts`) and Playwright (`tests/e2e/*.spec.cjs`, Chromium and WebKit), both run through `make test-*-contained`
 
@@ -63,7 +63,7 @@ specs/002-notes-redesign/r7-pin/
 | Wave | Files (create or modify) | Result |
 |---|---|---|
 | W1 · schema | Create `pb/migrations/1795000500_note_pins.js`. Regenerate `src/services/pocketbase-types.ts` (`make codegen`). Modify `scripts/test-r2-upgrade.sh`. | Field, index and rules. Up, down and up again are byte-equal. [W1 exit](quickstart.md#w1-exit) |
-| W2 · API | Modify `pb/hooks/note-actions.pb.js`. Create `scripts/test-pins.ts`. Modify `scripts/test-notes.ts` (to call it). | `pin` verb, `pinned` in every action projection, denial and survival tests. [W2 exit](quickstart.md#w2-exit) |
+| W2 · API | Modify `pb/hooks/note-actions.pb.js`. Create `scripts/test-pins.ts`. Modify `scripts/test-notes.ts` (to call it). | `pin` verb, denial and survival tests. [W2 exit](quickstart.md#w2-exit) |
 | W3 · UI | Modify `src/features/notes/{data.ts,actions.ts,note-actions.tsx,note-list.tsx,workspace.tsx}` and `src/features/folders/folder-list.tsx`. Create `tests/e2e/pin.spec.cjs`. | Pin menu item, pinned group and marker, Pinned view, compose from Pinned. [W3 exit](quickstart.md#w3-exit) |
 | W4 · docs | Modify `docs/features/{notes,folders}.md`, `CHANGELOG.md`, `specs/002-notes-redesign/versions.md`. | Docs match the behaviour; R7 marked `done`. |
 

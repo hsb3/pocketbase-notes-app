@@ -21,7 +21,7 @@ A pin leaves `revision` and `created`, `updated`, `body`, `title`, `text`, `sear
 
 ## Index
 
-`idx_notes_active_pinned ON notes (user, pinned, updated, id) WHERE deleted = ''`. Existing indexes are kept.
+`idx_notes_user_pinned_updated_id ON notes (user, pinned, updated, id)`. It is not partial: the owner list rule compiles to `deleted = '' OR deleted IS NULL`, which a `WHERE deleted = ''` index cannot serve. Existing indexes are kept.
 
 ## Views (stored nowhere)
 
@@ -37,7 +37,7 @@ A pin leaves `revision` and `created`, `updated`, `body`, `title`, `text`, `sear
 
 `pb/migrations/1795000500_note_pins.js`:
 
-- **Up:** assert the current notes create and update rules equal the R5 strings and that `idx_notes_active_pinned` does not exist; then add the field, the index and both rule clauses.
+- **Up:** assert the current notes create and update rules equal the R5 strings and that `idx_notes_user_pinned_updated_id` does not exist; then add the field, the index and both rule clauses.
 - **Down:** assert the R7 state, then remove all three.
 - **Unexpected state:** either direction throws and leaves nothing changed, following the pattern of `1795000400`.
 - **Existing rows:** they read `false` after up. No backfill is needed, because no user data exists (parent spec assumption).

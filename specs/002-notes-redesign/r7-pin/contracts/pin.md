@@ -7,7 +7,7 @@ Each route below extends the [R5 action contract](../../r5-recover/contracts/act
 | Method and path | Request | Success |
 |---|---|---|
 | `POST /api/notebook/notes/{id}/pin` | JSON object with exactly `pinned` (boolean) | 200 with `id, user, folder, deleted, revision, pinned`. `revision` is unchanged. A same-value request writes nothing. |
-| `POST …/move`, `…/delete`, `…/restore` | Unchanged | Same projection plus `pinned`. They keep their R5 revision rules. |
+| `POST …/move`, `…/delete`, `…/restore` | Unchanged | Unchanged projection, without `pinned`. They keep their R5 revision rules. |
 
 Errors:
 

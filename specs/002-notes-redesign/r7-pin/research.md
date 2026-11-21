@@ -40,7 +40,7 @@ No item in the plan's technical context was left open. Each decision below was s
 
 ## 5. Ordering and index
 
-- **Decision.** Folder lists and All Notes sort by `-pinned,-updated,-id`. Pinned filters on `deleted = "" && pinned = true` and sorts by `-updated,-id`. Search keeps `-updated,-id`. Add a partial index `idx_notes_active_pinned ON notes (user, pinned, updated, id) WHERE deleted = ''`.
+- **Decision.** Folder lists and All Notes sort by `-pinned,-updated,-id`. Pinned filters on `deleted = "" && pinned = true` and sorts by `-updated,-id`. Search keeps `-updated,-id`. Add the index `idx_notes_user_pinned_updated_id ON notes (user, pinned, updated, id)`.
 - **Rationale.** A single sort keeps the 20-row pages stable across the boundary between the pinned and unpinned groups, so the client needs no second query. W1 records `EXPLAIN QUERY PLAN` for the three list shapes, with no temporary sort expected on Pinned. If a folder list does need a temporary sort, accept it at personal-library scale and note it in the W1 evidence; it is not a blocker.
 - **Alternative rejected.** *Two queries per folder (pinned first, then unpinned).* That doubles the requests and makes page arithmetic harder.
 
