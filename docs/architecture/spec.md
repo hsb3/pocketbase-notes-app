@@ -1,15 +1,17 @@
 # PocketBase Notes
 
-## Purpose
+A private, self-hosted notebook for capturing writing on a phone and finding it again on a desktop. React and TanStack Router handle navigation and editing. PocketBase stores each account’s folders, notes and protected files.
 
-A private, self-hosted web notebook for capturing and reopening writing across devices. React and TanStack Router serve the interface. PocketBase stores folders, notes and protected files.
+## The notebook today
 
-## Capabilities and constraints
+**Compose** starts a note in the selected folder. The first logical line supplies the title. Autosave uses a stable note ID and checks the saved revision so that an older draft cannot overwrite a newer version. After **Saved**, sign in to the same account on another device and search for words in the title or body. If a save fails, keep the tab open to recover its in-memory draft. [Notes and draft recovery](../features/notes.md)
 
-Sign-in opens All Notes. Compose writes to the selected folder, derives the title from the first line and autosaves with a revision check. Phones show one region at a time. Larger screens keep folders, list and editor visible together. Account settings include [two-step sign-in](../features/auth.md). Themes support light, dark and system preferences.
+A phone shows folders, list or editor one at a time. At wider sizes they share a workspace. A move keeps the note’s address. Deleting a note sends it to the account’s Recently Deleted list, where it can be restored before its 30-day deadline. Deleting a custom folder also sends its active notes there. Account settings include optional two-step sign-in. [Folders and recovery](../features/folders.md) · [Account security](../features/auth.md)
 
-The [notebook guide](../features/notes.md) describes current behavior and planned increments. Drafts live in memory. The app has no sharing or offline synchronization.
+Writing is private between accounts. The server operator has access to stored data. Existing rich content and protected image references survive editing. Sharing and offline synchronization are outside the notebook’s scope. [Protected attachments](../features/attachments.md)
 
-## Design authority
+## Milestone 1
 
-The [R2 route and write contract](../../specs/002-notes-redesign/r2-compose/contracts/compose.md) defines navigation, layout and saves. The [notes and journal design](../design/notes-journal.md) and its wireframes document the retired entries interface.
+R6 checks the R1–R5 capture, find, file and recovery flows. The gate includes physical iPhone Safari checks and a timed phone-to-desktop search. The owner revisits the roadmap after Milestone 1. [Milestone 1 gate](../../specs/002-notes-redesign/r6-gate/spec.md)
+
+The [redesign specification](../../specs/002-notes-redesign/spec.md) defines the product requirements. The [notes and journal design](../design/notes-journal.md) and its wireframes document the retired entries interface.

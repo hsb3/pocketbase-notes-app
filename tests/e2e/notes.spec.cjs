@@ -365,9 +365,39 @@ test("rich paste and private image survive a body-only save and reopen", async (
   );
   const note = await seedNote(owner, body, [file.id]);
   await login(page, session);
+  // Observe initial placement too: clicking an unchanged caret need not fire selectionchange.
+  await page.addInitScript(() => {
+    document.addEventListener("selectionchange", () => {
+      const selection = document.getSelection();
+      const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      window.pasteCaret = range?.collapsed
+        ? { node: range.startContainer, offset: range.startOffset }
+        : null;
+    });
+  });
   await page.goto(`/notes/${note.id}`);
-  const last = editor(page).locator(":scope > p").last();
+  const paragraphs = editor(page).locator(":scope > p");
+  await expect(paragraphs).toHaveText(["Garden", ""]);
+  const last = paragraphs.last();
   await last.click();
+  await expect
+    .poll(() =>
+      last.evaluate((p) => {
+        const seen = window.pasteCaret;
+        const selection = document.getSelection();
+        if (!seen || !selection?.isCollapsed || !selection.rangeCount)
+          return false;
+        const caret = selection.getRangeAt(0);
+        const bounds = document.createRange();
+        bounds.selectNode(p);
+        return (
+          caret.startContainer === seen.node &&
+          caret.startOffset === seen.offset &&
+          bounds.isPointInRange(seen.node, seen.offset)
+        );
+      }),
+    )
+    .toBe(true);
   await last.evaluate((p) => {
     const data = new DataTransfer();
     data.setData("text/html", "<p><strong>Seed</strong> <em>order</em></p>");

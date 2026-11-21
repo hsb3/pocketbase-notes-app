@@ -18,13 +18,18 @@ assert(
   "Set test superuser credentials in .env",
 );
 
+const enabledSignup = "**/registration-enabled.spec.cjs";
+const signup = process.env.VITE_SIGNUP_ENABLED === "true";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   projects: ["chromium", "webkit"].map((name) => ({
     name,
     use: { browserName: name as "chromium" | "webkit" },
   })),
-  testMatch: "**/*.spec.cjs",
+  testMatch: signup ? enabledSignup : "**/*.spec.cjs",
+  testIgnore: signup ? [] : enabledSignup,
+  grepInvert: process.env.CONTAINED_TEST === "1" ? undefined : /@ageing/,
   timeout: 120_000,
   expect: { timeout: 10_000 },
   workers: 1,

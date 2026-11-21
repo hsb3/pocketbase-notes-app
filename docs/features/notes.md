@@ -1,16 +1,14 @@
-# Private folders and notes
+# Notes
 
-Sign-in opens **All Notes** at `/folders/all`. Choose **Compose** to put the caret in a new note. Type a title, press Return and write the body. Wrapping a line on screen leaves its title intact. After a half-second pause the editor saves automatically. Wait for **Saved** before closing the browser or opening the note on another device.
+Choose **Compose** in a note list and start typing. The first logical line becomes the title. Press Return to start the body. A line that wraps on screen still counts as one line. A blank first line with writing below it gives the note the title **Untitled note**.
 
-## Folders, list and Compose
+After a half-second pause the editor starts an autosave. **Pending** means the latest words are waiting to save, **Saving** means a write is in progress, and **Saved** means the server has confirmed the latest edits. Writes run one at a time per note, so typing can continue during a save. Wait for **Saved** before closing the tab or looking for the note on another device.
 
-In Folders, **New folder** creates and opens a private folder. A rejected name stays in the dialog for correction. Compose in a folder files the note there. Compose in All Notes uses the permanent **Notes** folder. Back from an empty or whitespace-only new draft creates no record.
+## Opening and leaving notes
 
-All Notes lists active notes across folders. A folder list shows only its own. Lists are paged by most recent edit. Each row needs only the ID, folder, title, update time and a short excerpt from below the first line. A single-line note has no excerpt. Selecting a row loads its document at `/notes/<id>`. Missing and inaccessible notes show the same unavailable screen.
+The notebook opens at **All Notes** (`/folders/all`) by default. Choose a [folder](folders.md) to narrow the list. Notes are paged by most recent edit. Each row shows the title and, when present, a short excerpt from below the first line. Open a row to read the full document at `/notes/<id>`. Missing notes and another account’s notes show the same **Note unavailable** screen.
 
-At phone width the list has Compose at bottom right. Back from a note restores the page, scroll and row focus. When a note was opened by direct link, Back goes to its actual folder. From 768 CSS pixels the folders, list and editor share one workspace. Resizing preserves the draft and caret. Account and theme controls are at the foot of Folders.
-
-The editor shows **Pending** when typing, **Saving** while it sends the current edit and **Saved** once the server confirms the latest words. Typing can continue throughout. Writes run one at a time per note.
+On a phone, **Compose** is at the foot of the list. **Back** from an opened row restores the list page, scroll position and row focus. Back from a direct note link opens its folder. From 768 CSS pixels the folders, list and editor share one workspace. Resizing preserves the draft and caret. Leaving a new draft containing only whitespace creates no record.
 
 ## Search across folders
 
@@ -22,36 +20,7 @@ Open a result and use Back to restore the query, result page, scroll position an
 
 ## Move, delete and restore
 
-On a saved note, open **Note actions** and choose **Move…**. Select another folder to move the note, or **Cancel** to keep it in place. The editor saves pending writing first. A move keeps the same note address, document, attachments and last-edit time. The note leaves its old folder list, and matching search results show its new folder.
-
-Choose **Delete note…** to review the title and confirm. The note disappears from ordinary lists and search. To bring it back, open **Folders → Recently Deleted** and choose **Restore** beside its title. Each row shows the deadline in local time with the time zone. Restore works strictly before 30 elapsed days from deletion. It returns the same note and attachments to the original folder if it survives, or to **Notes** if it was removed. The note can be found in search again.
-
-To remove a custom folder, open its list and choose **Delete folder**. Check the folder name and active note count. **Cancel** keeps the folder and its contents. Confirming removes the folder permanently and sends its active notes to Recently Deleted together. Notes already there keep their original deadlines. If any member changed since the preview, review the fresh preview and confirm again, even if the count looks the same.
-
-If a reply is lost during a move, deletion or restore, choose **Check again**. It reads the current state before another action can be submitted. **Close** dismisses the prompt and leaves the check available, even if the row or folder has disappeared. If the read fails, **Retry** checks again. Keep the tab open if there are unsaved words. When another change makes the note unavailable, **Copy draft** preserves the latest local text. If clipboard access fails, select and copy the words in the editor.
-
-## Folders and ownership
-
-Creating an ordinary account also creates its permanent **Notes** folder in the same transaction. If the folder cannot be saved, account creation fails. Its name and ownership are fixed, and it cannot be deleted separately. Custom folders also keep their names and ownership. At the records API, an empty custom folder accepts a bare DELETE. A folder with any linked notes requires the snapshot from its private deletion preview. A stale snapshot returns HTTP 409 and preserves the entire folder. Deleting the account removes its folders and notes.
-
-Custom folder names keep their display spelling after trimming and allow 1–80 Unicode code points. Within one account, names must have a unique comparison key. The server normalizes the name to NFC, uppercases it without a locale, then normalizes to NFC again. For example, `Café`, `CAFÉ` and a decomposed spelling share a key. Unaccented `Cafe` has its own key. The reserved names are Notes, All Notes, Pinned, Journal, Open Tasks and Recently Deleted.
-
-## Saving a document
-
-Create a note with the authenticated user's ID in `user`, an owned `folder`, a rich-text `body` and any ordered `attachments`. The encoded document limit is 102400 bytes. Whitespace alone is rejected. An owned attachment can make an otherwise empty document valid. Up to 20 files can be attached, and every embedded private image must appear in that list. A saved note reference protects the file from direct deletion and hourly orphan cleanup.
-
-Ordinary accounts list only their own active notes. The records API can still return a valid deleted note to its writer by known ID until purge. Opening it in the editor shows **Note unavailable**. A content PATCH cannot reassign the note, move it or set its deletion time. The dedicated move, delete and restore commands check the current revision in a transaction. A stale command returns HTTP 409 without changing the note. On each content save the server derives the following fields from the full document.
-
-| Field | Stored value |
-| --- | --- |
-| `title` | First logical line, capped at 160 Unicode code points. A blank first line yields **Untitled note**, even when later lines have text. |
-| `text` | Full original visible text, including mention labels. Adjacent styled runs join without spaces. Hard breaks and block boundaries separate lines. |
-| `search_key` | Visible text and the displayed title, folded with the folder comparison rule. The server includes the fallback title when needed, prefixes a separately folded title if it would otherwise be missed, and replaces NUL with a line break in the key. The signed-in account can filter on this field. PocketBase omits it from returned notes, including expanded records and realtime events. |
-| `open_tasks`, `tasks` | Exact unchecked count, plus the first 100 unchecked items in document order. Each item has a child-index path and a label of up to 200 characters. |
-
-On list reads the server also returns a computed `excerpt`. It skips the title line, collapses whitespace and caps the result at 120 Unicode code points.
-
-New notes start at revision 1. Send the current numeric `revision` with each update. PocketBase checks it and saves the next revision in a single write transaction. If two edits use the same revision, one succeeds and the other receives HTTP 409. A missing or stale revision also returns 409 and preserves the stored document.
+See the [folder guide](folders.md#move-delete-and-restore) to move a saved note, delete a note or folder, or restore writing from Recently Deleted.
 
 ## Recovering an uncertain save in R3
 
@@ -71,9 +40,26 @@ Back, navigation links and Compose wait for pending edits to save. If the save f
 
 On a reload, tab close or full-page navigation with unsaved writing, the browser can offer its native leave warning, including during sign-in. Choose **Stay** to return to the draft. Leaving ends its in-memory recovery. A mobile browser or operating system can close a tab without showing a warning. Wait for **Saved** or copy the draft before closing it.
 
+## Saving a document
+
+Create a note with the authenticated user's ID in `user`, an owned `folder`, a rich-text `body` and any ordered `attachments`. The encoded document limit is 102400 bytes. Whitespace alone is rejected. An owned attachment can make an otherwise empty document valid. Up to 20 files can be attached, and every embedded private image must appear in that list. Body-only edits preserve ordered attachments, including [protected images](attachments.md). A saved note reference protects the file from direct deletion and hourly orphan cleanup.
+
+Ordinary accounts list only their own active notes. The records API can still return a valid deleted note to its writer by known ID until purge. Opening it in the editor shows **Note unavailable**. A content PATCH cannot reassign the note, move it or set its deletion time. The dedicated move, delete and restore commands check the current revision in a transaction. A stale command returns HTTP 409 without changing the note. On each content save the server derives the following fields from the full document.
+
+| Field | Stored value |
+| --- | --- |
+| `title` | First logical line, capped at 160 Unicode code points. A blank first line yields **Untitled note**, even when later lines have text. |
+| `text` | Full original visible text, including mention labels. Adjacent styled runs join without spaces. Hard breaks and block boundaries separate lines. |
+| `search_key` | Visible text and the displayed title, folded with the folder comparison rule. The server includes the fallback title when needed, prefixes a separately folded title if it would otherwise be missed, and replaces NUL with a line break in the key. The signed-in account can filter on this field. PocketBase omits it from returned notes, including expanded records and realtime events. |
+| `open_tasks`, `tasks` | Exact unchecked count, plus the first 100 unchecked items in document order. Each item has a child-index path and a label of up to 200 characters. |
+
+On list reads the server also returns a computed `excerpt`. It skips the title line, collapses whitespace and caps the result at 120 Unicode code points.
+
+New notes start at revision 1. Send the current numeric `revision` with each update. PocketBase checks it and saves the next revision in a single write transaction. If two edits use the same revision, one succeeds and the other receives HTTP 409. A missing or stale revision also returns 409 and preserves the stored document.
+
 ## Later increments and source recovery
 
-The [redesign roadmap](../../specs/002-notes-redesign/versions.md) places physical-phone and cross-device checks in R6, pinning in R7, Journal in R8, formatting controls in R9, Open Tasks in R10 and attachment controls in R11. Pasted rich content and existing private image references can already survive a body edit.
+The [Milestone 1 gate](../../specs/002-notes-redesign/r6-gate/spec.md) checks capture, search and recovery across phone and desktop. The owner revisits the roadmap after Milestone 1.
 
 The R2 migration drops the legacy `entries` collection and preserves R1 notes and folders. [Rollback](../../deploy/OPERATIONS.md#rollback) requires a matching app and pre-upgrade backup to recover old entries. To inspect the retired editor source without changing the checkout, run:
 

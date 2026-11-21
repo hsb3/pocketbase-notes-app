@@ -121,13 +121,26 @@ jobs:
         # The built app served by PocketBase: compose-timing needs production editor chunks.
         env:
           TEST_APP_URL: http://127.0.0.1:8080
-        run: bun run test:e2e
+          VITE_SIGNUP_ENABLED: 'false'
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ci-artifacts/plain/plain.json
+        run: |
+          mkdir -p ci-artifacts/plain
+          PLAYWRIGHT_JSON_OUTPUT_FILE=ci-artifacts/plain/plain.list.json bunx playwright test --list --reporter=json
+          bun run test:api
+          bunx playwright test --reporter=list,html,json
       - name: Verify account lifecycle and deployment drills
         run: bun run test:accounts
       - name: Verify explicitly enabled registration
+        env:
+          VITE_SIGNUP_ENABLED: 'true'
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/signup-enabled
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ci-artifacts/signup/signup.json
         run: |
-          VITE_SIGNUP_ENABLED=true docker compose --project-directory . -f deploy/local/docker-compose-full.yml up -d --no-deps --wait pocketbase
-          VITE_SIGNUP_ENABLED=true PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/signup-enabled bunx playwright test tests/e2e/registration-enabled.spec.cjs --output=test-results/signup-enabled
+          docker compose --project-directory . -f deploy/local/docker-compose-full.yml up -d --no-deps --wait pocketbase
+          mkdir -p ci-artifacts/signup
+          PLAYWRIGHT_JSON_OUTPUT_FILE=ci-artifacts/signup/signup.list.json bunx playwright test --list --reporter=json --output=test-results/signup-enabled
+          bunx playwright test --reporter=list,html,json --output=test-results/signup-enabled
+          bun scripts/test-mfa.ts
       - name: Collect service logs
         if: always()
         run: |
@@ -152,3 +165,30 @@ jobs:
           if [ -f .env ]; then
             make down-full
           fi
+
+  recover:
+    name: Recover (amd64)
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run contained recovery tests
+        run: CONTAINED_PROFILE=recover make test-browser-contained
+      - name: Collect recovery reports
+        if: always()
+        run: |
+          mkdir -p ci-artifacts/recover
+          cp test-results/notes-test-*/recover*.json ci-artifacts/recover/
+          test -s ci-artifacts/recover/recover.list.json
+          test -s ci-artifacts/recover/recover.json
+      - name: Save recovery reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: recover-amd64
+          path: ci-artifacts/
+          retention-days: 7
+          if-no-files-found: error

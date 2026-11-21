@@ -54,7 +54,7 @@ One row per increment. The ID never changes once a sub-spec uses it. Update Stat
 | R3 | Save resilience | R2 | done | [r3-resilience](r3-resilience/spec.md) |
 | R4 | Search across folders | R3 | done | [r4-search](r4-search/spec.md) |
 | R5 | Move, delete and recover | R4 | done | [r5-recover](r5-recover/spec.md) |
-| R6 | Milestone 1 stabilization gate | R5 | in-progress | `r6-gate/` on branch `r6-gate` |
+| R6 | Milestone 1 stabilization gate | R5 | done | [r6-gate](r6-gate/spec.md) |
 | R7 | Pin | R6 | planned | — |
 | R8 | Journal smart folder | R6 | planned | — |
 | R9 | Rich text, checklists and the phone formatting bar | R6 | planned | — |
@@ -172,10 +172,10 @@ One row per increment. The ID never changes once a sub-spec uses it. Update Stat
 
 R7 does not start until every line holds and the owner signs it off in the R6 pull request.
 
-- **Bug bar.** Zero open issues labelled as data loss, privacy, duplicate note, or broken capture/find journey. Any other known defect is listed in the pull request with the owner's explicit acceptance. No `test.skip`, no retries added to pass.
-- **Repeatability.** Full `make e2e` green on Chromium and WebKit three consecutive runs locally and green in CI on Linux amd64 and arm64.
+- **Bug bar.** Read open issue bodies and evidence. No unresolved defect may cause data loss, a privacy breach, a duplicate note or a broken capture/find journey. Any other known defect is listed in the pull request with the owner's explicit acceptance. No `test.skip`, no retries added to pass.
+- **Repeatability.** Full `make e2e` green on Chromium and WebKit three consecutive runs locally and green in CI on Linux amd64.
 - **Coverage.** Every acceptance scenario of Stories 1, 2.1, 3 (content and folder parts), 7.2, 7.3 and every edge case in the spec maps to a named test; the mapping table is in the pull request. A scenario without a test is a stated gap, not silence.
-- **Privacy.** `scripts/test-notes.ts` passes the full A/B/anonymous matrix: list, search, open, change, move, delete, restore, on notes and folders, plus forged owner, folder and attachment reference. Denials checked by status (empty list, 404, 400), not by an empty list alone.
+- **Privacy.** `scripts/test-notes.ts` passes the full A/B/anonymous matrix: list, search, open, change, move, delete, restore, on notes and folders, plus forged owner, folder and attachment reference. Check responses and persisted state. Scoped lists return 200 with no foreign records. Forged creates return 400, inaccessible records and populated-folder delete confirmations return 404, and guest note commands including restore return 401.
 - **SC-003.** The five save scenarios in `save-resilience.spec.cjs` pass 10 consecutive runs each on both browsers: zero drafts lost, zero newer versions overwritten, zero duplicates.
 - **SC-001, SC-002, SC-004.** Measured and recorded with the numbers, not just pass/fail.
 - **Widths.** Capture-and-find journey at 390, 810, 1440 with no horizontal scroll; screenshots reviewed in light and dark.

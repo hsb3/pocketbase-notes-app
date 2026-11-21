@@ -1,4 +1,5 @@
 const { test, expect } = require("./fixtures.cjs");
+const { doc, ownerData, seedNote } = require("./note-helpers.cjs");
 
 async function fillLogin(page, session) {
   await page.locator('input[name="identity"]').fill(session.email);
@@ -27,6 +28,8 @@ test("login remains pending until the real authentication response completes", a
   page,
   session,
 }) => {
+  const owner = await ownerData(session);
+  const oldest = await seedNote(owner, doc("Page two after login"));
   let release;
   const held = new Promise((resolve) => {
     release = resolve;
@@ -46,6 +49,7 @@ test("login remains pending until the real authentication response completes", a
   );
   await page.goto("/auth/login?redirect=%2Ffolders%2Fall%3Fpage%3D2");
   await fillLogin(page, session);
+  for (let i = 1; i <= 20; i++) await seedNote(owner, doc(`Newer note ${i}`));
   await page.getByRole("button", { name: "Login", exact: true }).click();
   await reached;
   try {
@@ -55,6 +59,11 @@ test("login remains pending until the real authentication response completes", a
   } finally {
     release();
   }
+  const rows = page
+    .getByRole("navigation", { name: "Notes" })
+    .getByRole("link");
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toHaveAttribute("href", `/notes/${oldest.id}`);
   await expect(page).toHaveURL("/folders/all?page=2");
   await expect(
     page.getByRole("heading", { name: "All Notes", exact: true }),

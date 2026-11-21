@@ -144,6 +144,44 @@ async function rollback() {
 }
 
 type Account = Awaited<ReturnType<typeof account>>;
+async function checkList(
+  pb: PocketBase,
+  identity: string,
+  collection: "folders" | "notes",
+  lookup: string,
+  filter: string,
+  ids: string[],
+  hidden: string[],
+) {
+  const endpoint = new URL(
+    `/api/collections/${collection}/records`,
+    pb.baseURL,
+  );
+  endpoint.searchParams.set("filter", filter);
+  const response = await fetch(endpoint, {
+    headers: pb.authStore.token ? { Authorization: pb.authStore.token } : {},
+  });
+  assert.equal(response.status, 200);
+  const body = await response.text();
+  for (const value of hidden)
+    assert(!body.includes(value), "Private list value returned");
+  const page = JSON.parse(body);
+  const visible = page.items.map((item: { id: string }) => item.id);
+  assert.equal(page.totalItems, ids.length);
+  assert.deepEqual(visible, ids);
+  console.log(
+    "R6 list",
+    JSON.stringify({
+      collection,
+      identity,
+      lookup,
+      status: response.status,
+      total: page.totalItems,
+      visible,
+    }),
+  );
+}
+
 async function folderAccess(a: Account, b: Account) {
   const folders = a.pb.collection("folders");
   const data = { user: a.id, name: "  Field Notes  ", name_key: "forged" };
@@ -152,6 +190,46 @@ async function folderAccess(a: Account, b: Account) {
   assert.equal(folder.name_key, "FIELD NOTES");
   assert.equal(folder.is_default, false);
   const filter = a.pb.filter("id = {:id}", folder);
+  const same = await b.pb
+    .collection("folders")
+    .create({ user: b.id, name: folder.name });
+  const unique = await folders.create({
+    user: a.id,
+    name: "Private trail ledger",
+  });
+  for (const [identity, pb] of [
+    ["A", a.pb],
+    ["B", b.pb],
+    ["guest", anonymous],
+  ] as const) {
+    const hidden = [
+      ...(identity === "A" ? [] : [a.id, folder.id, unique.id, unique.name]),
+      ...(identity === "B" ? [] : [b.id, same.id]),
+    ];
+    await checkList(
+      pb,
+      identity,
+      "folders",
+      "same name",
+      pb.filter("name = {:name}", folder),
+      identity === "A" ? [folder.id] : identity === "B" ? [same.id] : [],
+      hidden,
+    );
+    await checkList(
+      pb,
+      identity,
+      "folders",
+      "unique name",
+      pb.filter("name = {:name}", unique),
+      identity === "A" ? [unique.id] : [],
+      hidden,
+    );
+  }
+  for (const expected of [folder, same, unique])
+    assert.deepEqual(
+      await admin.collection("folders").getOne(expected.id),
+      expected,
+    );
   assert.deepEqual(
     (await folders.getList(1, 1, { filter })).items.map((r) => r.id),
     [folder.id],
@@ -283,7 +361,20 @@ async function noteAccess(a: Account, b: Account) {
   const data = await draft(a);
   const note = await notes.create({ ...data, revision: 1 });
   const filter = a.pb.filter('id = {:id} && deleted = ""', data);
-  assert.equal((await notes.getList(1, 1, { filter })).totalItems, 1);
+  for (const [identity, pb] of [
+    ["A", a.pb],
+    ["B", b.pb],
+    ["guest", anonymous],
+  ] as const)
+    await checkList(
+      pb,
+      identity,
+      "notes",
+      "active ID",
+      filter,
+      identity === "A" ? [note.id] : [],
+      identity === "A" ? [] : [note.id, note.user, note.folder, note.title],
+    );
   assert.equal((await notes.getOne(note.id)).user, a.id);
   for (const other of [b.pb, anonymous]) {
     const foreign = other.collection("notes");
@@ -296,6 +387,7 @@ async function noteAccess(a: Account, b: Account) {
     );
     await denied(foreign.delete(note.id), 404);
   }
+  assert.deepEqual(await a.pb.collection("notes").getOne(note.id), note);
   const otherFolder = await a.pb
     .collection("folders")
     .create({ user: a.id, name: "Second folder" });
