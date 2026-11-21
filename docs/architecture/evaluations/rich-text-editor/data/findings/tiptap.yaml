@@ -1,0 +1,151 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: tiptap
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/ueberdosis/tiptap"
+layer_fit:
+  verdict: in-layer
+  note: "Headless ProseMirror toolkit (@tiptap/core 3.35.0, @tiptap/react). Paid Tiptap Platform (Cloud collaboration, Comments, Version History, Conversion, paid UI components and templates) sits beside the MIT editor."
+license:
+  components:
+    - name: "tiptap monorepo (core, react, pm, starter-kit, extension-list, extension-table, code-block-lowlight, image, file-handler, drag-handle-react, mathematics, collaboration, y-tiptap, markdown, suggestion, ai-toolkit)"
+      license: MIT
+      source: "https://github.com/ueberdosis/tiptap/blob/main/LICENSE.md"
+    - name: "Tiptap UI Components for open-source extensions (copied in by @tiptap/cli, e.g. image-upload-node)"
+      license: MIT
+      source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/ui-components/getting-started/overview.mdx"
+    - name: "Paid UI components and templates (slash-dropdown-menu, drag-context-menu, Notion-like template) - not used"
+      license: "Tiptap Pro License (proprietary, Start plan)"
+      source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/ui-components/templates/notion-like-editor.mdx"
+    - name: "Hocuspocus server and provider (optional self-hosted Yjs backend)"
+      license: MIT
+      source: "https://registry.npmjs.org/@hocuspocus/server/latest"
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "grep of @tiptap/core and @tiptap/react 3.35.0 tarballs for licenseKey, telemetry, posthog, tiptap.cloud: no runtime matches. Account/JWT only for paid pieces: @tiptap/cli login for paid components; TIPTAP_COLLAB_TOKEN / TIPTAP_AI_TOKEN for Tiptap Cloud features."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Every package we would use is MIT (repo LICENSE.md; npm license MIT on all checked packages). Proprietary items are separate, opt-in: paid UI components/templates (Start plan) and Cloud services; none needed for the capability list."
+    source: "https://github.com/ueberdosis/tiptap/blob/main/LICENSE.md"
+  - id: no-key-no-cloud
+    verdict: pass
+    evidence: "MIT packages run from our bundle with no key. Collaboration extension takes any Yjs provider (docs install y-websocket); Hocuspocus is MIT and self-hostable. Paid components require a Tiptap Cloud account via @tiptap/cli login, avoidable."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/ui-components/getting-started/cli.mdx"
+  - id: react-19
+    verdict: pass
+    evidence: "@tiptap/react 3.35.0 peerDependencies react ^17 || ^18 || ^19."
+    source: "https://registry.npmjs.org/@tiptap/react/latest"
+capabilities:
+  - id: checklists
+    verdict: "yes"
+    note: "TaskList/TaskItem in @tiptap/extension-list (MIT), checked attr, nested option."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/editor/extensions/nodes/task-item.mdx"
+  - id: tables
+    verdict: "yes"
+    note: "TableKit / @tiptap/extension-table (MIT) on prosemirror-tables: insert, add/remove rows and columns, merge, cell selection."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/editor/extensions/functionality/table-kit.mdx"
+  - id: images-uploads
+    verdict: "yes"
+    note: "FileHandler (MIT) gives onPaste/onDrop hooks (docs: no server upload built in, we write the uploader); Image node; image-upload-node UI component is MIT (isFree true) with limit/maxSize and upload progress."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/ui-components/node-components/image-upload-node.mdx"
+  - id: code-blocks
+    verdict: "yes"
+    note: "CodeBlockLowlight (MIT, highlight.js via lowlight) with language attr. No first-party Shiki or CodeMirror node."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/editor/extensions/nodes/code-block-lowlight.mdx"
+  - id: menus
+    verdict: partial
+    note: "Headless MIT: BubbleMenu, FloatingMenu, DragHandleReact, @tiptap/suggestion (slash commands built on it). The ready slash-dropdown-menu and drag-context-menu UI components are isFree false (Start plan); we would build our own slash UI in shadcn."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/ui-components/components/slash-dropdown-menu.mdx"
+  - id: mobile
+    verdict: partial
+    note: "No mobile-web support page (the mobile-apps guide is a WebView protocol). Issue tracker: 18 open / 14 closed Android-titled, 7 open / 15 closed iOS-titled. Toolkit-level open bugs: #8626 core Keymap dispatches an empty transaction that cancels IME composition on Backspace; #8348 node views break on Enter on iOS and Android (v3.31.1); #7514 iOS Safari page freeze. Safari IME in table cells (#7186) and list starts (#6825) look ProseMirror-level (prosemirror-view composition handling)."
+    source: "https://github.com/ueberdosis/tiptap/issues/8626"
+  - id: accessibility
+    verdict: partial
+    note: "Accessibility guide gives keyboard patterns (Alt+F10 toolbar, Tab to menus) and an accessible demo, but states the headless editor leaves accessibility to the integrator."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/guides/accessibility.mdx"
+  - id: json-schema
+    verdict: "yes"
+    note: "editor.getJSON() returns ProseMirror JSON; schema generated from extensions; enableContentCheck validates content against the schema."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/editor/core-concepts/schema.mdx"
+  - id: prosemirror-compat
+    verdict: partial
+    note: "Same ProseMirror JSON shape, but stock node names differ: ProseKit flat list{kind,checked} vs bulletList/orderedList/listItem/taskList/taskItem, tableHeaderCell vs tableHeader, mathBlock/mathInline (text content) vs blockMath/inlineMath (latex attr). Needs a scripted migration (lossless for our node set; toggle lists map to Details) or custom Tiptap nodes reusing ProseKit's names and prosemirror-flat-list."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/editor/core-concepts/prosemirror.mdx"
+  - id: collab-binding
+    verdict: "yes"
+    note: "@tiptap/extension-collaboration + @tiptap/y-tiptap (MIT) with any Yjs provider; Hocuspocus (MIT) self-hosted. Tiptap Cloud collaboration is optional, not required."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/editor/extensions/functionality/collaboration.mdx"
+  - id: markdown
+    verdict: "yes"
+    note: "Markdown input rules in core extensions; @tiptap/markdown (MIT) parses and serializes Markdown with custom tokenizers."
+    source: "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/editor/markdown/index.mdx"
+biases:
+  - id: reuse-over-build
+    met: true
+    note: "Largest MIT extension set; only the ready slash/drag-context UI is paid, so those menus are built in-house on headless primitives."
+  - id: migration-cost
+    met: false
+    note: "Rewrites src/components/editor and the server validator, plus a document migration script."
+maturity:
+  stars: 39106
+  recurring_contributors: 16
+  single_merger: false
+  institutional_backing: "Tiptap GmbH (ueberdosis)"
+  commits_by_month:
+    "2026-06": 109
+    "2026-07": 117
+    "2026-08": 87
+    "2026-09": 112
+    "2026-10": 125
+    "2026-11": 88
+  last_commit: "2026-11-20"
+  last_release: "2026-11-20"
+  open_issues: 777
+  open_prs: 167
+  backlog_trend: shrinking
+  regime_change: null
+  adopters:
+    - "GitLab (package.json depends on @tiptap/core ^2.27.3)"
+  downloads: "@tiptap/core 39,449,951 per week (npm, 2026-11-14..2026-11-20)"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "Last commit on main 2026-11-20."
+    - id: releases
+      passed: true
+      evidence: "v3.35.0 2026-11-20; weekly releases."
+    - id: breadth
+      passed: true
+      evidence: "16 human authors with commits in 2+ months; 84 human authors since 2026-05-21."
+    - id: breadth-preference
+      passed: true
+      evidence: "16 recurring; top author arnaugomez 253 of 647 human commits."
+    - id: not-dying
+      passed: true
+      evidence: "Oct-Nov 106.5/month vs Jun-Sep 106.25/month: no drop. 427 PRs merged in window."
+  verdict: strong
+sources:
+  - "https://github.com/ueberdosis/tiptap"
+  - "https://github.com/ueberdosis/tiptap/blob/main/LICENSE.md"
+  - "https://registry.npmjs.org/@tiptap/react/latest"
+  - "https://api.npmjs.org/downloads/point/last-week/@tiptap/core"
+  - "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/ui-components/getting-started/overview.mdx"
+  - "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/ui-components/components/slash-dropdown-menu.mdx"
+  - "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/ui-components/components/drag-context-menu.mdx"
+  - "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/ui-components/templates/notion-like-editor.mdx"
+  - "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/editor/extensions/functionality/filehandler.mdx"
+  - "https://github.com/ueberdosis/tiptap-docs/blob/main/src/content/guides/mobile-apps.mdx"
+  - "https://github.com/ueberdosis/tiptap/issues/8348"
+  - "https://gitlab.com/gitlab-org/gitlab/-/raw/master/package.json"
+verification:
+  - claim: "Every package we need is MIT on public npm with no token; slash-dropdown-menu and drag-context-menu UI components are not free; collaboration works with self-hosted Hocuspocus."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "npm registry; tiptap-docs frontmatter isFree false/true; extension-collaboration dependencies."
+  - claim: "Stock node names differ from ProseKit (bulletList/taskItem vs list; tableHeader vs tableHeaderCell; blockMath/inlineMath with latex attr vs mathBlock/mathInline)."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "Source of both projects. Extra: ProseKit mathBlock keeps the formula as text content; Tiptap keeps it in a latex attribute."

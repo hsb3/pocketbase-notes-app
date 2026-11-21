@@ -1,0 +1,141 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: codemirror
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://code.haverbeke.berlin/codemirror/dev"
+layer_fit:
+  verdict: wrong-layer
+  note: "CodeMirror 6 is a plain-text code editor (one string document plus syntax tree), not a structured rich-text note editor. It fits only as the code-block component inside a rich-text editor. ProseMirror ships an official CodeMirror-in-a-NodeView example that keeps the code_block node in the ProseMirror JSON. Plate v54 ships CodeBlockCodeMirrorElement. ProseKit, Tiptap and Lexical have no first-party CodeMirror code block (none in their repo trees), so with ProseKit we would write the NodeView from the ProseMirror example. Development moved from GitHub (codemirror/* archived 2026-04-15) to a self-hosted Forgejo at code.haverbeke.berlin."
+license:
+  components:
+    - name: "@codemirror/view 6.43.15"
+      license: MIT
+      source: "https://code.haverbeke.berlin/codemirror/view/raw/branch/main/LICENSE"
+    - name: "@codemirror/state, language, commands, lang-* packages; codemirror meta package"
+      license: MIT
+      source: "https://code.haverbeke.berlin/codemirror/dev/raw/branch/main/LICENSE"
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "Pure client library from npm: no key, no service. Dependencies are crelt, style-mod, w3c-keyname and @lezer/* (all by the same author)."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "MIT LICENSE files in codemirror/view and codemirror/dev. npm license MIT on view, state, language, commands, lang-javascript and codemirror."
+    source: "https://code.haverbeke.berlin/codemirror/view/raw/branch/main/LICENSE"
+  - id: no-key-no-cloud
+    verdict: pass
+    evidence: "No key, cloud or telemetry. Fully bundled."
+    source: "https://registry.npmjs.org/@codemirror/view/latest"
+  - id: react-19
+    verdict: pass
+    evidence: "Framework-agnostic DOM library with no React peer dependency. It mounts inside a ProseMirror NodeView, so React version is irrelevant."
+    source: "https://registry.npmjs.org/@codemirror/view/latest"
+capabilities:
+  - id: checklists
+    verdict: "no"
+    note: "Wrong layer: plain-text editor with no block nodes."
+    source: "https://codemirror.net/"
+  - id: tables
+    verdict: "no"
+    note: "Wrong layer: no table model."
+    source: "https://codemirror.net/"
+  - id: images-uploads
+    verdict: "no"
+    note: "Wrong layer: widgets can decorate text, but there is no media or upload model."
+    source: "https://codemirror.net/"
+  - id: code-blocks
+    verdict: "yes"
+    note: "As a code-block component it offers Lezer incremental highlighting, per-language packages, and language switching through a Compartment. Bundle cost (bundlephobia, min+gzip, dependencies included): @codemirror/language 6.13.1 (pulls in view+state+lezer) about 89 kB, @codemirror/view alone about 80 kB, plus each lang-* package. Larger than Shiki/lowlight-free setups, but lazy-loadable."
+    source: "https://prosemirror.net/examples/codemirror/"
+  - id: menus
+    verdict: "no"
+    note: "Wrong layer: autocomplete and panels exist for code, but there are no rich-text slash, selection or block menus."
+    source: "https://codemirror.net/"
+  - id: mobile
+    verdict: "yes"
+    note: "Homepage lists Mobile Support: it uses the platform's native selection and editing on phones. Applies to the code-block island only."
+    source: "https://codemirror.net/"
+  - id: accessibility
+    verdict: "yes"
+    note: "Homepage lists Accessibility: works with screen readers and keyboard-only users."
+    source: "https://codemirror.net/"
+  - id: json-schema
+    verdict: "no"
+    note: "Wrong layer: the document is a plain string. Inside ProseMirror the code_block node's text stays in ProseMirror JSON."
+    source: "https://prosemirror.net/examples/codemirror/"
+  - id: prosemirror-compat
+    verdict: partial
+    note: "As a NodeView it reads and writes the existing ProseMirror code_block node without changing stored JSON. It cannot load ProseKit documents as a note editor."
+    source: "https://prosemirror.net/examples/codemirror/"
+  - id: collab-binding
+    verdict: "yes"
+    note: "@codemirror/collab (MIT, OT-style) is first-party. Inside a ProseMirror editor, collaboration would go through the outer editor's Yjs binding instead."
+    source: "https://codemirror.net/"
+  - id: markdown
+    verdict: "no"
+    note: "Wrong layer: @codemirror/lang-markdown highlights markdown source and does not convert it to rich text."
+    source: "https://codemirror.net/"
+biases:
+  - id: reuse-over-build
+    met: true
+    note: "As the code-block component it is the best-maintained in-browser code editor, used by Plate v54. We would write a small NodeView for ProseKit from the official ProseMirror example."
+  - id: migration-cost
+    met: true
+    note: "As a code-block NodeView it keeps today's ProseMirror JSON and touches only the code-block component."
+maturity:
+  stars: 7803
+  recurring_contributors: 1
+  single_merger: true
+  commits_by_month:
+    "2026-06": 28
+    "2026-07": 20
+    "2026-08": 13
+    "2026-09": 33
+    "2026-10": 29
+    "2026-11": 8
+  last_commit: "2026-11-19"
+  last_release: "2026-10-19"
+  open_issues: 22
+  open_prs: 0
+  backlog_trend: unknown
+  regime_change: "Moved off GitHub on 2026-04-14/15. github.com/codemirror/* is archived, and development, issues and releases are on Forgejo at code.haverbeke.berlin/codemirror. npm repository fields point there."
+  adopters:
+    - "Plate v54 (platejs peerDependencies @codemirror/view, state, language for its CodeMirror code block)"
+    - "ProseMirror official code-block example"
+  downloads: "@codemirror/view 26,500,930 per week; @codemirror/state 25,799,454 (npm, 2026-11-14..2026-11-20)"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "Last commit to codemirror/view 2026-11-19 (Forgejo API)."
+    - id: releases
+      passed: true
+      evidence: "@codemirror/view 6.43.15 2026-10-19, 6.43.14 2026-10-07, 6.43.13 2026-09-22."
+    - id: breadth
+      passed: false
+      evidence: "Sampled view, state, language, commands, autocomplete and lang-javascript since 2026-05-21: Marijn Haverbeke wrote 127 of 131 commits, and 5 other people made one commit each. That is 1 recurring contributor with no institutional backing, so the floor of 2 fails. ProseMirror, under the incumbent, has the same single-maintainer shape."
+    - id: breadth-preference
+      passed: false
+      evidence: "1 recurring contributor."
+    - id: not-dying
+      passed: true
+      evidence: "Oct-Nov 18.5/month vs Jun-Sep 23.5/month (21% drop; November is partial)."
+  verdict: at-risk
+sources:
+  - "https://code.haverbeke.berlin/codemirror/view/raw/branch/main/LICENSE"
+  - "https://code.haverbeke.berlin/codemirror/dev/raw/branch/main/LICENSE"
+  - "https://code.haverbeke.berlin/api/v1/repos/codemirror/dev"
+  - "https://code.haverbeke.berlin/api/v1/repos/codemirror/view/commits"
+  - "https://github.com/codemirror/dev"
+  - "https://codemirror.net/"
+  - "https://prosemirror.net/examples/codemirror/"
+  - "https://registry.npmjs.org/@codemirror/view/latest"
+  - "https://bundlephobia.com/api/size?package=@codemirror/language"
+  - "https://github.com/udecode/plate/blob/next/packages/platejs/package.json"
+  - "https://api.npmjs.org/downloads/point/last-week/@codemirror/view"
+verification:
+  - claim: "CodeMirror and ProseMirror repos archived on GitHub and moved to code.haverbeke.berlin; MIT; one maintainer."
+    outcome: verified
+    correction: "ProseMirror moved about 2026-04-01; CodeMirror about 2026-04-15."
+    checked_on: "2026-11-21"
+    evidence: "GitHub API archived and README notes; npm repository URLs; last 50 commits on the new forge."

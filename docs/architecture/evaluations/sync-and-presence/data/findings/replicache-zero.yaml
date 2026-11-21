@@ -1,0 +1,81 @@
+candidate: replicache-zero
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/rocicorp/mono"
+layer_fit:
+  verdict: in-layer
+  note: "Two products. Replicache is a client mutation queue plus server push/pull protocol you implement on any backend (could be PocketBase custom routes). Zero is a query-sync engine whose zero-cache server needs an upstream Postgres. Only the Replicache path is viable here; Zero is recorded for completeness."
+license:
+  components:
+    - {name: "mono repo (replicache, zero, zero-cache source)", license: Apache-2.0, source: "https://github.com/rocicorp/mono/blob/main/LICENSE"}
+    - {name: "replicache source package.json (15.2.1 in mono)", license: Apache-2.0, source: "https://github.com/rocicorp/mono/blob/main/packages/replicache/package.json"}
+    - {name: "replicache npm tarball 15.3.0 (latest, 2025-07-02)", license: "Rocicorp Terms of Service reference (LICENSE text points to https://roci.dev/terms.html; ToS says Replicache is open source under its open-source license)", source: "https://registry.npmjs.org/replicache/-/replicache-15.3.0.tgz"}
+    - {name: "@rocicorp/zero npm 1.12.0", license: Apache-2.0, source: "https://github.com/rocicorp/mono/blob/main/packages/zero/package.json"}
+phone_home:
+  telemetry: opt-out
+  opt_out_toggle: "Zero only: ZERO_ENABLE_TELEMETRY=false or DO_NOT_TRACK=1 on zero-cache. Replicache client sends nothing."
+  license_key: false
+  evidence: "Replicache: options.licenseKey is '@deprecated Replicache no longer uses a license key. This option is now ignored' (packages/replicache/src/replicache-options.ts); the npm 15.3.0 bundle contains no URLs other than docs links. Zero: zero-cache anonymous-otel-start.ts exports to https://metrics.rocicorp.dev unless enableTelemetry=false or DO_NOT_TRACK is set."
+filters:
+  - id: osi-license
+    verdict: unverified
+    evidence: "Source in rocicorp/mono is Apache-2.0 (root LICENSE, no per-package overrides; replicache and zero package.json say Apache-2.0). Caveat: the latest npm replicache tarball (15.3.0) still ships a LICENSE that defers to the Rocicorp ToS and its package.json license field is the ToS URL; the ToS (effective 2026-11-16) states Replicache is open source. To ship strictly OSI-licensed bits, build replicache from mono source or wait for an npm release carrying Apache-2.0."
+    source: "https://github.com/rocicorp/mono/blob/main/LICENSE"
+  - id: self-hosted-no-key
+    verdict: pass
+    evidence: "Replicache has no server of its own (push/pull endpoints are ours) and no license key since the open-sourcing. Zero self-hosts zero-cache with opt-out telemetry."
+    source: "https://github.com/rocicorp/mono/blob/main/packages/replicache/src/replicache-options.ts"
+  - id: pocketbase-record
+    verdict: pass
+    evidence: "Replicache path passes: push/pull are HTTP endpoints the app implements on any backend ('works with most backend stacks'; BYOB guide). Zero path fails: zero-config 'upstream' is 'The authoritative postgres database. In the future we will support other types of upstream besides PG.'"
+    source: "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/reference/server-push.md"
+capabilities:
+  - {id: no-false-conflict, verdict: "yes", note: "Server replays named mutators (e.g. setPin, saveBody) in mutation-id order against current server state; there is no whole-record version check unless we write one, so a pin mutator cannot reject a body mutator.", source: "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/concepts/how-it-works.md"}
+  - {id: text-merge, verdict: partial, note: "No text type. Docs howto suggests sending Yjs documents over push/pull; downstream usually resends the whole doc; only a small sample (replicache-yjs). 'We do plan to offer first-class collaborative text in the future.'", source: "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/howto/text.md"}
+  - {id: edit-queue, verdict: "yes", note: "Pending mutations persisted in IndexedDB with sequential per-client mutation ids, re-pushed until confirmed; server lastMutationID makes replay idempotent (ids <= lastMutationID must be skipped); rebase on pull.", source: "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/reference/server-push.md"}
+  - {id: presence, verdict: not-documented, note: "No presence/awareness API in Replicache docs (Rocicorp's presence lived in Reflect, now shut down).", source: "https://github.com/rocicorp/mono/tree/main/packages/replicache-doc/docs"}
+  - {id: live-update, verdict: partial, note: "Clients pull on a 'poke' hint; the poke channel (e.g. SSE) is ours to build. PocketBase realtime could carry pokes.", source: "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/byob/poke.md"}
+  - {id: prosemirror-binding, verdict: "no", note: "No ProseMirror binding; only the Yjs sample above.", source: "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/howto/text.md"}
+  - {id: pocketbase-auth, verdict: "yes", note: "ReplicacheOptions.auth is sent as the Authorization header on push and pull to our endpoints, so a PocketBase route can authorize with the user token and owner rule.", source: "https://github.com/rocicorp/mono/blob/main/packages/replicache/src/replicache-options.ts"}
+  - {id: server-derivation, verdict: "yes", note: "Server state is our own PocketBase records written by our push handler; existing title/search/task hooks keep working.", source: "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/byob/remote-mutations.md"}
+  - {id: single-image, verdict: "yes", note: "No extra service for Replicache; push/pull/poke would be PocketBase custom routes (JSVM). Zero would add zero-cache plus Postgres.", source: "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/byob/intro.md"}
+biases:
+  - {id: reuse-over-build, met: false, note: "Client queue is reused, but the push/pull/cookie/lastMutationID server protocol must be hand-built in Goja, and Replicache is in maintenance mode."}
+  - {id: small-change, met: false, note: "Adds a client KV store beside PocketBase SDK reads, server protocol tables (clients, lastMutationID, versions), poke channel: a large change for one owner."}
+maturity:
+  stars: 3448
+  recurring_contributors: 11
+  single_merger: false
+  institutional_backing: Rocicorp LLC
+  commits_by_month: {"2026-06": 56, "2026-07": 94, "2026-08": 107, "2026-09": 194, "2026-10": 211, "2026-11": 70}
+  last_commit: "2026-11-20"
+  last_release: "2025-07-02"
+  open_issues: 0
+  open_prs: 10
+  backlog_trend: unknown
+  regime_change: "Replicache in maintenance mode since its open-sourcing; Rocicorp focus moved to Zero (replicache.dev Status). Old rocicorp/replicache repo archived. GitHub issues disabled on mono (0 issues), bugs go to Discord."
+  adopters: []
+  downloads: "npm replicache 30,682/week; @rocicorp/zero 310,349/week (2026-11-14..20)"
+  signals:
+    - {id: recency, passed: true, evidence: "mono last commit 2026-11-20; packages/replicache last touched 2026-11-18."}
+    - {id: releases, passed: false, evidence: "Latest replicache npm release 15.3.0 on 2025-07-02 (>180 days). Zero 1.12.0 released 2026-11-12 but Zero fails pocketbase-record."}
+    - {id: breadth, passed: true, evidence: "11 authors with >=2 commits in window across mono; 5 on packages/replicache (arv 51, pawarren 7, aboodman 3, 0xcadams 3, darkgnotic 2)."}
+    - {id: breadth-preference, passed: true, evidence: "5 recurring on packages/replicache >= 3."}
+    - {id: not-dying, passed: true, evidence: "packages/replicache: Jun-Sep avg 10/month vs Oct-Nov avg 9.5/month (5% drop). Whole mono rising."}
+  verdict: adequate
+sources:
+  - "https://github.com/rocicorp/mono/blob/main/LICENSE"
+  - "https://registry.npmjs.org/replicache"
+  - "https://roci.dev/terms.html"
+  - "https://replicache.dev/"
+  - "https://github.com/rocicorp/mono/blob/main/packages/replicache/src/replicache-options.ts"
+  - "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/concepts/how-it-works.md"
+  - "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/reference/server-push.md"
+  - "https://github.com/rocicorp/mono/blob/main/packages/replicache-doc/docs/howto/text.md"
+  - "https://github.com/rocicorp/mono/blob/main/packages/zero-cache/src/config/zero-config.ts"
+  - "https://github.com/rocicorp/mono/blob/main/packages/zero-cache/src/server/anonymous-otel-start.ts"
+verification:
+  - claim: "replicache@15.3.0 npm tarball LICENSE defers to the Rocicorp Terms of Service; package.json license is a URL; Replicache is in maintenance mode; Zero requires Postgres."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "jsDelivr tarball files; replicache.dev; Zero docs. Filter osi-license set to unverified for the shipped npm artifact."

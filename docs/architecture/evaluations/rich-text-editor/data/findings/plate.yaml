@@ -1,0 +1,150 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: plate
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/udecode/plate"
+layer_fit:
+  verdict: in-layer
+  note: "Plugin framework plus copy-in shadcn UI (Plate UI). Stable npm platejs 53.5.2 runs on Slate (@platejs/slate). The next branch (platejs 54.0.0-beta.2) replaces Slate with plitejs, Plate's own Slate fork. Plate Plus (pro.platejs.org) sells premium components and templates."
+license:
+  components:
+    - name: "platejs and @platejs/* plugins (table, list, code-block, media, yjs, markdown, dnd, comment, suggestion, ai) 53.x"
+      license: MIT
+      source: "https://github.com/udecode/plate/blob/next/LICENSE"
+    - name: "plitejs 54.0.0-beta.2 (Slate fork runtime, next branch)"
+      license: MIT
+      source: "https://github.com/udecode/plate/blob/next/packages/plitejs/package.json"
+    - name: "Plate UI copy-in components and templates (apps/www registry, templates/plate-template)"
+      license: MIT
+      source: "https://github.com/udecode/plate/blob/next/apps/www/LICENSE"
+    - name: "Plate Plus premium components and templates - not used"
+      license: "Plate Plus commercial license (EUR 299 per developer, proprietary)"
+      source: "https://pro.platejs.org/"
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "grep of packages/platejs/src and packages/plitejs/src for licenseKey or telemetry: none. Uploads go to an app-owned gateway (files-sdk, MIT). Yjs transport is app-owned. AI plugins need an AI SDK provider we configure. Plate Plus is code delivered through a GitHub invite, with no runtime key."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Repo LICENSE MIT. npm license MIT on platejs and every @platejs/* package checked, and on plitejs. Plate UI registry and templates are MIT. Only Plate Plus is proprietary, and it is not needed."
+    source: "https://github.com/udecode/plate/blob/next/LICENSE"
+  - id: no-key-no-cloud
+    verdict: pass
+    evidence: "No key or telemetry in source. Upload, collaboration transport and AI endpoints are owned by the app."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/(guides)/upload.mdx"
+  - id: react-19
+    verdict: pass
+    evidence: "platejs 53.5.2 peerDependencies react >=18.0.0. platejs 54 beta requires react >=19.2.0."
+    source: "https://registry.npmjs.org/platejs/latest"
+capabilities:
+  - id: checklists
+    verdict: "yes"
+    note: "List plugin task items (listStyleType todo with a checked property). Nesting uses Plate's indent-list model, and Markdown maps them to GFM task items."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(styles)/list.mdx"
+  - id: tables
+    verdict: "yes"
+    note: "@platejs/table (MIT): insert/remove tables, rows and columns, pointer and Shift+Arrow cell selection, merge/split, resize. The docs also link a Plus table example."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(elements)/table.mdx"
+  - id: images-uploads
+    verdict: "yes"
+    note: "UploadKit keeps draft, uploading and failed states with progress in editor state. Files go to an app-owned gateway through files-sdk (MIT) with adapters such as S3. A PocketBase adapter would be ours to write. Documented on the v54 next branch."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/(guides)/upload.mdx"
+  - id: code-blocks
+    verdict: "yes"
+    note: "CodeBlockKit uses lowlight highlighting with language choice. v54 adds CodeBlockCodeMirrorElement (platejs/code-block/codemirror export, @codemirror/* peers) for CodeMirror-owned code blocks."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(elements)/code-block.mdx"
+  - id: menus
+    verdict: "yes"
+    note: "Slash command, floating toolbar, block menu and drag handle (dnd) ship as MIT shadcn components that we copy and style. Plus sells richer variants."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(functionality)/block-menu.mdx"
+  - id: mobile
+    verdict: partial
+    note: "Plite docs say raw mobile device behaviour is 'Not claimed without real device proof artifacts'. CI covers only Playwright mobile viewports. Upstream Slate trackers (labels 'mobile', 'ime') show 0 open issues, but Plite has replaced that input layer."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/plite/why-this-fork.mdx"
+  - id: accessibility
+    verdict: not-documented
+    note: "UI builds on Radix primitives (index.mdx), but there is no accessibility or screen-reader guide for the editor surface."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/index.mdx"
+  - id: json-schema
+    verdict: partial
+    note: "Plain Slate-shaped JSON value, which Plite keeps. Structure is app-owned through plugins and normalizers, with no declared content schema the server can reuse."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/plite/why-this-fork.mdx"
+  - id: prosemirror-compat
+    verdict: "no"
+    note: "Slate/Plite JSON (text leaves with mark properties), not ProseMirror. Existing notes need a conversion."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/plite/why-this-fork.mdx"
+  - id: collab-binding
+    verdict: "yes"
+    note: "@platejs/yjs (MIT) with app-owned Hocuspocus, WebSocket or WebRTC provider."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(collaboration)/yjs.mdx"
+  - id: markdown
+    verdict: "yes"
+    note: "Autoformat input rules and @platejs/markdown (remark-based) import/export."
+    source: "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(serializing)/markdown.mdx"
+biases:
+  - id: reuse-over-build
+    met: true
+    note: "Widest free feature set of this group: checklists, tables, uploads, code (including CodeMirror), menus, Yjs and markdown are all MIT packages or shadcn components."
+  - id: migration-cost
+    met: false
+    note: "Slate/Plite model. It means a document conversion, a new editor component and a new server validator, though the shadcn UI style matches ours."
+maturity:
+  stars: 16714
+  recurring_contributors: 4
+  single_merger: true
+  institutional_backing: "udecode (Ziad Beyens); funded through Plate Plus sales"
+  commits_by_month:
+    "2026-06": 95
+    "2026-07": 37
+    "2026-08": 61
+    "2026-09": 91
+    "2026-10": 825
+    "2026-11": 847
+  last_commit: "2026-11-21"
+  last_release: "2026-11-11"
+  open_issues: 16
+  open_prs: 2
+  backlog_trend: stable
+  regime_change: "v54 (beta on next branch since about 2026-10) forks Slate into plitejs and hard-cuts APIs. The docs say the fork is maintained by agent-run loops ('agents run the boring loops'), which matches the Oct-Nov commit spike by one account."
+  adopters: []
+  downloads: "platejs 922,166 per week; @udecode/plate (legacy name) 186,709 (npm, 2026-11-14..2026-11-20)"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "Last commit on next 2026-11-21."
+    - id: releases
+      passed: true
+      evidence: "v53.5.6 2026-11-11 (GitHub). npm latest 53.5.2 2026-10-30, beta 54.0.0-beta.2."
+    - id: breadth
+      passed: true
+      evidence: "4 human authors with commits in 2+ months of the window (zbeyens, natamox, felixfeng33, sin6626). 10 human authors in total."
+    - id: breadth-preference
+      passed: true
+      evidence: "4 recurring, but zbeyens authored 1709 of 1973 commits (87%) and committed 1660."
+    - id: not-dying
+      passed: true
+      evidence: "Oct-Nov 836/month vs Jun-Sep 71/month. Issues: 12 opened in window still open, 7 older closed."
+  verdict: adequate
+sources:
+  - "https://github.com/udecode/plate/blob/next/LICENSE"
+  - "https://github.com/udecode/plate/blob/next/apps/www/LICENSE"
+  - "https://github.com/udecode/plate/blob/next/packages/platejs/package.json"
+  - "https://github.com/udecode/plate/blob/next/packages/plitejs/package.json"
+  - "https://github.com/udecode/plate/blob/next/content/docs/plite/why-this-fork.mdx"
+  - "https://github.com/udecode/plate/blob/next/content/docs/plite/general/faq.mdx"
+  - "https://github.com/udecode/plate/blob/next/content/docs/(guides)/upload.mdx"
+  - "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(elements)/code-block.mdx"
+  - "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(elements)/table.mdx"
+  - "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(styles)/list.mdx"
+  - "https://github.com/udecode/plate/blob/next/content/docs/(plugins)/(collaboration)/yjs.mdx"
+  - "https://registry.npmjs.org/platejs/latest"
+  - "https://registry.npmjs.org/@platejs/table/latest"
+  - "https://pro.platejs.org/"
+  - "https://api.github.com/repos/udecode/plate"
+  - "https://api.npmjs.org/downloads/point/last-week/platejs"
+verification:
+  - claim: "platejs latest 53.5.2 on Slate; 54 beta moves to the plitejs fork; zbeyens about 87% of commits; MIT, Plate Plus proprietary."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "npm dependencies; Why This Fork doc; commits API (1709 of 1973); Plate Plus pricing (299 EUR per developer)."

@@ -1,0 +1,24 @@
+candidate: note-revision-baseline
+checked_on: "2026-11-21"
+kind: baseline
+repo: "https://github.com/hsb3/pocketbase-notes-app"
+layer_fit:
+  verdict: in-layer
+  note: "Today's design: every note write (content PATCH, move, delete, restore) must send the current note revision; the server advances it by one or returns 409. R3 recovery lets the writer copy a refused draft."
+capabilities:
+  - {id: no-false-conflict, verdict: "no", note: "Any metadata action advances the shared revision, so another device's next body save gets 409 and the conflict dialog.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/note-actions.pb.js"}
+  - {id: text-merge, verdict: "no", note: "Whole-body optimistic concurrency; the second writer must copy and reload.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/notes.pb.js"}
+  - {id: edit-queue, verdict: partial, note: "In-memory serialized autosave queue with retry and reconciliation in one tab; not durable across reloads (crash recovery out of scope).", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/src/features/notes/draft.ts"}
+  - {id: presence, verdict: "no", note: "No presence signal.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/src/features/notes/workspace.tsx"}
+  - {id: live-update, verdict: "no", note: "No realtime subscriptions in src/; views refresh on navigation or action.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/src/features/notes/note-list.tsx"}
+  - {id: prosemirror-binding, verdict: "yes", note: "Stores ProseMirror JSON from ProseKit directly.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/src/features/notes/note-editor.tsx"}
+  - {id: pocketbase-auth, verdict: "yes", note: "Collection rules plus owner checks in hooks.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/notes.pb.js"}
+  - {id: server-derivation, verdict: "yes", note: "JSVM hook derives title, text, search key and tasks from body JSON.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/entry-validation.js"}
+  - {id: single-image, verdict: "yes", note: "No extra service.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/deploy/docker/Dockerfile"}
+biases:
+  - {id: reuse-over-build, met: false, note: "Homegrown revision protocol and draft queue (draft.ts about 15 kB)."}
+  - {id: small-change, met: true, note: "No change."}
+sources:
+  - "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/notes.pb.js"
+  - "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/note-actions.pb.js"
+  - "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/src/features/notes/draft.ts"

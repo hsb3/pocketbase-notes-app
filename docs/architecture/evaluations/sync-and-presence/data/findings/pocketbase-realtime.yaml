@@ -1,0 +1,78 @@
+candidate: pocketbase-realtime
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/pocketbase/pocketbase"
+layer_fit:
+  verdict: in-layer
+  note: "Built-in SSE realtime of the PocketBase server we already ship. Covers live-update and, with custom topics, presence; it does not order or merge writes. Integration effort: native for record subscriptions (pocketbase JS SDK subscribe, already a dependency); DIY on documented building blocks for presence ($app.subscriptionsBroker() custom topics plus the onRealtimeConnectRequest post-e.next() disconnect point). Upstream moved off GitHub (archived 2026-10-26) to ganigeorgiev.com/pocketbase/pocketbase; current release is v0.42.3, we pin 0.40.x."
+license:
+  components:
+    - {name: "server (Go, includes realtime broker and JSVM)", license: MIT, source: "https://github.com/pocketbase/pocketbase/blob/v0.40.6/LICENSE.md"}
+    - {name: "pocketbase JS SDK (RealtimeService)", license: MIT, source: "https://github.com/pocketbase/js-sdk/blob/master/LICENSE.md"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "Single self-hosted binary already in our image; realtime is served from /api/realtime on the same process. No license key or telemetry in apis/realtime.go or tools/subscriptions."
+filters:
+  - {id: osi-license, verdict: pass, evidence: "Server and JS SDK are MIT (GitHub API spdx MIT for both repos; LICENSE.md).", source: "https://github.com/pocketbase/pocketbase/blob/v0.40.6/LICENSE.md"}
+  - {id: self-hosted-no-key, verdict: pass, evidence: "Part of the PocketBase binary we already run; no external service.", source: "https://pocketbase.io/docs/api-realtime/"}
+  - {id: pocketbase-record, verdict: pass, evidence: "It is PocketBase itself; events are emitted from record model hooks.", source: "https://github.com/pocketbase/pocketbase/blob/v0.40.6/apis/realtime.go"}
+capabilities:
+  - {id: no-false-conflict, verdict: "no", note: "Realtime only notifies; it does not change the single-revision write rule. It could let device B adopt a new revision sooner (like draft.ts adoptMove), narrowing but not closing the race. Our move/delete/restore actions in note-actions.pb.js write with raw tx.db().newQuery UPDATE, which bypasses OnModelAfterUpdateSuccess, so they emit no realtime event at all today.", source: "https://github.com/pocketbase/pocketbase/blob/v0.40.6/apis/realtime.go"}
+  - {id: text-merge, verdict: "no", note: "No text type or merge; events carry the whole record.", source: "https://pocketbase.io/docs/api-realtime/"}
+  - {id: edit-queue, verdict: "no", note: "Server-to-client push only; no client write queue.", source: "https://pocketbase.io/docs/api-realtime/"}
+  - {id: presence, verdict: partial, note: "No presence API, but documented parts: custom topics sent via $app.subscriptionsBroker().clients() / client.send(new SubscriptionMessage), client.get('auth') for the owner, onRealtimeSubscribeRequest for join, and onRealtimeConnectRequest where code after e.next() runs after the client disconnects. Boundaries: auth is bound only at the first subscribe POST, not at connect; the SSE loop has no server heartbeat, so an unclean drop (phone loses network) is noticed only on a failed write or the 5-minute idle timeout (e.idleTimeout is settable in the hook); a hook held open for the whole connection occupies a JSVM runtime, and when the 15-runtime pool is busy each extra call gets a one-off runtime (plugins/jsvm/pool.go). Clean tab close is detected promptly via request-context cancellation.", source: "https://pocketbase.io/docs/js-event-hooks/"}
+  - {id: live-update, verdict: partial, note: "pb.collection('notes').subscribe('*' | id) delivers create/update/delete scoped by listRule/viewRule (our own-rule), so owner scoping is native. Boundaries: at-most-once, no event ids or replay (WriteSSE id is the client id); events missed while disconnected are lost, so the client must refetch on PB_CONNECT after reconnect; SDK reconnects forever with backoff and resubmits subscriptions; server cuts idle connections at 5 min and all at 30 min. Our listRule requires deleted = '', so '*' subscribers will not receive the soft-delete update, and raw-SQL actions emit nothing.", source: "https://github.com/pocketbase/pocketbase/blob/v0.40.6/apis/realtime.go"}
+  - {id: prosemirror-binding, verdict: "no", note: "No editor binding; transport only.", source: "https://pocketbase.io/docs/api-realtime/"}
+  - {id: pocketbase-auth, verdict: "yes", note: "Subscription POST carries the user token; record events are filtered by the collection ViewRule (single record) or ListRule (collection) per client.", source: "https://pocketbase.io/docs/api-realtime/"}
+  - {id: server-derivation, verdict: "yes", note: "Unchanged; bodies stay PocketBase JSON and the existing JSVM onRecordValidate derivation keeps running.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/notes.pb.js"}
+  - {id: single-image, verdict: "yes", note: "Same process and port as the app (/api/realtime). Proxies must not buffer SSE (server sets X-Accel-Buffering no).", source: "https://github.com/pocketbase/pocketbase/blob/v0.40.6/apis/realtime.go"}
+biases:
+  - {id: reuse-over-build, met: true, note: "PocketBase built-in; integration effort native for live updates (source: pocketbase.io/docs/api-realtime), DIY presence on documented JSVM hooks (pocketbase.io/docs/js-realtime)."}
+  - {id: small-change, met: true, note: "Live update: one subscription in the notes list/editor plus refetch on reconnect; switch note-actions.pb.js raw UPDATEs to record saves or broadcast manually. Presence: one new pb_hooks file (subscribe/disconnect hooks, custom topic) and a small client indicator. No new service."}
+maturity:
+  stars: 61577
+  recurring_contributors: 1
+  single_merger: true
+  commits_by_month: {"2026-06": 42, "2026-07": 49, "2026-08": 48, "2026-09": 50, "2026-10": 35, "2026-11": 32}
+  last_commit: "2026-11-16"
+  last_release: "2026-11-16"
+  open_issues: 1
+  open_prs: 0
+  backlog_trend: unknown
+  regime_change: "Repository moved from GitHub (archived, last push 2026-10-26) to the author's own forge at ganigeorgiev.com/pocketbase/pocketbase; releases continued there (v0.41.0, v0.42.0..v0.42.3). Our 0.40.x pin is now two minors behind."
+  adopters: []
+  downloads: "pocketbase JS SDK 308,023 npm downloads, week 2026-11-14..2026-11-20"
+  signals:
+    - {id: recency, passed: true, evidence: "Last commit 2026-11-16 (c5003ce, forge /api/git/pocketbase/pocketbase/commits)."}
+    - {id: releases, passed: true, evidence: "Tag v0.42.3 points at the 2026-11-16 commit; docs header shows v0.42.3. 0.40 line last release v0.40.6 on 2026-10-23 (GitHub releases)."}
+    - {id: breadth, passed: false, evidence: "All 288 forge commits since 2026-05-14 authored by Gani Georgiev; no institutional backing found. Already an accepted dependency of this app, so the risk is not new."}
+    - {id: breadth-preference, passed: false, evidence: "1 recurring contributor."}
+    - {id: not-dying, passed: true, evidence: "Oct+Nov average 33.5/month vs Jun-Sep average 47.3/month: 29% drop, under 60%. November is partial (to 11-21)."}
+  verdict: at-risk
+sources:
+  - "https://pocketbase.io/docs/api-realtime/"
+  - "https://pocketbase.io/docs/js-realtime/"
+  - "https://pocketbase.io/docs/js-event-hooks/"
+  - "https://pocketbase.io/docs/js-overview/"
+  - "https://github.com/pocketbase/pocketbase/blob/v0.40.6/apis/realtime.go"
+  - "https://github.com/pocketbase/pocketbase/blob/v0.40.6/tools/subscriptions/client.go"
+  - "https://github.com/pocketbase/pocketbase/blob/v0.40.6/plugins/jsvm/pool.go"
+  - "https://github.com/pocketbase/js-sdk/blob/master/src/services/RealtimeService.ts"
+  - "https://ganigeorgiev.com/pocketbase/pocketbase"
+  - "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/note-actions.pb.js"
+  - "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/migrations/1795000400_active_notes_and_purge.js"
+verification:
+  - claim: "Realtime is at-most-once with no replay or heartbeat, 5-minute idle timeout, JSVM can broadcast via subscriptionsBroker, and code after e.next() in onRealtimeConnectRequest runs on disconnect."
+    outcome: verified
+    correction: "Also a hard MaxTimeout of 30 minutes: every connection is cut and gets a new client id at least every 30 minutes, even when active."
+    checked_on: "2026-11-21"
+    evidence: "v0.40.6 apis/realtime.go and tools/subscriptions; api-realtime docs; v0.42.3 changelog."
+  - claim: "pocketbase/pocketbase on GitHub was archived 2026-10-26; development moved to ganigeorgiev.com with Go module path ganigeorgiev.com/pocketbase/pocketbase; latest v0.42.3 (2026-11-16); still MIT; one author."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "GitHub API archived=true, README migration note commit 7f2773e; Go module proxy versions; LICENSE.md in the v0.42.3 module zip. Commits on the new forge were not reachable."
+  - claim: "Raw SQL writes from note-actions emit no realtime event; a record that stops matching listRule produces no event to collection subscribers."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "Source reading only: broadcasts bind to OnModelAfter*Success; collection subscriptions check ListRule on the new state. Not run."

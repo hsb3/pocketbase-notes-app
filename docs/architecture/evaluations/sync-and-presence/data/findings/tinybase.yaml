@@ -1,0 +1,68 @@
+candidate: tinybase
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/tinyplex/tinybase"
+layer_fit:
+  verdict: in-layer
+  note: "Reactive client store. MergeableStore adds per-cell HLC timestamps (last-write-wins CRDT); Synchronizers (WebSocket, BroadcastChannel, local, custom) exchange merge messages; Persisters save to browser storage, databases or a remote URL."
+license:
+  components:
+    - {name: "tinybase (single package incl. mergeable-store, synchronizers, persisters, ws server)", license: MIT, source: "https://github.com/tinyplex/tinybase/blob/main/LICENSE"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "Single MIT npm package; WsServer is self-hosted on the 'ws' package; no vendor endpoint or key in docs."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Root LICENSE MIT; npm tinybase 10.1.0 license MIT."
+    source: "https://github.com/tinyplex/tinybase/blob/main/LICENSE"
+  - id: self-hosted-no-key
+    verdict: pass
+    evidence: "All synchronizer servers are self-run (WsServer, WsServerSimple, or Cloudflare Durable Object optional)."
+    source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/2_using_a_synchronizer.md"
+  - id: pocketbase-record
+    verdict: pass
+    evidence: "Store content can be saved to a PocketBase route through RemotePersister (loadUrl/saveUrl, polling autoLoad) or createCustomPersister; no replacement database required. The packaged sync server (WsServer) is Node-only and PocketBase has no WebSocket server, so a PocketBase synchronizer target means a custom synchronizer or relay we build."
+    source: "https://github.com/tinyplex/tinybase/blob/main/src/persisters/persister-remote/index.ts"
+capabilities:
+  - {id: no-false-conflict, verdict: "yes", note: "MergeableStore timestamps each cell with an HLC; pin and body are separate cells, so concurrent changes to different cells both survive merge.", source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/1_using_a_mergeablestore.md"}
+  - {id: text-merge, verdict: "no", note: "Cell-level 'last write wins' by HLC; a body string edited on two devices keeps one. Third-party CRDT persisters (Yjs, Automerge) only mirror Store data into those docs.", source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/1_using_a_mergeablestore.md"}
+  - {id: edit-queue, verdict: partial, note: "No ordered outbox: a locally persisted MergeableStore (e.g. IndexedDB persister) keeps unsynced cells across reload and the synchronizer re-merges on reconnect; merge is idempotent by timestamp, but there is no per-change queue, retry status or saved/pending signal.", source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/2_using_a_synchronizer.md"}
+  - {id: presence, verdict: not-documented, note: "No presence/awareness API in guides (only 'presence' of tables/indexes in the data sense).", source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/20_releases.md"}
+  - {id: live-update, verdict: partial, note: "WsSynchronizer pushes merges live but needs the Node WsServer; with PocketBase we would build a custom synchronizer (createCustomSynchronizer) over SSE plus POST, or RemotePersister polling (default 5 s).", source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/2_using_a_synchronizer.md"}
+  - {id: prosemirror-binding, verdict: "no", note: "No editor binding.", source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/09_integrations"}
+  - {id: pocketbase-auth, verdict: not-documented, note: "WsServer docs show no per-connection auth hook; a custom synchronizer or RemotePersister routed through PocketBase could use the user token, but that is our code.", source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/2_using_a_synchronizer.md"}
+  - {id: server-derivation, verdict: partial, note: "Persisted MergeableContent is JSON (values plus HLC stamps and hashes); a PocketBase JSVM hook could read cell values, but nothing in TinyBase targets Goja.", source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/1_using_a_mergeablestore.md"}
+  - {id: single-image, verdict: partial, note: "WsServer is a Node process (would be an extra process in the image); PocketBase-only routes avoid it at the cost of a custom synchronizer.", source: "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/2_using_a_synchronizer.md"}
+biases:
+  - {id: reuse-over-build, met: false, note: "Store and merge are reused, but the PocketBase sync target, auth and status UI are homegrown; single-maintainer project."}
+  - {id: small-change, met: false, note: "Replaces the app's data layer with a TinyBase store and a new sync channel."}
+maturity:
+  stars: 5219
+  recurring_contributors: 3
+  single_merger: true
+  institutional_backing: "None (individual maintainer James Pearce)"
+  commits_by_month: {"2026-06": 72, "2026-07": 289, "2026-08": 105, "2026-09": 101, "2026-10": 47, "2026-11": 5}
+  last_commit: "2026-11-12"
+  last_release: "2026-11-12"
+  open_issues: 13
+  open_prs: 1
+  backlog_trend: shrinking
+  regime_change: null
+  adopters: []
+  downloads: "npm tinybase 23,089/week (2026-11-14..20)"
+  signals:
+    - {id: recency, passed: true, evidence: "Last commit 2026-11-12."}
+    - {id: releases, passed: true, evidence: "v10.1.0 on 2026-11-12; v10.2.0-beta.1 on 2026-11-18."}
+    - {id: breadth, passed: true, evidence: "3 authors with >=2 commits in window, but jamesgpearce authored 642 of 652 and committed all 652."}
+    - {id: breadth-preference, passed: true, evidence: "3 >= 3 (two of them with 5 commits each)."}
+    - {id: not-dying, passed: false, evidence: "Jun-Sep avg 141.75/month vs Oct-Nov avg 26/month (82% drop; November partial to the 21st)."}
+  verdict: adequate
+sources:
+  - "https://github.com/tinyplex/tinybase/blob/main/LICENSE"
+  - "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/1_using_a_mergeablestore.md"
+  - "https://github.com/tinyplex/tinybase/blob/main/site/guides/08_synchronization/2_using_a_synchronizer.md"
+  - "https://github.com/tinyplex/tinybase/blob/main/site/guides/07_persistence/1_an_intro_to_persistence.md"
+  - "https://github.com/tinyplex/tinybase/blob/main/src/persisters/persister-remote/index.ts"
+  - "https://registry.npmjs.org/tinybase"

@@ -1,0 +1,154 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: ckeditor5
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/ckeditor/ckeditor5"
+layer_fit:
+  verdict: in-layer
+  note: "Full WYSIWYG editor framework (ckeditor5 49.1.0) with its own model, view and UI library (not React/shadcn). Open-source packages are GPL-2.0-or-later; a separate commercial package set (ckeditor5-premium-features, slash command, collaboration, export/import, AI) sits beside them."
+license:
+  components:
+    - name: "ckeditor5 open-source packages (core, engine, ui, list incl. to-do list, table, code-block, image, upload, autoformat, markdown-gfm, paste-from-office, ...)"
+      license: GPL-2.0-or-later
+      source: "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5/LICENSE.md"
+    - name: "@ckeditor/ckeditor5-react 12.0.0"
+      license: GPL-2.0-or-later
+      source: "https://registry.npmjs.org/@ckeditor/ckeditor5-react/latest"
+    - name: "ckeditor5-premium-features 49.1.0 (real-time/async collaboration, track changes, comments, revision history, export/import Word/PDF, multi-level lists, merge fields, CKEditor AI, paste-from-office-enhanced) - not used"
+      license: "CKSource commercial license (proprietary)"
+      source: "https://registry.npmjs.org/ckeditor5-premium-features/latest"
+    - name: "@ckeditor/ckeditor5-slash-command 49.1.0 - not used"
+      license: "CKSource commercial license (proprietary)"
+      source: "https://registry.npmjs.org/@ckeditor/ckeditor5-slash-command/latest"
+phone_home:
+  telemetry: none
+  license_key: true
+  evidence: "Editor refuses to start without config.licenseKey (checkLicenseKeyIsDefined in packages/ckeditor5-core/src/editor/editor.ts). The literal string 'GPL' is accepted with no account: verifyLicenseKey returns early for 'GPL' (only blocks the cloud CDN distribution), so no usage request is made. The usage ping (_sendUsageRequest to licensePayload.usageEndpoint) runs only for commercial JWT keys that carry usageEndpoint. GPL builds show a 'Powered by CKEditor' logo that only commercial keys remove."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Open-source packages and the React wrapper are GPL-2.0-or-later (OSI-approved). Slash command, collaboration, export, AI and enhanced paste are commercial-only packages and fail; none is required, but slash menus are lost. GPL obligation: the frontend bundle that combines our MIT code with CKEditor is a combined work. When we convey it (the JS sent to browsers, or a published Docker image), we must offer the matching source under GPL-2.0+ and keep notices. MIT is GPL-compatible, so our public repo meets this. A closed fork would not."
+    source: "https://github.com/ckeditor/ckeditor5/blob/master/docs/getting-started/licensing/license-and-legal.md"
+  - id: no-key-no-cloud
+    verdict: pass
+    evidence: "Passes only on a strict reading. A licenseKey value is mandatory, but licenseKey: 'GPL' is a local literal that works only with the self-hosted npm/ZIP build, with no network check, no account and no telemetry (editor.ts verifyLicenseKey returns before any usage request). The owner should confirm that a mandatory 'GPL' string plus the forced logo is acceptable."
+    source: "https://github.com/ckeditor/ckeditor5/blob/master/docs/getting-started/licensing/license-key-and-activation.md"
+  - id: react-19
+    verdict: pass
+    evidence: "@ckeditor/ckeditor5-react 12.0.0 peerDependencies react ^16.13.1 || ^17 || ^18 || ^19, ckeditor5 >=49.0.0."
+    source: "https://registry.npmjs.org/@ckeditor/ckeditor5-react/latest"
+capabilities:
+  - id: checklists
+    verdict: "yes"
+    note: "TodoList (ckeditor5-list, GPL). It can nest with any bulleted or numbered list."
+    source: "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-list/docs/features/todo-lists.md"
+  - id: tables
+    verdict: "yes"
+    note: "ckeditor5-table (GPL): insert table, add/remove rows and columns, merge/split cells, rectangular cell selection. Column resize, table properties and layout tables are also on the GPL feature list."
+    source: "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-table/docs/features/tables.md"
+  - id: images-uploads
+    verdict: "yes"
+    note: "Custom upload adapter API (UploadAdapter.upload/abort, FileLoader progress) sends files to our own server, so a PocketBase file field works. Simple and Base64 adapters are GPL. CKBox/Uploadcare are the paid vendor storage and are not needed."
+    source: "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-upload/docs/features/custom-upload-adapter.md"
+  - id: code-blocks
+    verdict: partial
+    note: "Code blocks have a language choice. The docs say live syntax highlighting while editing is impossible in CKEditor 5; highlighting happens only when the saved output is displayed. No CodeMirror or Shiki integration."
+    source: "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-code-block/docs/features/code-blocks.md"
+  - id: menus
+    verdict: partial
+    note: "Balloon/block toolbar and contextual toolbars are GPL but are built with CKEditor's own UI framework, not React/shadcn. Slash commands (@ckeditor/ckeditor5-slash-command) are commercial."
+    source: "https://registry.npmjs.org/@ckeditor/ckeditor5-slash-command/latest"
+  - id: mobile
+    verdict: "yes"
+    note: "Supported-environments policy lists Android and iOS (all vendor-supported versions) plus Android WebView and WKWebView. Tracker labels: browser:android 2 open / 83 closed, browser:ios 4 open / 73 closed, domain:typing/ime 19 open / 183 closed."
+    source: "https://ckeditor.com/docs/ckeditor5/latest/support/browser-compatibility.html"
+  - id: accessibility
+    verdict: "yes"
+    note: "Dedicated accessibility guide covering keyboard navigation, ARIA and screen readers, and WCAG 2.x conformance status."
+    source: "https://ckeditor.com/docs/ckeditor5/latest/features/accessibility.html"
+  - id: json-schema
+    verdict: "no"
+    note: "The data pipeline outputs HTML (editor.getData()), or Markdown through the GFM data processor. The model schema is internal and has no JSON document format, so the server would validate HTML."
+    source: "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-markdown-gfm/docs/features/markdown.md"
+  - id: prosemirror-compat
+    verdict: "no"
+    note: "Own model and engine. ProseKit JSON would need a lossy HTML round-trip conversion."
+    source: "https://github.com/ckeditor/ckeditor5/tree/master/packages/ckeditor5-engine"
+  - id: collab-binding
+    verdict: paywalled
+    note: "Real-time and async collaboration ship only in ckeditor5-premium-features (commercial). There is no first-party OSI Yjs or OT binding."
+    source: "https://github.com/ckeditor/ckeditor5/blob/master/docs/getting-started/licensing/license-and-legal.md"
+  - id: markdown
+    verdict: "yes"
+    note: "Autoformat (GPL) handles markdown-style input rules. ckeditor5-markdown-gfm converts to and from GFM. Paste Markdown is marked experimental."
+    source: "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-markdown-gfm/docs/features/paste-markdown.md"
+biases:
+  - id: reuse-over-build
+    met: false
+    note: "Many features are maintained packages, but in-editor code highlighting is missing, slash menus are paid, collaboration is paid, and the UI is not shadcn, so we would build around it."
+  - id: migration-cost
+    met: false
+    note: "Different model (HTML data), different UI framework and a GPL bundle. It means a full rewrite of src/components/editor and the server validator plus a lossy migration of existing notes."
+maturity:
+  stars: 10518
+  recurring_contributors: 24
+  single_merger: false
+  institutional_backing: "CKSource Holding sp. z o.o."
+  commits_by_month:
+    "2026-06": 112
+    "2026-07": 101
+    "2026-08": 25
+    "2026-09": 74
+    "2026-10": 102
+    "2026-11": 64
+  last_commit: "2026-11-20"
+  last_release: "2026-11-04"
+  open_issues: 675
+  open_prs: 9
+  backlog_trend: shrinking
+  regime_change: null
+  adopters:
+    - "Drupal core (core/package.json depends on ckeditor5 ~47.6.2)"
+  downloads: "ckeditor5 1,173,103 per week; @ckeditor/ckeditor5-core 1,568,693 (npm, 2026-11-14..2026-11-20)"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "Last commit on master 2026-11-20."
+    - id: releases
+      passed: true
+      evidence: "v49.1.0 2026-11-04, v49.0.1 and v48.5.3 2026-10-27."
+    - id: breadth
+      passed: true
+      evidence: "All GitHub commits are pushed by CKEditorBot (mirrored). Co-authored-by trailers name 24 people with commits in 2+ months of the window (top: Kamil Piechaczek 86, Mateusz Gorzelinski 65, Filip Sobol 61)."
+    - id: breadth-preference
+      passed: true
+      evidence: "24 recurring co-authors (company staff)."
+    - id: not-dying
+      passed: true
+      evidence: "Oct-Nov 83/month vs Jun-Sep 78/month. Issues: 13 opened in window still open, 134 older issues closed in window."
+  verdict: strong
+sources:
+  - "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5/LICENSE.md"
+  - "https://github.com/ckeditor/ckeditor5/blob/master/docs/getting-started/licensing/license-and-legal.md"
+  - "https://github.com/ckeditor/ckeditor5/blob/master/docs/getting-started/licensing/license-key-and-activation.md"
+  - "https://github.com/ckeditor/ckeditor5/blob/master/docs/getting-started/licensing/managing-ckeditor-logo.md"
+  - "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-core/src/editor/editor.ts"
+  - "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-list/docs/features/todo-lists.md"
+  - "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-table/docs/features/tables.md"
+  - "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-upload/docs/features/custom-upload-adapter.md"
+  - "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-code-block/docs/features/code-blocks.md"
+  - "https://github.com/ckeditor/ckeditor5/blob/master/packages/ckeditor5-markdown-gfm/docs/features/paste-markdown.md"
+  - "https://ckeditor.com/docs/ckeditor5/latest/support/browser-compatibility.html"
+  - "https://ckeditor.com/docs/ckeditor5/latest/features/accessibility.html"
+  - "https://registry.npmjs.org/ckeditor5-premium-features/latest"
+  - "https://registry.npmjs.org/@ckeditor/ckeditor5-slash-command/latest"
+  - "https://registry.npmjs.org/@ckeditor/ckeditor5-react/latest"
+  - "https://git.drupalcode.org/project/drupal/-/raw/11.x/core/package.json"
+  - "https://api.github.com/repos/ckeditor/ckeditor5"
+  - "https://api.npmjs.org/downloads/point/last-week/ckeditor5"
+verification:
+  - claim: "GPL-2.0-or-later; licenseKey required and 'GPL' is accepted locally with no usage request; logo always shown for free users; to-do list, table selection and upload adapter are in GPL packages; collaboration and slash commands commercial; HTML data model; no live code highlighting."
+    outcome: verified
+    correction: "Two caveats: a GPL key used from the CKEditor CDN (cloud channel) makes the editor read-only, so GPL works only for npm or ZIP installs; the logo rule is vendor policy, not a GPL term."
+    checked_on: "2026-11-21"
+    evidence: "packages/ckeditor5-core/src/editor/editor.ts; LICENSE.md per package; managing-ckeditor-logo.md; DataController HtmlDataProcessor; code-blocks docs."

@@ -57,3 +57,5 @@ and RustFS; on Railway the same image runs with a volume and a real SMTP provide
 | RustFS | S3-compatible object storage | Local full stack: PocketBase stores attachments in a RustFS bucket, so the S3 path is tested. |
 | Mailpit | Local SMTP server with a web inbox | Local full stack: catches verification and password-reset email. |
 | Railway | Container hosting | Production target: builds the Dockerfile, one volume for data, scheduled backups to a bucket. See [self-host on Railway](../../deploy/RAILWAY.md). |
+
+Why these pieces and not others: see [Technology evaluations](evaluations/index.md).

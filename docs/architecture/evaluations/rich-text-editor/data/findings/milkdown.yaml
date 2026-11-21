@@ -1,0 +1,134 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: milkdown
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/Milkdown/milkdown"
+layer_fit:
+  verdict: in-layer
+  note: "Markdown-first WYSIWYG framework on ProseMirror + remark (@milkdown/kit 7.23.0); Crepe is the batteries-included build (vanilla, bundles Vue and CodeMirror)."
+license:
+  components:
+    - name: "milkdown monorepo (@milkdown/kit, core, crepe, components, react, plugin-*, preset-*)"
+      license: MIT
+      source: "https://github.com/Milkdown/milkdown/blob/main/LICENSE"
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "grep of @milkdown/kit, core and crepe 7.23.0 tarballs: no licenseKey or telemetry (only an @opentelemetry path string in build metadata). Default uploader turns images into base64 locally; no hosted service."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Single MIT LICENSE for the monorepo; npm license MIT on kit, crepe, react, plugin-collab."
+    source: "https://github.com/Milkdown/milkdown/blob/main/LICENSE"
+  - id: no-key-no-cloud
+    verdict: pass
+    evidence: "No key, cloud or telemetry in source; collab plugin binds a user-supplied Yjs provider."
+    source: "https://github.com/Milkdown/milkdown/blob/main/docs/api/plugin-collab.md"
+  - id: react-19
+    verdict: pass
+    evidence: "@milkdown/react peerDependencies react *, react-dom *; devDependencies pin react ^19.0.0, so it is built and tested on 19."
+    source: "https://github.com/Milkdown/milkdown/blob/main/packages/integrations/react/package.json"
+capabilities:
+  - id: checklists
+    verdict: "yes"
+    note: "GFM task list items (list_item with checked) nest in bullet lists; listItemBlock component renders todo items."
+    source: "https://github.com/Milkdown/milkdown/blob/main/docs/api/component-list-item-block.md"
+  - id: tables
+    verdict: "yes"
+    note: "GFM table schema plus tableBlock component: row/column insert, delete, drag and alignment; prosemirror-tables cell selection."
+    source: "https://github.com/Milkdown/milkdown/blob/main/docs/api/component-table-block.md"
+  - id: images-uploads
+    verdict: "yes"
+    note: "plugin-upload with a custom uploader (files to nodes) and a placeholder widget while uploading; default is base64."
+    source: "https://github.com/Milkdown/milkdown/blob/main/docs/api/plugin-upload.md"
+  - id: code-blocks
+    verdict: "yes"
+    note: "codeBlock component embeds CodeMirror with language picker and highlighting; plugin-prism alternative."
+    source: "https://github.com/Milkdown/milkdown/blob/main/docs/api/component-code-block.md"
+  - id: menus
+    verdict: "yes"
+    note: "plugin-slash, plugin-tooltip (selection toolbar) and plugin-block (block handle) are headless providers we render ourselves; Crepe's prebuilt UI is not React/shadcn."
+    source: "https://github.com/Milkdown/milkdown/blob/main/docs/api/plugin-slash.md"
+  - id: mobile
+    verdict: partial
+    note: "No mobile documentation; 3 closed iOS-titled and 3 closed Android-titled issues, none open. Input/IME/selection is prosemirror-view's; Crepe's CodeMirror code blocks add CodeMirror's own mobile surface."
+    source: "https://github.com/Milkdown/milkdown/issues?q=is%3Aissue+Android+in%3Atitle"
+  - id: accessibility
+    verdict: not-documented
+    note: "No accessibility page in docs/ or the api reference."
+    source: "https://github.com/Milkdown/milkdown/tree/main/docs"
+  - id: json-schema
+    verdict: partial
+    note: "Schema declared per node ($nodeSchema) and state.doc.toJSON() works through the ProseMirror API, but Milkdown's documented persistence path is Markdown, and every node must define Markdown parse/serialize."
+    source: "https://github.com/Milkdown/milkdown/blob/main/docs/api/core.md"
+  - id: prosemirror-compat
+    verdict: partial
+    note: "Shared ProseMirror model, but different names and structure: code_block, list_item/bullet_list (nested) vs flat list, hardbreak, hr, table_header; marks strong/emphasis/inlineCode. No underline mark in the CommonMark/GFM presets, and toggle lists, mention and math need custom nodes with Markdown serializers. Scripted migration required; underline is lossy unless a custom mark is added."
+    source: "https://github.com/Milkdown/milkdown/tree/main/packages/plugins/preset-commonmark/src/node"
+  - id: collab-binding
+    verdict: "yes"
+    note: "@milkdown/plugin-collab (MIT) binds a Yjs Doc and awareness via y-prosemirror."
+    source: "https://github.com/Milkdown/milkdown/blob/main/docs/api/plugin-collab.md"
+  - id: markdown
+    verdict: "yes"
+    note: "Core design: remark-based parse/serialize, CommonMark + GFM presets with input rules."
+    source: "https://github.com/Milkdown/milkdown/blob/main/docs/api/preset-gfm.md"
+biases:
+  - id: reuse-over-build
+    met: true
+    note: "Upload, tables, CodeMirror code, task lists, slash/tooltip/block plugins ship as packages; React UI is ours to build."
+  - id: migration-cost
+    met: false
+    note: "New node vocabulary, Markdown-centric model, editor rewrite and validator rewrite."
+maturity:
+  stars: 12078
+  recurring_contributors: 3
+  single_merger: true
+  institutional_backing: "None; maintainer Saul-Mirone with GitHub Sponsors."
+  commits_by_month:
+    "2026-06": 11
+    "2026-07": 26
+    "2026-08": 26
+    "2026-09": 8
+    "2026-10": 22
+    "2026-11": 0
+  last_commit: "2026-10-27"
+  last_release: "2026-10-27"
+  open_issues: 39
+  open_prs: 15
+  backlog_trend: growing
+  regime_change: null
+  adopters: []
+  downloads: "@milkdown/kit 1,262,340 per week (npm, 2026-11-14..2026-11-20)"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "Last commit on main 2026-10-27 (25 days)."
+    - id: releases
+      passed: true
+      evidence: "v7.23.0 2026-10-27; v7.22.3 2026-10-10."
+    - id: breadth
+      passed: true
+      evidence: "3 human authors in 2+ months (Saul-Mirone 6, Macavity 2, highestop 2)."
+    - id: breadth-preference
+      passed: true
+      evidence: "3 recurring meets preference 3, but Saul-Mirone authored 38 of 58 human commits (renovate 32 of 99 total)."
+    - id: not-dying
+      passed: true
+      evidence: "Oct-Nov 11/month vs Jun-Sep 17.75/month: 38% drop (no commits yet in Nov). 90 PRs merged; 42 issues opened vs 27 closed."
+  verdict: adequate
+sources:
+  - "https://github.com/Milkdown/milkdown"
+  - "https://github.com/Milkdown/milkdown/blob/main/LICENSE"
+  - "https://registry.npmjs.org/@milkdown/react/latest"
+  - "https://api.npmjs.org/downloads/point/last-week/@milkdown/kit"
+  - "https://github.com/Milkdown/milkdown/blob/main/docs/api/plugin-upload.md"
+  - "https://github.com/Milkdown/milkdown/blob/main/docs/api/component-code-block.md"
+  - "https://github.com/Milkdown/milkdown/blob/main/docs/api/component-table-block.md"
+  - "https://github.com/Milkdown/milkdown/blob/main/docs/api/plugin-block.md"
+  - "https://github.com/Milkdown/milkdown/tree/main/packages/plugins/preset-commonmark/src/mark"
+verification:
+  - claim: "MIT; no underline mark in the CommonMark/GFM presets; last main commit and v7.23.0 on 2026-10-27."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "Preset directory listings (absence); GitHub commits; npm."

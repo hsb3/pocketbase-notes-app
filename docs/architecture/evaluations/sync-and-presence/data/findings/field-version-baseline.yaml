@@ -1,0 +1,23 @@
+candidate: field-version-baseline
+checked_on: "2026-11-21"
+kind: baseline
+repo: "https://github.com/hsb3/pocketbase-notes-app"
+layer_fit:
+  verdict: in-layer
+  note: "Hand-built change to the baseline: keep the body revision for content saves only; metadata (pin, folder, deleted) gets property-level last-writer-wins or its own version, so a pin never refuses a body save. Pattern from Figma/Linear property-level resolution (see landscape.yaml)."
+capabilities:
+  - {id: no-false-conflict, verdict: "yes", note: "Design goal: content saves check only the content revision; metadata writes do not touch it. Not built yet.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/note-actions.pb.js"}
+  - {id: text-merge, verdict: "no", note: "Body stays whole-document optimistic concurrency.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/notes.pb.js"}
+  - {id: edit-queue, verdict: partial, note: "Same in-memory queue as today unless a persisted outbox is added.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/src/features/notes/draft.ts"}
+  - {id: presence, verdict: "no", note: "Needs a transport such as PocketBase realtime; evaluated separately.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/src/features/notes/workspace.tsx"}
+  - {id: live-update, verdict: "no", note: "Same; pairs naturally with PocketBase record subscriptions.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/src/features/notes/note-list.tsx"}
+  - {id: prosemirror-binding, verdict: "yes", note: "Unchanged storage.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/src/features/notes/note-editor.tsx"}
+  - {id: pocketbase-auth, verdict: "yes", note: "Unchanged rules.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/notes.pb.js"}
+  - {id: server-derivation, verdict: "yes", note: "Unchanged hooks.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/entry-validation.js"}
+  - {id: single-image, verdict: "yes", note: "No extra service.", source: "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/deploy/docker/Dockerfile"}
+biases:
+  - {id: reuse-over-build, met: false, note: "Still homegrown, but smaller than the baseline's metadata coupling."}
+  - {id: small-change, met: true, note: "A few hook lines plus client confirmation logic."}
+sources:
+  - "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/note-actions.pb.js"
+  - "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/notes.pb.js"

@@ -1,0 +1,67 @@
+candidate: y-sweet
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/jamsocket/y-sweet"
+layer_fit:
+  verdict: in-layer
+  note: "Rust Yjs sync server and document store persisting to a local directory or S3, with token-scoped client access. Integration effort: DIY. No PocketBase adapter or persistence hook; tokens would be minted by a PocketBase route calling the documented server HTTP API (POST /doc/{docId}/auth, openapi/server.yml), and body JSON would have to be pulled back via GET /doc/{docId}/as-update and decoded outside the JSVM. Official docs host docs.jamsocket.com now redirects to Modal's acquisition post."
+license:
+  components:
+    - {name: "y-sweet server (crates/y-sweet, y-sweet-core, y-sweet-worker)", license: MIT, source: "https://github.com/jamsocket/y-sweet/blob/main/LICENSE"}
+    - {name: "@y-sweet/client, @y-sweet/sdk, @y-sweet/react, y-sweet npm launcher (0.9.1)", license: MIT, source: "https://registry.npmjs.org/@y-sweet/client/latest"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "Server main.rs has only an optional Y_SWEET_AUTH key (self-generated with gen-auth). Client logs a link to https://debugger.y-sweet.dev/?payload=<encoded client token> to the console by default (showDebuggerLink, default true); nothing is sent unless clicked, but the URL embeds the token, so set showDebuggerLink false."
+filters:
+  - {id: osi-license, verdict: pass, evidence: "Repo LICENSE MIT (Drifting in Space Corp.); Cargo.toml license MIT; npm packages MIT.", source: "https://github.com/jamsocket/y-sweet/blob/main/LICENSE"}
+  - {id: self-hosted-no-key, verdict: pass, evidence: "y-sweet serve /path or s3:// bucket, Docker image ghcr.io/jamsocket/y-sweet; managed Jamsocket hosting is optional.", source: "https://github.com/jamsocket/y-sweet/blob/main/docs/running.md"}
+  - {id: pocketbase-record, verdict: unverified, evidence: "Canonical document state lives in Y-Sweet's own store (filesystem directory or S3); no documented hook to persist into another store, so PocketBase would hold only a copy we pull via /doc/{docId}/as-update. Whether that counts as keeping PocketBase the system of record is an owner call.", source: "https://github.com/jamsocket/y-sweet/blob/main/docs/running.md"}
+capabilities:
+  - {id: no-false-conflict, verdict: "yes", note: "Body in a Yjs doc separate from PocketBase metadata fields, so metadata actions cannot fail body sync.", source: "https://github.com/jamsocket/y-sweet/blob/main/README.md"}
+  - {id: text-merge, verdict: "yes", note: "Yjs CRDT; with y-prosemirror via ProseKit's yjs extension.", source: "https://github.com/jamsocket/y-sweet/blob/main/README.md"}
+  - {id: edit-queue, verdict: "yes", note: "createYjsProvider option offlineSupport stores document state in IndexedDB (js-pkg/client/src/indexeddb.ts) so unsynced updates survive reload; Yjs updates are idempotent on replay.", source: "https://github.com/jamsocket/y-sweet/blob/main/js-pkg/client/src/provider.ts"}
+  - {id: presence, verdict: "yes", note: "Provider exposes y-protocols awareness (MESSAGE_AWARENESS) with Yjs awareness timeout semantics.", source: "https://github.com/jamsocket/y-sweet/blob/main/js-pkg/client/src/provider.ts"}
+  - {id: live-update, verdict: partial, note: "Open documents update live; the notes list is not covered.", source: "https://github.com/jamsocket/y-sweet/blob/main/README.md"}
+  - {id: prosemirror-binding, verdict: partial, note: "No binding of its own; any Yjs binding works (README examples list CodeMirror, Monaco, BlockNote, Quill, Slate, not ProseMirror). ProseKit's prosekit/extensions/yjs would be used.", source: "https://github.com/jamsocket/y-sweet/blob/main/README.md"}
+  - {id: pocketbase-auth, verdict: partial, note: "Document-level client tokens minted by our backend with the server token; a PocketBase route could check the owner rule and call POST /doc/{docId}/auth via $http.send. Documented HTTP API, our glue.", source: "https://github.com/jamsocket/y-sweet/blob/main/openapi/server.yml"}
+  - {id: server-derivation, verdict: partial, note: "GET /doc/{docId}/as-update returns the Yjs update, but nothing decodes it to ProseMirror JSON in Go or the JSVM; needs a JS sidecar (yjs + y-prosemirror) and a trigger, since Y-Sweet has no store hook.", source: "https://github.com/jamsocket/y-sweet/blob/main/openapi/server.yml"}
+  - {id: single-image, verdict: partial, note: "Native Linux binary could be copied into the image, but it is a second always-on service with its own port and data directory, plus the decode sidecar. No documented resource needs.", source: "https://github.com/jamsocket/y-sweet/blob/main/docs/running.md"}
+biases:
+  - {id: reuse-over-build, met: false, note: "Integration effort DIY, and the project shows no commits since 2025-12-04 after its company was acquired."}
+  - {id: small-change, met: false, note: "Adds a Rust service, a decode sidecar, a token route, Dockerfile process supervision and an editor rewrite of draft.ts."}
+maturity:
+  stars: 1022
+  recurring_contributors: 0
+  single_merger: false
+  institutional_backing: "Jamsocket (acquired by Modal, announced 2025-07-10)"
+  commits_by_month: {"2026-06": 0, "2026-07": 0, "2026-08": 0, "2026-09": 0, "2026-10": 0, "2026-11": 0}
+  last_commit: "2025-12-04"
+  last_release: "2025-09-16"
+  open_issues: 23
+  open_prs: 5
+  backlog_trend: shrinking
+  regime_change: "Jamsocket joined Modal (blog 2025-07-10: products 'will continue to operate normally while the core functionality is being migrated to Modal'); docs.jamsocket.com and jamsocket.com now redirect to that post."
+  adopters: []
+  downloads: "@y-sweet/sdk 10,331, @y-sweet/client 5,656, y-sweet 4,663 npm downloads, week 2026-11-14..2026-11-20"
+  signals:
+    - {id: recency, passed: false, evidence: "Last commit 2025-12-04, 352 days ago (limit 90)."}
+    - {id: releases, passed: false, evidence: "Last release v0.9.1 2025-09-16."}
+    - {id: breadth, passed: false, evidence: "0 commits in the window."}
+    - {id: breadth-preference, passed: false, evidence: "0 contributors in the window."}
+    - {id: not-dying, passed: false, evidence: "0 commits in Jun-Nov 2026; 1 issue opened and 4 closed in the window."}
+  verdict: at-risk
+sources:
+  - "https://github.com/jamsocket/y-sweet/blob/main/LICENSE"
+  - "https://github.com/jamsocket/y-sweet/blob/main/README.md"
+  - "https://github.com/jamsocket/y-sweet/blob/main/docs/running.md"
+  - "https://github.com/jamsocket/y-sweet/blob/main/openapi/server.yml"
+  - "https://github.com/jamsocket/y-sweet/blob/main/js-pkg/client/src/provider.ts"
+  - "https://github.com/jamsocket/y-sweet/blob/main/crates/y-sweet/src/main.rs"
+  - "https://modal.com/blog/jamsocket-is-joining-modal"
+  - "https://registry.npmjs.org/@y-sweet/client/latest"
+verification:
+  - claim: "No commits since 2025-12-04; Jamsocket acquired by Modal."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "GitHub API pushed_at; Modal blog post 2025-07-10."

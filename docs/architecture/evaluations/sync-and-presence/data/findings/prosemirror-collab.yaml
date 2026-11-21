@@ -1,0 +1,66 @@
+candidate: prosemirror-collab
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://code.haverbeke.berlin/prosemirror/prosemirror-collab"
+layer_fit:
+  verdict: in-layer
+  note: "ProseMirror's own central-authority protocol. Client: the collab plugin keeps version plus unconfirmed steps; sendableSteps(state) gives {version, steps, clientID}; receiveTransaction(state, steps, clientIDs) confirms own steps by clientID and rebases the rest over remote steps (rebaseSteps maps and re-applies, dropping steps that no longer apply). Authority must: track a version (= steps accepted), accept a batch only if its version equals the current one, append steps with clientIDs, and serve steps since a version; it must keep step history back to the oldest client version or force a reload, and keep (or be able to rebuild) the current doc. Integration effort: DIY on a documented protocol (guide 'Collaborative editing'). A PocketBase JSVM route can be the authority: the version check and append fit runInTransaction like today's revision check, and PocketBase realtime can push new steps. Applying steps server-side needs prosemirror-model/transform plus our schema bundled to CommonJS for goja (undocumented whether it runs); alternatively the single-owner client sends the resulting doc with its steps."
+license:
+  components:
+    - {name: "prosemirror-collab 1.3.1", license: MIT, source: "https://code.haverbeke.berlin/prosemirror/prosemirror-collab/src/branch/main/LICENSE"}
+    - {name: "prosemirror-transform / prosemirror-model (needed by a step-applying authority)", license: MIT, source: "https://code.haverbeke.berlin/prosemirror/prosemirror/src/branch/main/LICENSE"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "184-line client library (src/collab.ts) with only a prosemirror-state dependency; no network code."
+filters:
+  - {id: osi-license, verdict: pass, evidence: "MIT LICENSE in the repo; npm license MIT.", source: "https://code.haverbeke.berlin/prosemirror/prosemirror-collab/src/branch/main/LICENSE"}
+  - {id: self-hosted-no-key, verdict: pass, evidence: "Client library; the authority is ours.", source: "https://prosemirror.net/docs/guide/#collab"}
+  - {id: pocketbase-record, verdict: pass, evidence: "Protocol is storage-agnostic; doc, version and steps can be PocketBase record fields or a steps collection.", source: "https://prosemirror.net/docs/guide/#collab"}
+capabilities:
+  - {id: no-false-conflict, verdict: partial, note: "Covers the body only. Holds if the body version is split from the metadata revision (our change in notes.pb.js / note-actions.pb.js); otherwise a move still bumps the shared counter.", source: "https://prosemirror.net/docs/guide/#collab"}
+  - {id: text-merge, verdict: "yes", note: "Rejected batches are rebased over accepted steps and resubmitted; both edits kept without a dialog (a step that cannot be mapped is dropped).", source: "https://code.haverbeke.berlin/prosemirror/prosemirror-collab/src/branch/main/src/collab.ts"}
+  - {id: edit-queue, verdict: partial, note: "Ordered unconfirmed-step queue with resend after rejection and dedupe by clientID on confirm. Lives in editor plugin state only: surviving reload means persisting sendableSteps and restoring with the same version and clientID ourselves.", source: "https://code.haverbeke.berlin/prosemirror/prosemirror-collab/src/branch/main/src/collab.ts"}
+  - {id: presence, verdict: "no", note: "Module has no presence or cursor API.", source: "https://prosemirror.net/docs/ref/#collab"}
+  - {id: live-update, verdict: partial, note: "Protocol needs a 'steps since version' feed but ships no transport (guide demo uses long polling); PocketBase realtime could carry it.", source: "https://prosemirror.net/docs/guide/#collab"}
+  - {id: prosemirror-binding, verdict: "yes", note: "It is the ProseMirror core collab module; ProseKit accepts raw ProseMirror plugins.", source: "https://prosemirror.net/docs/ref/#collab"}
+  - {id: pocketbase-auth, verdict: partial, note: "No auth of its own; transport-agnostic, so an authority route behind $apis.requireAuth('users') with the owner check gives PocketBase auth.", source: "https://prosemirror.net/docs/guide/#collab"}
+  - {id: server-derivation, verdict: "yes", note: "Proved 2026-11-21: Step.fromJSON(...).apply(doc) runs in PocketBase 0.40.1 JSVM from one bundled CJS file. If the authority stores the resulting doc JSON in notes.body, the current JSVM derivation is unchanged. Applying steps on the server in goja is undocumented (goja 'most of ES6', CommonJS only); trusting the client's resulting doc avoids that for one owner.", source: "https://pocketbase.io/docs/js-overview/"}
+  - {id: single-image, verdict: "yes", note: "Authority fits in pb_hooks; no extra service.", source: "https://prosemirror.net/docs/guide/#collab"}
+biases:
+  - {id: reuse-over-build, met: false, note: "Reuses the client half (rebase, queue); the authority, storage, transport and persistence are DIY."}
+  - {id: small-change, met: false, note: "Smaller than a CRDT server (no new service) but rewrites draft.ts around steps and adds a steps store, an authority route and step pruning."}
+maturity:
+  stars: 158
+  recurring_contributors: 1
+  single_merger: true
+  commits_by_month: {"2026-06": 0, "2026-07": 0, "2026-08": 0, "2026-09": 1, "2026-10": 1, "2026-11": 1}
+  last_commit: "2026-11-19"
+  last_release: "2023-05-17"
+  open_issues: 118
+  open_prs: 0
+  backlog_trend: unknown
+  regime_change: "Moved from GitHub (archived) to code.haverbeke.berlin on 2026-04-01; issues go to the shared prosemirror/prosemirror tracker (118 open)."
+  adopters: []
+  downloads: "prosemirror-collab 8,380,425 npm downloads, week 2026-11-14..2026-11-20"
+  signals:
+    - {id: recency, passed: true, evidence: "Last commit 2026-11-19 (test adjustment)."}
+    - {id: releases, passed: false, evidence: "Last release 1.3.1 on 2023-05-17; module is feature-stable while sibling core packages released 2026-11-19."}
+    - {id: breadth, passed: false, evidence: "All window commits by Marijn Haverbeke; no institutional backing found. Already carried indirectly through ProseKit's ProseMirror dependency."}
+    - {id: breadth-preference, passed: false, evidence: "1 contributor."}
+    - {id: not-dying, passed: true, evidence: "2 commits Oct-Nov vs 1 Jun-Sep (tiny numbers)."}
+  verdict: at-risk
+sources:
+  - "https://prosemirror.net/docs/guide/#collab"
+  - "https://prosemirror.net/docs/ref/#collab"
+  - "https://code.haverbeke.berlin/prosemirror/prosemirror-collab/src/branch/main/src/collab.ts"
+  - "https://code.haverbeke.berlin/prosemirror/prosemirror-collab/src/branch/main/LICENSE"
+  - "https://code.haverbeke.berlin/api/v1/repos/prosemirror/prosemirror-collab/commits"
+  - "https://registry.npmjs.org/prosemirror-collab"
+  - "https://pocketbase.io/docs/js-overview/"
+  - "https://github.com/hsb3/pocketbase-notes-app/blob/b895d10/pb/hooks/notes.pb.js"
+verification:
+  - claim: "A PocketBase JSVM route can apply ProseMirror steps as the collab authority."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "Contained run: Step.fromJSON(schema, json).apply(doc) equals the Bun result; schema-breaking and out-of-range steps are refused. Log: scratch jsvm-proof/pb-run2.log (not committed)."

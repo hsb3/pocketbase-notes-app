@@ -96,7 +96,7 @@ Excludes build output, `node_modules`, secrets (`.env`, `*.pem`), PocketBase dat
 
 ### `.vitepress/config.ts`
 
-The Features sidebar links to [Notes](../features/notes.md) for writing, search and draft recovery and [Folders](../features/folders.md) for filing, deletion, restore and Account navigation. VitePress renders the repository's own Markdown (`docs/`, `deploy/*.md` and the root guides; `README.md` is the home page) for GitHub Pages under `/pocketbase-notes-app/`. Links to code and config files become GitHub links, and a link to a missing file fails `bun run docs:build`. Output goes to `.vitepress/dist` (ignored); `.github/workflows/docs.yml` builds it on pull requests and deploys it from `main`.
+The Architecture sidebar links to [Technology evaluations](../architecture/evaluations/index.md), the build-or-buy research. The Features sidebar links to [Notes](../features/notes.md) for writing, search and draft recovery and [Folders](../features/folders.md) for filing, deletion, restore and Account navigation. VitePress renders the repository's own Markdown (`docs/`, `deploy/*.md` and the root guides; `README.md` is the home page) for GitHub Pages under `/pocketbase-notes-app/`. Links to code and config files become GitHub links, and a link to a missing file fails `bun run docs:build`. Output goes to `.vitepress/dist` (ignored); `.github/workflows/docs.yml` builds it on pull requests and deploys it from `main`.
 
 ### `docs/architecture/spec.md`
 
