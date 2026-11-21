@@ -55,7 +55,7 @@ One row per increment. The ID never changes once a sub-spec uses it. Update Stat
 | R4 | Search across folders | R3 | done | [r4-search](r4-search/spec.md) |
 | R5 | Move, delete and recover | R4 | done | [r5-recover](r5-recover/spec.md) |
 | R6 | Milestone 1 stabilization gate | R5 | done | [r6-gate](r6-gate/spec.md) |
-| R7 | Pin | R6 | planned | — |
+| R7 | Pin | R6 | in-progress | [r7-pin](r7-pin/spec.md) |
 | R8 | Journal smart folder | R6 | planned | — |
 | R9 | Rich text, checklists and the phone formatting bar | R6 | planned | — |
 | R10 | Open Tasks smart folder | R9 | planned | — |
