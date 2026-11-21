@@ -55,16 +55,16 @@
 
 ### Tests for User Story 1
 
-- [ ] T010 [US1] In `scripts/test-pins.ts` add the list-order rows: folder and All Notes lists sorted `-pinned,-updated,-id` put pinned rows first, each group most recently edited first (spec Story 1.1–1.3); editing pinned D moves it above pinned C within the pinned group; if every note in a folder is pinned the list is one group in recency order; search order stays `-updated,-id` and ignores pins; a second SDK client of A reads the same order (Story 1.4); B's lists contain none of A's notes or pins
-- [ ] T011 [P] [US1] Create `tests/e2e/pin.spec.cjs` using `tests/e2e/fixtures.cjs` and `tests/e2e/note-helpers.cjs`, at 390, 810 and 1440 px in Chromium and WebKit. Cover [W3 exit](quickstart.md#w3-exit) steps 1, 2, 6 and 7: Pin from the note actions announces "Pinned.", returns focus to `#note-actions`, keeps URL and draft, and C shows first with the marker (accessible text "Pinned") within 1 s of the acknowledgement (SC-002); typing straight after pinning reaches Saved, and a second context that had the note open also reaches Saved with no conflict dialog; aborting the pin reply after commit shows "Could not pin this note. Try again.", and Retry leaves the note pinned once with no conflict; keyboard-only open, Pin, Escape; zero horizontal page scroll; captures in both themes. Run on Phase 2's commit and record the failures (no Pin item)
+- [X] T010 [US1] In `scripts/test-pins.ts` add the list-order rows: folder and All Notes lists sorted `-pinned,-updated,-id` put pinned rows first, each group most recently edited first (spec Story 1.1–1.3); editing pinned D moves it above pinned C within the pinned group; if every note in a folder is pinned the list is one group in recency order; search order stays `-updated,-id` and ignores pins; a second SDK client of A reads the same order (Story 1.4); B's lists contain none of A's notes or pins
+- [X] T011 [P] [US1] Create `tests/e2e/pin.spec.cjs` using `tests/e2e/fixtures.cjs` and `tests/e2e/note-helpers.cjs`, at 390, 810 and 1440 px in Chromium and WebKit. Cover [W3 exit](quickstart.md#w3-exit) steps 1, 2, 6 and 7: Pin from the note actions announces "Pinned.", returns focus to `#note-actions`, keeps URL and draft, and C shows first with the marker (accessible text "Pinned") within 1 s of the acknowledgement (SC-002); typing straight after pinning reaches Saved, and a second context that had the note open also reaches Saved with no conflict dialog; aborting the pin reply after commit shows "Could not pin this note. Try again.", and Retry leaves the note pinned once with no conflict; keyboard-only open, Pin, Escape; zero horizontal page scroll; captures in both themes. Run on Phase 2's commit and record the failures (no Pin item)
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Modify `src/features/notes/data.ts`: add `pinned` to `listNotes` `fields` and change its sort to `-pinned,-updated,-id`; add `pinned` to `getNote`'s `detailFields` and the validated `Detail` shape. Leave `searchNotes` unchanged
-- [ ] T013 [P] [US1] Modify `src/features/notes/actions.ts`: add `setPin(id, pinned, session)` that posts `{ pinned }` to `/api/notebook/notes/{id}/pin` with the same private, uncached request options as the R5 actions, and accepts the reply only when it has the same owner and note ID and `pinned === requested`. Do not use `NoteCommand`, `confirms`, revision adoption or "Check again"
-- [ ] T014 [US1] Modify `src/features/notes/note-actions.tsx`: add one Pin / Unpin item (lucide `Pin` icon) labelled from the note's current `pinned`, disabled while its request is in flight. On success update local `pinned`, refresh the list, announce "Pinned." or "Unpinned." and return focus to `#note-actions`. On network error, timeout or 5xx keep the old state and show "Could not pin this note. Try again." with Retry resending the same absolute value. A 404 uses R5's missing-note handling; a 400 for a deleted note refreshes the note (depends on T013)
-- [ ] T015 [US1] Modify `src/features/notes/workspace.tsx` to hold the open note's `pinned` beside the draft (not in its save baseline, so autosave and revision are untouched) and pass it and the list refresh to the note actions (depends on T012, T014)
-- [ ] T016 [US1] Modify `src/features/notes/note-list.tsx` so a pinned row shows a `Pin` icon with accessible text "Pinned"; reuse the existing row layout. Pass `scripts/test-pins.ts` list rows via `make test-api-contained` and `tests/e2e/pin.spec.cjs` via `make test-browser-contained`
+- [X] T012 [P] [US1] Modify `src/features/notes/data.ts`: add `pinned` to `listNotes` `fields` and change its sort to `-pinned,-updated,-id`; add `pinned` to `getNote`'s `detailFields` and the validated `Detail` shape. Leave `searchNotes` unchanged
+- [X] T013 [P] [US1] Modify `src/features/notes/actions.ts`: add `setPin(id, pinned, session)` that posts `{ pinned }` to `/api/notebook/notes/{id}/pin` with the same private, uncached request options as the R5 actions, and accepts the reply only when it has the same owner and note ID and `pinned === requested`. Do not use `NoteCommand`, `confirms`, revision adoption or "Check again"
+- [X] T014 [US1] Modify `src/features/notes/note-actions.tsx`: add one Pin / Unpin item (lucide `Pin` icon) labelled from the note's current `pinned`, disabled while its request is in flight. On success update local `pinned`, refresh the list, announce "Pinned." or "Unpinned." and return focus to `#note-actions`. On network error, timeout or 5xx keep the old state and show "Could not pin this note. Try again." with Retry resending the same absolute value. A 404 uses R5's missing-note handling; a 400 for a deleted note refreshes the note (depends on T013)
+- [X] T015 [US1] Modify `src/features/notes/workspace.tsx` to hold the open note's `pinned` beside the draft (not in its save baseline, so autosave and revision are untouched) and pass it and the list refresh to the note actions (depends on T012, T014)
+- [X] T016 [US1] Modify `src/features/notes/note-list.tsx` so a pinned row shows a `Pin` icon with accessible text "Pinned"; reuse the existing row layout. Pass `scripts/test-pins.ts` list rows via `make test-api-contained` and `tests/e2e/pin.spec.cjs` via `make test-browser-contained`
 
 **Checkpoint**: Pin works in folders and All Notes; MVP deliverable.
 
@@ -78,14 +78,14 @@
 
 ### Tests for User Story 2
 
-- [ ] T017 [US2] In `scripts/test-pins.ts` add the Pinned rows: the filter `deleted = "" && pinned = true` sorted `-updated,-id` lists each active pinned note of A exactly once across folders, most recently edited first; B's Pinned read is empty
-- [ ] T018 [US2] In `tests/e2e/pin.spec.cjs` add [W3 exit](quickstart.md#w3-exit) steps 3 and 4: Pinned shows C once with its folder name; unpinning C from Pinned removes it from the list and leaves it in its folder; the empty state reads "No pinned notes" with "Pin a note from its actions menu."; opening a pinned note from Pinned and editing it keeps it in Pinned; composing from Pinned files the new note in Notes, unpinned. Record the failures on Phase 3's commit
+- [X] T017 [US2] In `scripts/test-pins.ts` add the Pinned rows: the filter `deleted = "" && pinned = true` sorted `-updated,-id` lists each active pinned note of A exactly once across folders, most recently edited first; B's Pinned read is empty
+- [X] T018 [US2] In `tests/e2e/pin.spec.cjs` add [W3 exit](quickstart.md#w3-exit) steps 3 and 4: Pinned shows C once with its folder name; unpinning C from Pinned removes it from the list and leaves it in its folder; the empty state reads "No pinned notes" with "Pin a note from its actions menu."; opening a pinned note from Pinned and editing it keeps it in Pinned; composing from Pinned files the new note in Notes, unpinned. Record the failures on Phase 3's commit
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Modify `src/features/notes/data.ts` so `listNotes("pinned", page)` filters `deleted = "" && pinned = true` and sorts `-updated,-id`
-- [ ] T020 [P] [US2] Modify `src/features/folders/folder-list.tsx`: add a "Pinned" item (lucide `Pin` icon) with pseudo-folder ID `pinned` between All Notes and the real folders
-- [ ] T021 [US2] Modify `src/features/notes/workspace.tsx` to route the `pinned` pseudo-folder like `all` (compose files in the default folder, unpinned) and `src/features/notes/note-list.tsx` to show each row's folder name in the Pinned view (the line used for search hits) and the Pinned empty state. Pass `make test-api-contained` and `make test-browser-contained`
+- [X] T019 [US2] Modify `src/features/notes/data.ts` so `listNotes("pinned", page)` filters `deleted = "" && pinned = true` and sorts `-updated,-id`
+- [X] T020 [P] [US2] Modify `src/features/folders/folder-list.tsx`: add a "Pinned" item (lucide `Pin` icon) with pseudo-folder ID `pinned` between All Notes and the real folders
+- [X] T021 [US2] Modify `src/features/notes/workspace.tsx` to route the `pinned` pseudo-folder like `all` (compose files in the default folder, unpinned) and `src/features/notes/note-list.tsx` to show each row's folder name in the Pinned view (the line used for search hits) and the Pinned empty state. Pass `make test-api-contained` and `make test-browser-contained`
 
 **Checkpoint**: Stories 1 and 2 work independently.
 
@@ -97,9 +97,9 @@
 
 **Independent test**: Pin a note, move it, delete it, check Pinned, restore it, check Pinned again.
 
-- [ ] T022 [US3] In `scripts/test-pins.ts` add the survival rows: pin → move → delete → restore keeps `pinned` true at every step; while deleted the note is absent from Pinned and every folder list; deleting a folder holding a pinned note, then restoring the note, returns it pinned in Notes; after restore it appears once in Pinned
-- [ ] T023 [US3] In `tests/e2e/pin.spec.cjs` add [W3 exit](quickstart.md#w3-exit) step 5: pin, move, delete, restore through the UI; absent from Pinned while deleted, present once after restore, at the top of its new folder
-- [ ] T024 [US3] Run `make test-api-contained` and `make test-browser-contained`. If any survival row fails, fix the root cause in `pb/hooks/note-actions.pb.js` or `pb/hooks/folders.pb.js` without touching their revision rules; otherwise record that no code change was needed
+- [X] T022 [US3] In `scripts/test-pins.ts` add the survival rows: pin → move → delete → restore keeps `pinned` true at every step; while deleted the note is absent from Pinned and every folder list; deleting a folder holding a pinned note, then restoring the note, returns it pinned in Notes; after restore it appears once in Pinned
+- [X] T023 [US3] In `tests/e2e/pin.spec.cjs` add [W3 exit](quickstart.md#w3-exit) step 5: pin, move, delete, restore through the UI; absent from Pinned while deleted, present once after restore, at the top of its new folder
+- [X] T024 [US3] Run `make test-api-contained` and `make test-browser-contained`. If any survival row fails, fix the root cause in `pb/hooks/note-actions.pb.js` or `pb/hooks/folders.pb.js` without touching their revision rules; otherwise record that no code change was needed
 
 **Checkpoint**: All three stories pass.
 
@@ -107,10 +107,10 @@
 
 ## Phase 6: Polish (W4 docs and gate)
 
-- [ ] T025 [P] Modify `docs/features/notes.md` to describe Pin / Unpin, pinned ordering, the marker, that a pin is not an edit and never conflicts with a save
-- [ ] T026 [P] Modify `docs/features/folders.md` to describe the Pinned smart folder, its empty state and compose-from-Pinned filing
-- [ ] T027 [P] Add an Unreleased entry for Pin to `CHANGELOG.md`
-- [ ] T028 Run `python3 scripts/ai-context.py check` and `bun run docs:build`; fix any failure ([W4 exit](quickstart.md#w4-exit))
+- [X] T025 [P] Modify `docs/features/notes.md` to describe Pin / Unpin, pinned ordering, the marker, that a pin is not an edit and never conflicts with a save
+- [X] T026 [P] Modify `docs/features/folders.md` to describe the Pinned smart folder, its empty state and compose-from-Pinned filing
+- [X] T027 [P] Add an Unreleased entry for Pin to `CHANGELOG.md`
+- [X] T028 Run `python3 scripts/ai-context.py check` and `bun run docs:build`; fix any failure ([W4 exit](quickstart.md#w4-exit))
 - [ ] T029 Run the full gate `.specify/extensions/functionform-gate/scripts/gate.sh full`. Append an "R7 gate evidence" section to `specs/002-notes-redesign/r7-pin/tasks.md` (shape of the R5 ledger): tested commits, red and green commands with exits, EXPLAIN plans, capture paths, and `docker ps -a` showing no leftover containers. Mark only demonstrated tasks
 - [ ] T030 Modify `specs/002-notes-redesign/versions.md` last: set the R7 row to `done` once T029 is green
 

@@ -6,7 +6,7 @@ After a half-second pause the editor starts an autosave. **Pending** means the l
 
 ## Opening and leaving notes
 
-The notebook opens at **All Notes** (`/folders/all`) by default. Choose a [folder](folders.md) to narrow the list. Notes are paged by most recent edit. Each row shows the title and, when present, a short excerpt from below the first line. Open a row to read the full document at `/notes/<id>`. Missing notes and another account’s notes show the same **Note unavailable** screen.
+The notebook opens at **All Notes** (`/folders/all`) by default. Choose a [folder](folders.md) to narrow the list. Notes are paged by most recent edit, with [pinned notes](#pin-a-note) first. Each row shows the title and, when present, a short excerpt from below the first line. Open a row to read the full document at `/notes/<id>`. Missing notes and another account’s notes show the same **Note unavailable** screen.
 
 On a phone, **Compose** is at the foot of the list. **Back** from an opened row restores the list page, scroll position and row focus. Back from a direct note link opens its folder. From 768 CSS pixels the folders, list and editor share one workspace. Resizing preserves the draft and caret. Leaving a new draft containing only whitespace creates no record.
 
@@ -17,6 +17,14 @@ From any folder or **All Notes**, enter part of a title or body in **Search** an
 Use a single line of up to 160 Unicode code points. Matching ignores case, treats punctuation such as `%` and `_` literally, and preserves accents. For example, `CAFÉ` finds `café`, including an equivalent decomposed spelling. Each result shows the title, its actual folder and a short preview highlighting the original matching text. If a base character carries more than 30 consecutive combining marks, text beyond the 30th mark may fail to match or highlight. A hit with no corresponding highlight shows the beginning of the note as plain text.
 
 Open a result and use Back to restore the query, result page, scroll position and row focus. If an edit moves the row off that page, focus returns to Search. **Clear** or Escape in the field restores the originating folder and its list page. On a wide screen, changing the search, paging or clearing beside an open draft uses the same [save choices](#leaving-a-draft) as Back. **No matching notes** keeps the query available to edit or clear. A failed read offers **Retry**.
+
+## Pin a note
+
+On a saved note, open **Note actions** and choose **Pin**. The note moves to the top of its folder and of **All Notes**, marked with a pin. Pinned notes form a group above the rest. Within each group the most recently edited note comes first. Choose **Unpin** to return the note to its place by last edit. **Pinned** in the folder list shows every pinned note, with its folder.
+
+A pin is not an edit. It keeps the note's last-edit time, writing, folder and revision, so it never causes a save conflict on another device. Two devices that pin and unpin at nearly the same time end with the last change the server received. If the reply is lost, **Retry** sends the same choice again. Search ignores pins. Moving, deleting and restoring a note keep its pin, and a deleted note never shows in **Pinned**.
+
+At the API, `POST /api/notebook/notes/<id>/pin` takes exactly `{ "pinned": true }` or `{ "pinned": false }`. It returns `id`, `user`, `folder`, `deleted`, `revision` and `pinned`. Setting the value the note already has succeeds without a write. A deleted note returns HTTP 400. The ordinary records API cannot create a note with `pinned` or change it.
 
 ## Move, delete and restore
 

@@ -1,6 +1,6 @@
 # Folders
 
-**All Notes** shows active notes from every folder in the signed-in account. **Notes** is the permanent folder where Compose files a note started from All Notes. To file new writing elsewhere, open that folder before choosing **Compose**. [Writing and searching notes](notes.md)
+**All Notes** shows active notes from every folder in the signed-in account. **Notes** is the permanent folder where Compose files a note started from All Notes. **Pinned** shows every pinned note, most recently edited first, with the folder each one lives in. Compose from All Notes or Pinned files the new note, unpinned, in Notes. To file new writing elsewhere, open that folder before choosing **Compose**. [Writing and searching notes](notes.md)
 
 ## Create a folder
 
