@@ -73,6 +73,11 @@ async function press(el) {
 async function menu(p, verb) {
   await expect(trigger(p)).toBeVisible();
   await press(trigger(p));
+  // Pin is the first item since R7.
+  await expect(
+    p.getByRole("menuitem", { name: "Pin", exact: true }),
+  ).toBeFocused();
+  await p.keyboard.press("ArrowDown");
   const move = p.getByRole("menuitem", { name: /Move/ });
   await expect(move).toBeFocused();
   if (verb === "delete") {
@@ -481,7 +486,9 @@ function journeys(width, height) {
     await expect(editor(p)).toContainText(note.title);
     const initial = await state(p);
     await press(trigger(p));
-    await expect(p.getByRole("menuitem", { name: /Move/ })).toBeFocused();
+    await expect(
+      p.getByRole("menuitem", { name: "Pin", exact: true }),
+    ).toBeFocused();
     await p.keyboard.press("Escape");
     await expect(trigger(p)).toBeFocused();
     let overlay = await menu(p, "move");

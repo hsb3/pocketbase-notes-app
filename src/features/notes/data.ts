@@ -13,24 +13,27 @@ type Detail = Pick<
   | "revision"
   | "updated"
   | "deleted"
+  | "pinned"
 > & { body: NodeJSON };
 // shortcut: excerpt is response-only. Recheck this local projection after wave 5 codegen.
-type Summary = Pick<Note, "id" | "folder" | "title" | "updated"> & {
+type Summary = Pick<Note, "id" | "folder" | "title" | "updated" | "pinned"> & {
   excerpt: string;
 };
 const detailFields =
-  "id,user,folder,title,body,attachments,revision,updated,deleted";
+  "id,user,folder,title,body,attachments,revision,updated,deleted,pinned";
 
 const active = 'deleted = ""';
 
 export function listNotes(folder: string, page: number) {
   return pb.collection("notes").getList<Summary>(page, 20, {
-    fields: "id,folder,title,updated,excerpt",
+    fields: "id,folder,title,updated,excerpt,pinned",
     filter:
       folder === "all"
         ? active
-        : active + " && " + pb.filter("folder = {:folder}", { folder }),
-    sort: "-updated,-id",
+        : folder === "pinned"
+          ? active + " && pinned = true"
+          : active + " && " + pb.filter("folder = {:folder}", { folder }),
+    sort: folder === "pinned" ? "-updated,-id" : "-pinned,-updated,-id",
     requestKey: null,
   });
 }

@@ -29,11 +29,13 @@ import { getNote, ownerSession, verifyOwner, NoteAccessError } from "./data";
 import {
   confirms,
   readCommand,
+  responseStatus,
   sendCommand,
+  setPin,
   type NoteCommand,
   type NoteState,
 } from "./actions";
-import { NoteActions, type ActionPanel } from "./note-actions";
+import { NoteActions, type ActionPanel, type PinState } from "./note-actions";
 import { NoteDraft } from "./draft";
 import { LeaveDialog } from "./leave-dialog";
 import { NoteEditor } from "./note-editor";
@@ -189,6 +191,8 @@ function Library({
   }>(undefined);
   const [notice, announce] = useState("");
   const [panel, setPanel] = useState<ActionPanel>();
+  // Held beside the draft, never in its save baseline: a pin is not an edit.
+  const [pin, setPinState] = useState<PinState>();
   const command = useRef<NoteCommand & { refused?: boolean }>(undefined);
   const checking = useRef(false);
   const [readAttempt, retryDetail] = useReducer((n) => n + 1, 0);
@@ -204,7 +208,9 @@ function Library({
   const sp = (folderId ? search.sp : origin?.sp) ?? 1;
   const folderRecord = folders.find((item) => item.id === folder);
   const target =
-    folder === "all" ? folders.find((item) => item.is_default) : folderRecord;
+    folder === "all" || folder === "pinned"
+      ? folders.find((item) => item.is_default)
+      : folderRecord;
 
   const [deletions, setDeletions] = useState<typeof folders>([]);
   const isTrash = folderId === "recently-deleted";
@@ -289,6 +295,7 @@ function Library({
           .then((note) => {
             if (!current || !session.current()) return;
             active.current = makeDraft(note.folder, note);
+            setPinState({ id: note.id, pinned: !!note.pinned });
             if (command.current?.id === note.id) active.current.pause();
             renderDraft();
           })
@@ -495,6 +502,7 @@ function Library({
     const open = () => {
       active.current?.dispose();
       const next = makeDraft(target.id);
+      setPinState({ id: next.id, pinned: false });
       // Focus the warmed editor during the tap for the mobile software keyboard.
       flushSync(() => {
         active.current = next;
@@ -616,6 +624,7 @@ function Library({
         const latest = await getNote(cmd.id, session);
         if (!stillHere() || command.current !== cmd) return;
         note.replaceSaved(latest);
+        setPinState({ id: latest.id, pinned: !!latest.pinned });
         endAction();
         focusInDocument(
           note.dirty ? "[data-recovery] button" : "#note-actions",
@@ -689,6 +698,36 @@ function Library({
     }
   }
 
+  async function togglePin(pinned: boolean) {
+    const note = active.current;
+    if (!note || pin?.id !== note.id || pin.busy) return;
+    const before = pin.pinned;
+    const here = () => note.current && active.current === note;
+    setPinState({ id: note.id, pinned: before, busy: true });
+    try {
+      await setPin(note.id, user, pinned, session);
+      if (!here()) return;
+      setPinState({ id: note.id, pinned });
+      refreshList();
+      announce(pinned ? "Pinned." : "Unpinned.");
+      focusInDocument("#note-actions", note.id);
+    } catch (error) {
+      if (!here()) return;
+      const status = responseStatus(error);
+      if (status === 404) {
+        setPinState({ id: note.id, pinned: before });
+        missing(note);
+      } else if (status === 400) {
+        try {
+          const latest = await getNote(note.id, session);
+          if (here()) setPinState({ id: note.id, pinned: !!latest.pinned });
+        } catch {
+          if (here()) missing(note);
+        }
+      } else setPinState({ id: note.id, pinned: before, retry: pinned });
+    }
+  }
+
   const controls = (
     <NoteActions
       draft={draft}
@@ -699,6 +738,8 @@ function Library({
       submit={submitAction}
       check={checkAction}
       blocked={!!pending.current || !!command.current}
+      pin={pin?.id === draft?.id ? pin : undefined}
+      onPin={(pinned) => void togglePin(pinned)}
     />
   );
   const pane = "min-h-0 min-w-0 flex-col md:flex";
@@ -774,7 +815,9 @@ function Library({
               title={
                 folder === "all"
                   ? "All Notes"
-                  : (folderRecord?.name ?? "Folder")
+                  : folder === "pinned"
+                    ? "Pinned"
+                    : (folderRecord?.name ?? "Folder")
               }
               page={page}
               selected={selected}

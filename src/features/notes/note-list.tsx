@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ChevronLeft,
   ChevronRight,
+  Pin,
   Search,
   SquarePen,
   Trash2,
@@ -15,7 +16,7 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { Empty, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import type { listFolders } from "@/features/folders/data";
 import { listNotes, ownerSession, searchNotes, searchTerm } from "./data";
@@ -282,7 +283,18 @@ export function NoteList({
           <p>Loading notes…</p>
         ) : !rows.items.length ? (
           <Empty>
-            <EmptyTitle>{q ? "No matching notes" : "No notes yet"}</EmptyTitle>
+            <EmptyTitle>
+              {q
+                ? "No matching notes"
+                : folder === "pinned"
+                  ? "No pinned notes"
+                  : "No notes yet"}
+            </EmptyTitle>
+            {!q && folder === "pinned" && (
+              <EmptyDescription>
+                Pin a note from its actions menu.
+              </EmptyDescription>
+            )}
           </Empty>
         ) : (
           <nav aria-label="Notes">
@@ -297,7 +309,21 @@ export function NoteList({
                 aria-current={selected === note.id ? "page" : undefined}
                 className="flex min-h-16 flex-col justify-center gap-1 rounded-lg border-b px-3 py-2 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 aria-[current=page]:bg-accent"
               >
-                <strong className="truncate text-sm">{note.title}</strong>
+                <span className="flex min-w-0 items-center gap-1">
+                  <strong className="truncate text-sm">{note.title}</strong>
+                  {"pinned" in note && note.pinned && (
+                    <Pin
+                      role="img"
+                      aria-label="Pinned"
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                    />
+                  )}
+                </span>
+                {folder === "pinned" && !q && (
+                  <span className="text-xs wrap-anywhere text-muted-foreground">
+                    {folders.find((f) => f.id === note.folder)?.name}
+                  </span>
+                )}
                 {"snippet" in note ? (
                   <>
                     <span className="text-xs wrap-anywhere text-muted-foreground">
