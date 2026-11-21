@@ -111,8 +111,8 @@
 - [X] T026 [P] Modify `docs/features/folders.md` to describe the Pinned smart folder, its empty state and compose-from-Pinned filing
 - [X] T027 [P] Add an Unreleased entry for Pin to `CHANGELOG.md`
 - [X] T028 Run `python3 scripts/ai-context.py check` and `bun run docs:build`; fix any failure ([W4 exit](quickstart.md#w4-exit))
-- [ ] T029 Run the full gate `.specify/extensions/functionform-gate/scripts/gate.sh full`. Append an "R7 gate evidence" section to `specs/002-notes-redesign/r7-pin/tasks.md` (shape of the R5 ledger): tested commits, red and green commands with exits, EXPLAIN plans, capture paths, and `docker ps -a` showing no leftover containers. Mark only demonstrated tasks
-- [ ] T030 Modify `specs/002-notes-redesign/versions.md` last: set the R7 row to `done` once T029 is green
+- [X] T029 Run the full gate `.specify/extensions/functionform-gate/scripts/gate.sh full`. Append an "R7 gate evidence" section to `specs/002-notes-redesign/r7-pin/tasks.md` (shape of the R5 ledger): tested commits, red and green commands with exits, EXPLAIN plans, capture paths, and `docker ps -a` showing no leftover containers. Mark only demonstrated tasks
+- [X] T030 Modify `specs/002-notes-redesign/versions.md` last: set the R7 row to `done` once T029 is green
 
 ---
 
@@ -143,3 +143,34 @@ T011 tests/e2e/pin.spec.cjs   ║ T012 src/features/notes/data.ts ║ T013 src/f
 2. **Add US2:** the Pinned view.
 3. **Add US3:** survival proof; expect tests only.
 4. **Polish:** docs, gate, evidence, `versions.md`. One PR to `main` for the increment, linking [issue 42](https://github.com/hsb3/pocketbase-notes-app/issues/42).
+
+## R7 gate evidence
+
+| Gate | Command |
+| --- | --- |
+| Full gate | `.specify/extensions/functionform-gate/scripts/gate.sh full` (lint, knip, build, `make test-api-contained`, `make test-browser-contained`) |
+| Pin browser suite | `make test-browser-contained CONTAINED_PROFILE=pin` |
+| Codegen | `CONTAINED_PROFILE=default bash scripts/run-contained.sh codegen` |
+
+| Tasks and commit | Failing observation | Passing result |
+| --- | --- | --- |
+| T001 baseline · `b895d10` | — | `bun run lint`, `bun run knip`, `bun run build` exited 0. |
+| W1–W2 T002–T009 · `4930982` | With the migration and tests but no pin route, the API suite exited 2: the staged upgrade passed up/down/up, then `POST /api/notebook/notes/{id}/pin` returned router 404. | API exited 0: staged R7 up/down/up with byte-equal rows, the unexpected-index refusal (exit 1) and `PASS note pins`. Codegen added `pinned?: boolean`; a second run was byte-identical. |
+| W3 T010–T024 · `ce45c64` | First pin-profile run: 28 passed, 2 failed (1440 px folder order, a millisecond tie between two seeded notes broken by random ID; fixed by spacing the seeds). First default browser run: 364 passed, 2 failed (`notes.spec.cjs` list projection still expected the R6 fields and sort). | Pin profile exited 0 (30 passed, 36 captures). |
+| W4 T025–T028 · `949a1f5` | — | `python3 scripts/ai-context.py check` and `bun run docs:build` exited 0. |
+| Gate · `949a1f5` | — | Full gate PASS: API exited 0; browser exited 0 with 366 passed. `docker ps -a` showed no leftover containers. |
+
+**Query plans** (SQLite in the pinned PocketBase, SQL taken from the dev query log of real SDK list calls):
+
+- Folder list (`-pinned,-updated,-id`): `SEARCH notes USING INDEX idx_notes_user_pinned_updated_id (user=?)`, no temporary sort.
+- All Notes (`-pinned,-updated,-id`): same plan.
+- Pinned (`pinned = 1`, `-updated,-id`): `SEARCH notes USING INDEX idx_notes_user_pinned_updated_id (user=? AND pinned=?)`.
+
+A partial index on `deleted = ''`, as first planned, was never chosen, because the owner list rule compiles to `deleted = '' OR deleted IS NULL`. Every list used a temporary sort, so the index covers all rows instead.
+
+**Deviations from the task text.**
+
+- T009: move, delete and restore keep their R5 reply shape without `pinned`. The staged upgrade runs current hooks against the R5 schema, where the column does not exist.
+- T023: the browser test pins through the UI, then moves, deletes and restores through the owner API. The R5 suites already cover those three actions in the UI.
+
+Screenshots (`folder-pinned`, `pinned-view`, `pinned-empty` × 2 engines × 3 widths × 2 themes) were written to the contained run's `test-results/<project>/r7-views/`. That folder is not committed.
