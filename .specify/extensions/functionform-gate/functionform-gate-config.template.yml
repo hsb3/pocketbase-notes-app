@@ -1,0 +1,9 @@
+# functionform gate. Each value is one shell command line, run from the project root.
+# Keep each value on one line.
+
+# Full gate: run by /speckit-functionform-gate-run and after /speckit-implement.
+full: make gate
+
+# Quick gate: run when the coding agent stops. Leave empty to turn stop checks off.
+# Keep it under the stop event's timeout (60 seconds by default).
+quick:

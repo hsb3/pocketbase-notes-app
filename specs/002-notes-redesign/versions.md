@@ -41,6 +41,27 @@ Common exit criteria for every increment: `bun run lint`, `bun run knip`,
 `docs/features/` and `CHANGELOG.md` updated; live-stack run on `make start`.
 Browser checks run at 390, 810 and 1440 px unless stated.
 
+### Status
+
+One row per increment. The ID never changes once a sub-spec uses it. Update Status and Sub-spec in the pull request that changes them.
+
+**Status legend**: planned · in-progress · done
+
+| ID | Increment | Depends on | Status | Sub-spec |
+|----|-----------|------------|--------|----------|
+| R1 | Data foundation | — | done | [r1-data-foundation](r1-data-foundation/spec.md) |
+| R2 | Folders, list and compose with autosave | R1 | done | [r2-compose](r2-compose/spec.md) |
+| R3 | Save resilience | R2 | done | [r3-resilience](r3-resilience/spec.md) |
+| R4 | Search across folders | R3 | done | [r4-search](r4-search/spec.md) |
+| R5 | Move, delete and recover | R4 | done | [r5-recover](r5-recover/spec.md) |
+| R6 | Milestone 1 stabilization gate | R5 | in-progress | `r6-gate/` on branch `r6-gate` |
+| R7 | Pin | R6 | planned | — |
+| R8 | Journal smart folder | R6 | planned | — |
+| R9 | Rich text, checklists and the phone formatting bar | R6 | planned | — |
+| R10 | Open Tasks smart folder | R9 | planned | — |
+| R11 | Attachments | R6 | planned | — |
+| R12 | Workspace controls and full-spec acceptance | R7–R11 | planned | — |
+
 ### R1: Data foundation (backend only)
 
 - **Goal.** `folders` and `notes` exist with final rules, hooks and API tests; the old UI keeps working on `entries`.

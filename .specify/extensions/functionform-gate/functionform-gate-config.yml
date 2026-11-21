@@ -1,0 +1,10 @@
+# functionform gate. Each value is one shell command line, run from the project root.
+# Keep each value on one line.
+
+# Full gate: run by /speckit-functionform-gate-run and after /speckit-implement.
+# The contained targets start their own capped Docker stacks (about 30 minutes each at most).
+full: bun run lint && bun run knip && bun run build && make test-api-contained && make test-browser-contained
+
+# Quick gate: run when the coding agent stops. Leave empty to turn stop checks off.
+# Keep it under the stop event's timeout (60 seconds by default).
+quick: bun run lint && bun run knip && bun run build

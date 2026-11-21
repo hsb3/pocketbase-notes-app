@@ -45,3 +45,15 @@ ci-artifacts/
 
 # Docs site (VitePress) build output
 .vitepress/dist
+
+# Spec Kit machine-local state (catalog caches, install registries, run state, gate log)
+.specify/extensions/.cache/
+.specify/extensions/.backup/
+.specify/extensions/.registry
+.specify/extensions/*/.specify-dev/
+.specify/extensions/functionform-gate/last-run.log
+.specify/presets/.cache/
+.specify/presets/.registry
+.specify/workflows/.cache/
+.specify/workflows/runs/
+.specify/.workflow-install.lock

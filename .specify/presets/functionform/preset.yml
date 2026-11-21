@@ -1,0 +1,36 @@
+schema_version: "1.0"
+
+preset:
+  id: "functionform"
+  name: "functionform"
+  version: "0.1.0"
+  description: "Adds a roadmap link to specs, a verification plan and dependency check to plans, and a final gate phase to tasks"
+  author: "functionform"
+  license: "MIT"
+
+requires:
+  speckit_version: ">=1.3.0"
+  extensions:
+    - "functionform-gate"
+
+provides:
+  templates:
+    - type: "template"
+      name: "spec-template"
+      file: "templates/spec-addendum.md"
+      description: "Parent roadmap link and what is deferred"
+      strategy: "append"
+    - type: "template"
+      name: "plan-template"
+      file: "templates/plan-addendum.md"
+      description: "Verification plan and new-dependency check"
+      strategy: "append"
+    - type: "template"
+      name: "tasks-template"
+      file: "templates/tasks-addendum.md"
+      description: "Final gate phase"
+      strategy: "append"
+
+tags:
+  - "gate"
+  - "verification"
