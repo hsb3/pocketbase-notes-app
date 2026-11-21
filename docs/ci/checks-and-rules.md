@@ -14,26 +14,23 @@ E2E runs on amd64 only, because that is the architecture the app is deployed on.
 arm64 image used for local development on Apple Silicon is built and booted by the
 contained gates (`make test-api-contained`, `make test-browser-contained`).
 
-Two more jobs in the same workflow run on every pull request but are not required
+Three more jobs in the same workflow run on every pull request but are not required
 by the ruleset:
 
 | Check | Work |
 | --- | --- |
+| `Recover (amd64)` | Run both recovery suites against a contained stack with the ageing fixture, including the 12 cases excluded from plain E2E. Keep discovery and execution JSON in `recover-amd64/recover/`. Adding this job to the required ruleset is an owner decision. |
 | `Docs links` | lychee in offline mode checks relative links and heading anchors in Markdown outside the vendored skill trees and `.specify/templates/`. External URLs are not fetched, so other sites cannot fail it |
 | `Workflow lint` | actionlint over `.github/workflows/`, run from a digest-pinned image with no network |
 
-E2E jobs run only after Quality passes. Both architectures must pass. The complete
-suite includes the smoke scenario; no duplicate smoke job is needed. Workflow/job
-timeouts bound stalled runs; newer runs cancel older runs for the same PR or branch.
+E2E and Recover run in parallel on Linux amd64 after Quality passes. Each has a 40-minute job limit including setup and artifact upload. The E2E suite includes the smoke scenario. Newer runs cancel older runs for the same PR or branch.
 There are no path exclusions or automatic test retries.
 
 Each hosted runner creates a fresh `.env` with random development credentials,
 initializes its own database and bucket, and destroys its services afterward.
-No repository secrets, production data or deployed backend are used. The default browser phase sets `TEST_APP_URL=http://127.0.0.1:8080` so Playwright reaches the PocketBase-served production bundle. The warm Compose check observes that bundle’s editor chunk. After the default-disabled
-suite, CI exercises account seeding, deployment-fixture cleanup and an isolated
+No repository secrets, production data or deployed backend are used. The default browser phase sets `TEST_APP_URL=http://127.0.0.1:8080` so Playwright reaches the PocketBase-served production bundle. The warm Compose check observes that bundle’s editor chunk. The plain suite selects the default-disabled tests and excludes the two fixture-dependent `@ageing` leaves at discovery. After that suite, CI exercises account seeding, deployment-fixture cleanup and an isolated
 archive restore. CI then explicitly enables signup on the disposable backend and runs the
-registration retry scenario with the matching frontend flag; its report is
-written under `playwright-report/signup-enabled`. The Docker image is built as
+registration retry scenario with the matching frontend flag and the mode-bound MFA audit. The HTML report is written under `playwright-report/signup-enabled`. The `test-results-amd64` archive contains the discovery and execution pairs under `plain/` and `signup/`. The R6 coordinator compares all three hosted pairs with the accepted local full report on both dispatch and PR runs. The Docker image is built as
 part of full-stack startup, including fresh migrations and S3 configuration.
 
 Local acceptance uses separate [contained targets](../testing/verification.md#disposable-docker-gates) with Chromium and WebKit, plus isolated account, restore and operator drills. The hosted jobs keep their own full-stack setup. The local draft unit suite runs with `bun test tests/unit`.
@@ -120,6 +117,6 @@ bound to the GitHub Actions integration rather than arbitrary commit statuses.
 
 For a failure, inspect the failed job first, then download its report/log artifact.
 Reproduce with the [local testing commands](../testing/verification.md). When updating action
-SHAs, runtimes or image digests, require a new green run on both architectures.
+SHAs, runtimes or image digests, require a new green run of the amd64 jobs.
 Dependabot proposes action SHA updates; the actionlint image digest and the lychee
 version in `ci.yml` are bumped by hand.
