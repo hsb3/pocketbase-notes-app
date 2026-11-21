@@ -105,7 +105,7 @@ A pinned note keeps its pin through every R5 action, and a deleted note never sh
 - **Ordering.** Within each pinned and unpinned group, most recently edited first; this is the parent spec's proposed ordering, adopted here. Pin time does not affect order.
 - **Version check.** Pin is metadata-only under constitution III (2.0.0, amended 2026-11-21): it does not use or advance the note's version. Move, delete and restore keep their R5 behaviour in this increment.
 - **Starting state.** No user data exists; every existing note starts unpinned and no backfill is needed. The former `favorite` concept from the old entries model is not carried forward.
-- **Placement.** Pinned sits with the other smart views (All Notes, Recently Deleted) in the folder list.
+- **Placement.** Pinned sits in the folder list directly below All Notes, above the real folders; Recently Deleted stays last.
 - **R6 gate.** The owner signed off R6 (merged in #69), so R7 may start.
 - **Dependencies.** R5 move, delete, restore and purge behaviour, and the R4 search, stay as they are.
 
