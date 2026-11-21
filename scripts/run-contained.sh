@@ -10,7 +10,7 @@ fi
 
 profile=${CONTAINED_PROFILE:-default}
 case "$1/$profile" in
-  api/default|api/accounts|api/restore|api/load|browser/recover|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
+  api/default|api/accounts|api/restore|api/load|browser/recover|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/plain|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
   *) echo "Unsupported contained profile: $1/$profile" >&2; exit 2 ;;
 esac
 
@@ -33,9 +33,17 @@ TEST_K6_IMAGE=$(awk '/image: grafana\/k6:/ {print $2}' tests/load/compose.load.y
 compose=(docker compose --env-file /dev/null --project-directory . -p "$project"
   -f deploy/local/docker-compose-stack.yml -f deploy/local/docker-compose-test.yml)
 label="label=com.docker.compose.project=$project"
+report_files=()
+report_output=
 cleanup() {
-  local status=$? ids id remaining
+  local status=$? ids id remaining item
   trap - EXIT
+  if [[ -n $report_output ]]; then
+    mkdir -p "$report_output" || status=1
+    for item in "${report_files[@]}"; do
+      docker cp "$project-browser:/tmp/$item" "$report_output/" || status=1
+    done
+  fi
   # Docker lists newest first, so namespace users are removed before PocketBase.
   ids=$(docker ps -aq --filter "$label") || status=1
   for id in $ids; do
@@ -173,7 +181,7 @@ if [[ $1 != browser ]]; then
   }
   inside setup bun test scripts/local-target.test.ts
   docker exec -i -e CONTAINED_TEST=1 "$project-pocketbase" sh -s < scripts/test-r2-upgrade.sh
-  inside setup bun run test:api
+  inside setup env VITE_SIGNUP_ENABLED="$VITE_SIGNUP_ENABLED" bun run test:api
 else
   idle browser
   output="test-results/$project"
@@ -204,11 +212,30 @@ else
     '
     exit 0
   fi
-  tests=(env CONTAINED_TEST=1 node node_modules/playwright/cli.js test)
+  browser_env=(CONTAINED_TEST=1)
+  if [[ $profile = plain ]]; then browser_env=(-u CONTAINED_TEST); fi
+  tests=(env "${browser_env[@]}" node node_modules/playwright/cli.js test)
   case $profile in
-    recover)
-      inside browser mkdir -p /tmp/r5-views
-      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE=/tmp/recover.json "${tests[@]}" tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs --workers=1 --retries=0 --reporter=list,html,json)
+    default|plain|signup|signup-disabled|recover)
+      report=$profile
+      case $profile in
+        default)
+          report=full
+          report_files+=(journey)
+          inside browser mkdir -p /tmp/journey
+          tests=(env R6_JOURNEY_DIR=/tmp/journey "${tests[@]}")
+          ;;
+        recover)
+          inside browser mkdir -p /tmp/r5-views
+          tests+=(tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs --workers=1 --retries=0)
+          ;;
+        signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
+        signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;
+      esac
+      report_output=$output
+      report_files+=("$report.list.json" "$report.json")
+      inside browser env PLAYWRIGHT_JSON_OUTPUT_FILE="/tmp/$report.list.json" "${tests[@]}" --list --reporter=json
+      tests=(env PLAYWRIGHT_JSON_OUTPUT_FILE="/tmp/$report.json" "${tests[@]}" --reporter=list,html,json)
       ;;
     search)
       inside browser mkdir -p /tmp/r4-search-views
@@ -220,8 +247,6 @@ else
     performance)
       tests=(env PERF_SMOKE=1 "PERF_COMMIT=$(git rev-parse HEAD)" "PERF_WORKTREE=$(git status --short)" "${tests[@]}" --config=playwright.performance.config.ts)
       ;;
-    signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
-    signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;
   esac
   test_status=0
   inside browser "${tests[@]}" || test_status=$?
@@ -278,6 +303,9 @@ PYREC
     docker cp "$project-browser:/app/test-results" "$output/"
     echo "Browser failure artifacts: $output" >&2
     exit 1
+  fi
+  if [[ $profile = signup ]]; then
+    inside setup env VITE_SIGNUP_ENABLED="$VITE_SIGNUP_ENABLED" bun scripts/test-mfa.ts
   fi
   if [[ $profile = performance ]]; then
     mkdir -p "$output"

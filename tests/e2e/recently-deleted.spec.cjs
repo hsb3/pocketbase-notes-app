@@ -272,7 +272,8 @@ function journeys(width, height) {
     });
     for (const theme of ["light", "dark"]) {
       await p.goto("/folders");
-      await activate(p, p.getByRole("button", { name: /Jamie/ }));
+      const account = p.getByRole("button", { name: /Jamie/ });
+      await activate(p, account);
       // The theme is only set up here; a click waits for the menu to settle.
       const choice = p.getByRole("menuitemradio", {
         name: theme === "light" ? "Light" : "Dark",
@@ -282,6 +283,7 @@ function journeys(width, height) {
       await expect(p.locator("html")).toHaveCSS("color-scheme", theme);
       if (await choice.isVisible()) await p.keyboard.press("Escape");
       await expect(choice).toBeHidden();
+      await expect(account).toBeFocused();
       await activate(p, link(p, garden.name));
       await expect(p.getByRole("heading", { name: garden.name })).toBeVisible();
       const entry = await historyEntry(p);
@@ -457,17 +459,13 @@ function journeys(width, height) {
     }
   });
 
-  test("fresh decision after 409, authoritative 410 and elapsed deadline", async ({
-    page: p,
-    session,
-  }) => {
-    test.skip(
-      process.env.CONTAINED_TEST !== "1",
-      "Ageing a note needs the contained stack",
-    );
+  test("fresh decision after 409, authoritative 410 and elapsed deadline", {
+    tag: "@ageing",
+  }, async ({ page: p, session }) => {
     const { owner, garden, note } = await fixture(p, session);
     await remove(owner, note);
     await openTrash(p);
+    await expect(restore(p, note.title)).toBeVisible();
     const before = await detail(owner, note);
     await peerDelete(owner, garden);
     const detached = await detail(owner, note);
@@ -482,8 +480,13 @@ function journeys(width, height) {
       if (r.url().endsWith(path)) requests.push(r.postDataJSON());
     });
     const stale = p.waitForResponse((r) => r.url().endsWith(path));
+    const refresh = p.waitForResponse(listRequest);
     await activate(p, restore(p, note.title));
     expect((await stale).status()).toBe(409);
+    expect(await (await refresh).json()).toMatchObject({
+      items: [{ id: note.id, revision: detached.revision }],
+    });
+    await expect(announcement(p, "Review its current state.")).toBeVisible();
     await expect(restore(p, note.title)).toBeFocused();
     expect(requests).toEqual([{ revision: before.revision }]);
     expect(await detail(owner, note)).toEqual(detached);
@@ -630,11 +633,8 @@ function journeys(width, height) {
 
     test(
       kind + " held command receives genuine 404 after a competing removal",
+      kind === "restore" ? { tag: "@ageing" } : {},
       async ({ page: p, session }) => {
-        test.skip(
-          kind === "restore" && process.env.CONTAINED_TEST !== "1",
-          "Ageing a note needs the contained stack",
-        );
         const { owner, garden, note } = await fixture(p, session);
         const restoring = kind === "restore";
         if (restoring) {
@@ -825,10 +825,24 @@ function journeys(width, height) {
           },
           { times: 1 },
         );
-        await activate(p, isPreview ? trigger(p) : link(p, "Recently Deleted"));
+        if (isPreview) await folderDialog(p);
+        else await activate(p, link(p, "Recently Deleted"));
         await reading.wait;
-        if (isPreview) await p.keyboard.press("Escape");
-        if (width === 390) await activate(p, link(p, "Folders"));
+        if (isPreview) {
+          const dialog = p.getByRole("alertdialog");
+          await expect(dialog.getByRole("status")).toHaveText(
+            "Loading preview…",
+          );
+          await p.keyboard.press("Escape");
+          await expect(dialog).toHaveCount(0);
+          await expect(trigger(p)).toBeFocused();
+        }
+        if (width === 390) {
+          await activate(p, link(p, "Folders"));
+          await expect(
+            p.getByRole("region", { name: "Folders", exact: true }),
+          ).toBeVisible();
+        }
         await secondOwner(session, async (other) => {
           const b = await ownerData(other);
           const bNote = await seedNote(b, doc("Second notebook"));

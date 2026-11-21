@@ -1,6 +1,6 @@
 # Private attachments
 
-The notebook can display an existing private image and preserve its reference through autosave and reload. File picking, uploads and attachment management in the editor are planned for R11. [Notebook and roadmap](notes.md#later-increments-and-source-recovery)
+The notebook can display an existing private image and preserve its reference through autosave and reload. Picking, uploading and managing files in the editor are outside Milestone 1. The owner revisits the roadmap after Milestone 1. [Notebook and roadmap](notes.md#later-increments-and-source-recovery)
 
 ## Storage and access
 

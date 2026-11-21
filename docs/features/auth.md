@@ -124,7 +124,15 @@ Over the API this is a superuser-authenticated `PATCH /api/collections/users/rec
 - `scripts/test-mfa.ts` (part of `bun run test:api`): off by default, password and verified
   checks, owner-only flag, a pending `mfaId` reads nothing, wrong and reused codes, a code alone
   does not sign in, superuser recovery, decoy `request-otp` responses without a valid `mfaId`,
-  codes voided when turned off, sessions ended when turned on, and sign-up forced off (that
-  last check needs a backend with `VITE_SIGNUP_ENABLED=true` and is skipped otherwise).
+  codes voided when turned off, and sessions ended when turned on.
+- The same script submits a public registration request with `mfaEnabled: true`. With
+  `VITE_SIGNUP_ENABLED=true`, it reads back the new account and checks that two-step sign-in
+  is off. With signup disabled, it expects HTTP 403.
+- The `signup` browser profile checks that **Register** is disabled while the request is
+  pending and that retrying a failed verification email request reaches the email verification
+  page with only one account creation request. The `signup-disabled` profile checks that
+  public registration returns 403, the login page has no **Register** link, the registration
+  page explains that account creation is disabled and has no **Register** button, and an
+  existing account can sign in.
 - `tests/e2e/two-step.spec.cjs`: the whole flow through the UI in Chromium and WebKit at desktop
   and mobile sizes, reading codes from Mailpit.

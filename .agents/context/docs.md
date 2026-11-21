@@ -8,7 +8,7 @@ doc your step needs.
 
 | Label | Doc | Read it for |
 |---|---|---|
-| Contributing | [CONTRIBUTING.md](../../CONTRIBUTING.md) | Setup, pre-PR checks, rules of the road |
+| Contributing | [CONTRIBUTING.md](../../CONTRIBUTING.md) | Owner and agent index for setup, changes, verification and security |
 | Development | [docs/development/setup.md](../../docs/development/setup.md) | `make app` / `make start` / `make start-full`, seeding |
 | Local stacks | [deploy/LOCAL.md](../../deploy/LOCAL.md) | Compose files, named `STACK` instances, ports |
 | Verification | [docs/testing/verification.md](../../docs/testing/verification.md) | Contained targets and profiles, draft unit tests, failure artifacts |
@@ -32,7 +32,8 @@ doc your step needs.
 |---|---|---|
 | Tech stack | [docs/architecture/tech-stack.md](../../docs/architecture/tech-stack.md) | What each piece is and why; architecture diagram |
 | Spec | [docs/architecture/spec.md](../../docs/architecture/spec.md) | Product purpose and boundaries |
-| Notes | [docs/features/notes.md](../../docs/features/notes.md) | Folders, Compose, autosave, private records and pre-R2 source recovery |
+| Notes | [docs/features/notes.md](../../docs/features/notes.md) | Compose, autosave, search, draft recovery and pre-R2 source recovery |
+| Folders | [docs/features/folders.md](../../docs/features/folders.md) | Filing, names, move, delete, restore and Account navigation |
 | Designs | [docs/design/](../../docs/design/notes-journal.md) | Superseded entries design |
 | Attachments | [docs/features/attachments.md](../../docs/features/attachments.md) | Protected files, storage, reference checks and deferred controls |
 | Auth | [docs/features/auth.md](../../docs/features/auth.md) | Sign-in methods, OAuth setup, two-step sign-in (MFA), recovery |

@@ -123,6 +123,20 @@ async function transitions(
     body: rich,
   });
   const id = row.id;
+  function assertPrivateBody(body: string) {
+    for (const value of [
+      id,
+      user,
+      source,
+      destination,
+      row.title,
+      "Body-only café",
+      "Private task",
+      bytes,
+      ...files.flatMap((file) => [file.id, file.name, file.file]),
+    ])
+      assert(!body.includes(value), "Private note value returned");
+  }
   assert.match(id, /^[a-z0-9]{15}$/);
   assert.equal(
     (
@@ -168,11 +182,16 @@ async function transitions(
     });
   async function rejected(job: Promise<unknown>, status: number) {
     let message = "";
-    await assert.rejects(job, (e: { status: number; message: string }) => {
-      assert.equal(e.status, status, e.message);
-      message = e.message;
-      return true;
-    });
+    await assert.rejects(
+      job,
+      (e: { status: number; message: string; response: object }) => {
+        assert.equal(e.status, status, e.message);
+        if (status === 401 || status === 404)
+          assertPrivateBody(JSON.stringify(e.response));
+        message = e.message;
+        return true;
+      },
+    );
     return message;
   }
   async function filesPrivate() {
@@ -187,7 +206,7 @@ async function transitions(
         assert.equal(res.status, expected);
         const content = await res.text();
         if (expected === 200) assert.equal(content, bytes + file.name);
-        else assert(!content.includes(bytes));
+        else assertPrivateBody(content);
       }
     }
   }
@@ -221,7 +240,9 @@ async function transitions(
       if (pb === owner && !deleted) {
         const match = result.items.find((item) => item.id === id)!;
         assert.deepEqual([match.folder, match.snippet.match], [folder, term]);
-      } else assert(!JSON.stringify(result).includes("Private oak"));
+      } else if (pb === owner)
+        assert(!JSON.stringify(result).includes("Private oak"));
+      else assertPrivateBody(JSON.stringify(result));
     }
     const page = await trash();
     assert.deepEqual(Object.keys(page).sort(), [
@@ -370,16 +391,7 @@ async function transitions(
     privatePage.items.map((item: RecordModel) => item.id),
     [ownB.id],
   );
-  for (const privateValue of [
-    id,
-    user,
-    destination,
-    row.title,
-    "Body-only café",
-    "Private task",
-    bytes,
-  ])
-    assert(!JSON.stringify(privatePage).includes(privateValue));
+  assertPrivateBody(JSON.stringify(privatePage));
   await rejected(trash(guest), 401);
   for (const query of [
     "?page=1&page=2",
@@ -396,7 +408,9 @@ async function transitions(
   ])
     await rejected(trash(owner, query), 400);
   for (const pb of [other, guest]) {
-    assert.equal((await pb.collection("notes").getList(1, 20)).totalItems, 0);
+    const list = await pb.collection("notes").getList(1, 20);
+    assert.equal(list.totalItems, 0);
+    assertPrivateBody(JSON.stringify(list));
     await rejected(pb.collection("notes").getOne(id), 404);
     await rejected(
       pb.collection("notes").update(id, { revision, body: rich }),
@@ -417,6 +431,24 @@ async function transitions(
     revision: String(revision),
   });
   await act("delete");
+  // A's current revision on a real tombstone: refusal must come from ownership, not a 409.
+  const tomb = await stored(admin, id);
+  const tombRead = await notes.getOne(id);
+  const tombTrash = (await trash()).items;
+  assert.match(String(tomb.deleted), stampShape);
+  assert.equal(tombRead.revision, revision);
+  const ghost = await rejected(
+    send("restore", { revision }, other, missing),
+    404,
+  );
+  assert.equal(
+    await rejected(send("restore", { revision }, other), 404),
+    ghost,
+  );
+  await rejected(send("restore", { revision }, guest), 401);
+  assert.deepEqual(await stored(admin, id), tomb);
+  assert.deepEqual(await notes.getOne(id), tombRead);
+  assert.deepEqual((await trash()).items, tombTrash);
   await rejected(notes.update(id, { revision: revision - 1, body: rich }), 409);
   await rejected(send("move", { revision, folder: source }), 400);
   await rejected(send("delete", { revision }), 400);
@@ -679,6 +711,28 @@ async function transitions(
   await admin.sql.run(
     `UPDATE notes SET deleted='2000-01-01 00:00:00.000Z' WHERE id='${d.id}'`,
   );
+  // A's valid snapshot, other sessions: refusal must come from ownership, not a 409.
+  const folderRead = await folders.getOne(custom.id);
+  const liveRows = await membership();
+  assert.equal((await preview()).snapshot, snapshot);
+  const absent = await rejected(
+    other.collection("folders").delete(missing, { query: { snapshot } }),
+    404,
+  );
+  assert.equal(
+    await rejected(
+      other.collection("folders").delete(custom.id, { query: { snapshot } }),
+      404,
+    ),
+    absent,
+  );
+  await rejected(
+    guest.collection("folders").delete(custom.id, { query: { snapshot } }),
+    404,
+  );
+  assert.deepEqual(await folders.getOne(custom.id), folderRead);
+  assert.deepEqual(await membership(), liveRows);
+  assert.equal((await preview()).snapshot, snapshot);
   assert.equal(await remove(snapshot), true);
   await rejected(remove(snapshot), 404);
   const finalRows = await membership();

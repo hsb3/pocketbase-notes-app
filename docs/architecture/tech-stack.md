@@ -25,10 +25,10 @@ and RustFS; on Railway the same image runs with a volume and a real SMTP provide
 
 | Piece | What it is | Why it is here |
 | --- | --- | --- |
-| React 19 | UI library (`react`, `react-dom` ^19.2) | The app is a single-page React app; components come from React ecosystems (shadcn/ui, ProseKit). |
+| React 19 | UI library (`react`, `react-dom` ^19.3.1) | The app is a single-page React app; components come from React ecosystems (shadcn/ui, ProseKit). |
 | TanStack Router | Type-safe, file-based router (`@tanstack/react-router`) | Routes live in `src/routes/`; the Vite plugin generates `src/route-tree.gen.ts`. Search filters stay in the URL. |
-| ProseKit | Rich-text editor toolkit on ProseMirror (`prosekit` ^0.22) | The note editor is ProseKit's full editor example, adapted in `src/components/editor/`. See [adopted prebuilt UI](../design/prebuilt-ui.md). |
-| shadcn/ui + Tailwind CSS 4 | Copy-in Radix-based components styled with Tailwind (`@tailwindcss/vite`) | The workspace is shadcn's `sidebar-09` block; components live in `src/components/ui/` and follow [`components.json`](../../components.json). |
+| ProseKit | Rich-text editor toolkit on ProseMirror (`prosekit` ^0.23.0) | The note editor is ProseKit's full editor example, adapted in `src/components/editor/`. See [adopted prebuilt UI](../design/prebuilt-ui.md). |
+| shadcn/ui + Tailwind CSS 4 | Copy-in Radix-based components styled with Tailwind (`@tailwindcss/vite`) | The [notebook workspace](../../src/features/notes/workspace.tsx) shows folders, the note list and the document side by side on desktop and one pane at a time on phones. The [folder list](../../src/features/folders/folder-list.tsx) uses sidebar components from `src/components/ui/`, configured in [`components.json`](../../components.json). |
 | `pocketbase` JS SDK | Typed client for the PocketBase API (^0.28) | Auth, records and files. Types come from `pocketbase-typegen` (`make codegen`). |
 
 ## Backend

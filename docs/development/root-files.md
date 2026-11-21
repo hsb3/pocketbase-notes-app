@@ -96,13 +96,13 @@ Excludes build output, `node_modules`, secrets (`.env`, `*.pem`), PocketBase dat
 
 ### `.vitepress/config.ts`
 
-The docs site. VitePress renders the repository's own Markdown (`docs/`, `deploy/*.md` and the root guides; `README.md` is the home page) for GitHub Pages under `/pocketbase-notes-app/`. Links to code and config files become GitHub links, and a link to a missing file fails `bun run docs:build`. Output goes to `.vitepress/dist` (ignored); `.github/workflows/docs.yml` builds it on pull requests and deploys it from `main`.
+The Features sidebar links to [Notes](../features/notes.md) for writing, search and draft recovery and [Folders](../features/folders.md) for filing, deletion, restore and Account navigation. VitePress renders the repository's own Markdown (`docs/`, `deploy/*.md` and the root guides; `README.md` is the home page) for GitHub Pages under `/pocketbase-notes-app/`. Links to code and config files become GitHub links, and a link to a missing file fails `bun run docs:build`. Output goes to `.vitepress/dist` (ignored); `.github/workflows/docs.yml` builds it on pull requests and deploys it from `main`.
 
 ### `docs/architecture/spec.md`
 
-Product purpose, boundaries, current notebook behavior and the superseded entries design.
+Product scope, current notebook behavior, the Milestone 1 gate and the link to the superseded entries design.
 
-Agent skills under `.agents/skills/` and `.claude/skills/` (the latter only exists when a tool such as skillshare syncs skills locally) are excluded from Biome because they are vendored references, not application source. CLI scripts may report status through the console; application console warnings remain enabled.
+Agent skills under `.agents/skills/` and `.claude/skills/` are excluded from Biome because they are vendored references, not application source. CLI scripts may report status through the console; application console warnings remain enabled.
 
 The adopted prebuilt UI imports the ProseKit registry’s Tailwind icon plugin in
 `src/styles/globals.css`; its Lucide icon data and React icons are installed dependencies.
@@ -119,11 +119,11 @@ email and storage APIs. `.env.example` documents `RUSTFS_BUCKET` and `DEV_APP_UR
 ### `playwright.config.ts`
 
 Runs browser scenarios in `tests/e2e/` with isolated users, serial Chromium and WebKit execution,
-failure traces and screenshots. `TEST_APP_URL` selects the built app for the contained suite and the hosted default E2E phase. If unset, Playwright starts Vite for development scenarios. See [testing](../testing/verification.md).
+failure traces and screenshots. By default the suite excludes `registration-enabled.spec.cjs` and checks that signup is closed. With `VITE_SIGNUP_ENABLED=true`, it selects only that file and expects a working registration form and a real account creation. `TEST_APP_URL` selects the built app for the contained suite and the hosted default E2E phase. If unset, Playwright starts Vite for development scenarios. Plain runs use the production purge schedule and exclude the twelve `@ageing` cases. The default contained run and the parallel amd64 recovery job set `CONTAINED_TEST=1` to include them. Recovery runs both note-action and recently-deleted files in full and archives discovery and first-attempt results. See [testing](../testing/verification.md).
 
 ### `.github/`
 
-Workflows: `ci.yml` (Quality, Docs links, Workflow lint, native amd64 E2E),
+Workflows: `ci.yml` (Quality, Docs links, Workflow lint, native amd64 E2E and Recover),
 `codeql.yml` (code scanning), `docs.yml` (builds the docs site; deploys it to Pages
 from `main`), `performance.yml` (manual editor baseline) and `release.yml` (publishes a
 GitHub release from a `v*` tag, using `.github/scripts/release-notes.sh`). `dependabot.yml`
@@ -135,7 +135,7 @@ proposes weekly grouped action and Bun updates. `ISSUE_TEMPLATE/` and
 ### `LICENSE`, `CHANGELOG.md`, `CONTRIBUTING.md` and `SECURITY.md`
 
 MIT license; the release history in Keep a Changelog form (the release workflow takes
-its notes from the matching section); how to set up, check and propose a change; and
+its notes from the matching section); the owner and agent index for setup, verification and pull requests; and
 how to report a vulnerability privately.
 
 ### `.claude/settings.json` and `.codex/config.toml`

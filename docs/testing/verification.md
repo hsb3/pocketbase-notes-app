@@ -30,7 +30,8 @@ Choose one profile per invocation, for example `make test-api-contained CONTAINE
 | `test-api-contained` | `load` | Short k6 smoke of list, create, update and download. [Capacity testing](load-testing.md) uses a separate workload. |
 | `test-browser-contained` | `resilience` | Check all 30 combinations of recovery scenario, viewport and engine. Retains Playwright JSON under `test-results/<project>/sc003.json`. |
 | `test-browser-contained` | `search` | Check cross-folder results, draft navigation, keyboard focus and layout. Retains the [search timings and screenshots](#cross-folder-search). |
-| `test-browser-contained` | `recover` | Exercise note moves, note and folder deletion, restore, interrupted replies and keyboard focus. Retains the [recovery report and screenshots](#move-delete-and-restore). |
+| `test-browser-contained` | `plain` | Exercise the hosted default selection against the production bundle. Exclude the 12 ageing fixture cases at discovery. Retain `plain.list.json` and `plain.json`. |
+| `test-browser-contained` | `recover` | Exercise note moves, note and folder deletion, restore, interrupted replies and keyboard focus. Runs both complete recovery suites, including the 12 ageing cases, and retains the [recovery report and screenshots](#move-delete-and-restore). |
 | `test-browser-contained` | `operator` | Run the operator commands against local services, including autosave, file access, failed-write cleanup, signup policy and Mailpit email. |
 | `test-browser-contained` | `signup`, `signup-disabled` | Exercise registration with the selected policy in Chromium and WebKit. Enabled signup sets both the frontend build flag and the backend runtime flag. |
 | `test-browser-contained` | `performance` | Chromium editor loading benchmark and [Chromium/WebKit flicker measurements](#note-list-and-editor-continuity). Copies the report under `test-results/<project>/performance/`. |
@@ -59,7 +60,7 @@ The tests use independent owner reads to verify the note count, ID, full body an
 
 The default browser run also checks invalid and unavailable notes, blocked clipboard, failed reload, navigation, sign-out and the native leave warning. The R2 failed-save Back test now chooses **Keep editing** in the leave dialog before checking the original URL and retained words. Password reauthentication after expiry was exercised against PocketBase. OAuth and MFA reuse the existing sign-in completion path according to source inspection. Live expiry recovery with those methods remains unverified.
 
-R3 requires one complete matrix and both default contained targets. R6 requires ten consecutive complete matrix rounds (300 passes), three consecutive full-suite runs and physical-phone sign-off for keyboards, native leave and expiry. [Release procedure](../../specs/002-notes-redesign/r3-resilience/quickstart.md#commands-and-release-evidence)
+R3 requires one complete matrix and both default contained targets. R6 recorded ten consecutive recovery runs (300 first-attempt passes) and three consecutive full rounds. For the physical observations and owner waivers, see [manual release checks](#remaining-manual-release-checks). [Release procedure](../../specs/002-notes-redesign/r3-resilience/quickstart.md#commands-and-release-evidence)
 
 ### Cross-folder search
 
@@ -76,7 +77,7 @@ Each timing case starts with 20 active notes in each of five folders. Each of 20
 | WebKit | 810 | 20/20 | 31.0 | 43.0 | 51.0 |
 | WebKit | 1440 | 20/20 | 31.0 | 46.0 | 56.0 |
 
-All 46 search cases passed on one attempt. In the API gate, a second account and an anonymous reader each found zero results for the first account’s unique term. The first account’s own deleted note also yielded zero results. Physical-phone keyboard behavior and cross-device sign-off remain R6 checks. [Tested commits, individual timings and retained evidence](../../specs/002-notes-redesign/r4-search/tasks.md#r4-gate-evidence)
+All 46 search cases passed on one attempt. In the API gate, a second account and an anonymous reader each found zero results for the first account’s unique term. The first account’s own deleted note also yielded zero results. R6 recorded the [physical-phone and cross-device observations](#remaining-manual-release-checks). [Tested commits, individual timings and retained evidence](../../specs/002-notes-redesign/r4-search/tasks.md#r4-gate-evidence)
 
 ### Move, delete and restore
 
@@ -127,11 +128,11 @@ test runs do not overwrite `docs/images/`. Treat traces as private: they can con
 synthetic credentials and authenticated requests. `DEBUG_BROWSER=1` prints browser
 console errors from the full scenarios. Each new browser run replaces prior outputs.
 
-The checked-in README media are historical. To capture the current notebook, run `scripts/capture-screenshots.sh` with no arguments. It invokes the screenshots profile and prints the output directory. Review images there before publishing.
+The README shows the Milestone 1 notebook on desktop and phone. To capture the current notebook, run `scripts/capture-screenshots.sh` with no arguments. It invokes the screenshots profile and prints the output directory. Review images there before publishing.
 
 ## Limits
 
-Chromium and WebKit run on emulated viewports. Actual Safari, physical keyboards, screen readers, OAuth and deployment still need separate verification. GitHub Actions configures Linux amd64 and arm64 jobs. [CI configuration](../ci/checks-and-rules.md)
+Chromium and WebKit run on emulated viewports. See the manual checks below for physical Safari coverage and remaining device, accessibility and OAuth checks. Hosted E2E and Recover both run on Linux amd64. [CI configuration](../ci/checks-and-rules.md)
 
 ## Production editor performance
 
@@ -164,7 +165,11 @@ the baseline is reviewed. Do not optimize solely to silence Vite's chunk warning
 
 ## Remaining manual release checks
 
-Record browser/device/OS, date, evidence and pass/fail/not-tested for:
+On November 20, 2026 the owner used Safari on an iPhone 14 Pro Max over Tailscale Serve and Chrome on a Mac with W6 candidate `5e6f0ba`. The phone reported iPhone OS 18_7 and Safari Version/27.2 in its user agent. The owner confirmed caret/keyboard visibility and autosave. An already-open note needed reopening to pick up a remote edit ([#68](https://github.com/hsb3/pocketbase-notes-app/issues/68)).
+
+For SC-006 the owner created Seed order in Garden and found it by searching for “calendula” on desktop without assistance. The request log spans about 71 seconds to the desktop search. The owner used no stopwatch, the final open was outside the retained log, the stored body differed from the card twice, and both devices had been used beforehand. The owner waived physical leave/Retry, native reload and expiry and substituted the 390 px WebKit evidence. These three physical outcomes and a clean timed first attempt remain unverified. Individual G8/G9 sign-off belongs in the PR. [Accepted machine coverage](../../specs/002-notes-redesign/r6-gate/coverage.md)
+
+For further manual checks, record browser/device/OS, date, evidence and pass/fail/not-tested for:
 
 - Actual Safari: login, Compose, autosave, reload and existing private images.
 - Keyboard and VoiceOver: tab order, visible focus, folder dialog, login errors, save feedback and failed navigation; include zoom/reflow and contrast.
@@ -246,8 +251,7 @@ The link is navigation only; it does not confer superuser access or share creden
 
 The explicit signup-enabled check is a separate phase; both the backend runtime
 and Vite frontend must use `VITE_SIGNUP_ENABLED=true` before running
-`bunx playwright test tests/e2e/registration-enabled.spec.cjs`. The normal suite
-skips that scenario. CI configures both flags on its disposable stack, runs the
+`bunx playwright test tests/e2e/registration-enabled.spec.cjs`. The default-disabled configuration excludes the enabled file at discovery. CI configures both flags on its disposable stack, runs the
 extra phase and keeps a separate report; see [CI configuration](../ci/checks-and-rules.md).
 
 
