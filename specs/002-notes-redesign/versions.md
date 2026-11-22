@@ -56,6 +56,7 @@ One row per increment. The ID never changes once a sub-spec uses it. Update Stat
 | R5 | Move, delete and recover | R4 | done | [r5-recover](r5-recover/spec.md) |
 | R6 | Milestone 1 stabilization gate | R5 | done | [r6-gate](r6-gate/spec.md) |
 | R7 | Pin | R6 | done | [r7-pin](r7-pin/spec.md) |
+| LU | Live updates on open notes and lists | R7 | in-progress | [003-live-updates](../003-live-updates/spec.md) |
 | R8 | Journal smart folder | R6 | planned | — |
 | R9 | Rich text, checklists and the phone formatting bar | R6 | planned | — |
 | R10 | Open Tasks smart folder | R9 | planned | — |
@@ -185,7 +186,7 @@ R7 does not start until every line holds and the owner signs it off in the R6 pu
 
 ## 4. Dependencies and risks
 
-Order: R1 → R2 → R3 → R4 → R5 → R6 gate. After the gate R7, R8, R9, R11 are independent of each other; R10 needs R9; R12 is last.
+Order: R1 → R2 → R3 → R4 → R5 → R6 gate. After the gate R7, R8, R9, R11 are independent of each other; R10 needs R9; R12 is last. LU ([issue 68](https://github.com/hsb3/pocketbase-notes-app/issues/68), its own spec under `specs/003-live-updates/`) runs after R7 and before R8.
 
 Decisions R1 must get right so later increments only add fields:
 
