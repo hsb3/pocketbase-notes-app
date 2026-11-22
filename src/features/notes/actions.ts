@@ -102,6 +102,21 @@ export async function setPin(
     throw Error("Unconfirmed pin.");
 }
 
+export async function setJournalDate(
+  id: string,
+  user: string,
+  journal_date: string,
+  session: Session,
+) {
+  const row = await pb.send<NoteState & { journal_date: string }>(
+    `/api/notebook/notes/${id}/date`,
+    { method: "POST", body: { journal_date }, ...privateRead(session) },
+  );
+  if (!session.current()) throw new NoteAccessError("locked");
+  if (row?.id !== id || row.user !== user || row.journal_date !== journal_date)
+    throw Error("Unconfirmed date.");
+}
+
 export async function readCommand(cmd: NoteCommand, session: Session) {
   await verifyOwner(cmd.user, session);
   try {

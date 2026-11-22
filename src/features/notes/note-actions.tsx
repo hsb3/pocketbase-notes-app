@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef } from "react";
-import { Ellipsis, Pin, PinOff } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { CalendarDays, Ellipsis, Pin, PinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { listFolders } from "@/features/folders/data";
 import type { NoteDraft } from "./draft";
+import { formatDay, JournalDateDialog } from "./journal-date";
 
 export type ActionPanel = {
   verb: "move" | "delete";
@@ -43,6 +44,14 @@ export type PinState = {
   retry?: boolean;
 };
 
+export type DayState = {
+  id: string;
+  journal_date: string;
+  busy?: boolean;
+  /** Set after a failed request: the absolute value Retry resends. */
+  retry?: string;
+};
+
 export function NoteActions({
   draft,
   folders,
@@ -54,6 +63,8 @@ export function NoteActions({
   blocked,
   pin,
   onPin,
+  day,
+  onDate,
 }: {
   draft?: NoteDraft;
   folders: Awaited<ReturnType<typeof listFolders>>;
@@ -65,7 +76,10 @@ export function NoteActions({
   blocked: boolean;
   pin?: PinState;
   onPin: (pinned: boolean) => void;
+  day?: DayState;
+  onDate: (day: string) => void;
 }) {
+  const [dating, setDating] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const statusButton = useRef<HTMLButtonElement>(null);
   const phase = panel?.phase;
@@ -97,6 +111,11 @@ export function NoteActions({
           <span className="max-w-28 truncate text-xs text-muted-foreground">
             {folders.find((f) => f.id === draft.folder)?.name}
           </span>
+          {day?.journal_date && (
+            <span className="text-xs whitespace-nowrap text-muted-foreground">
+              {formatDay(day.journal_date)}
+            </span>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -125,6 +144,18 @@ export function NoteActions({
                   >
                     {pin.pinned ? <PinOff /> : <Pin />}
                     {pin.pinned ? "Unpin" : "Pin"}
+                  </DropdownMenuItem>
+                )}
+                {day && (
+                  <DropdownMenuItem
+                    disabled={day.busy}
+                    onSelect={() => {
+                      handoff.current = true;
+                      setDating(true);
+                    }}
+                  >
+                    <CalendarDays />
+                    {day.journal_date ? "Change date…" : "Add date…"}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onSelect={() => show("move")}>
@@ -261,6 +292,28 @@ export function NoteActions({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+      {dating && day && (
+        <JournalDateDialog
+          day={day.journal_date}
+          close={() => setDating(false)}
+          choose={(value) => {
+            setDating(false);
+            onDate(value);
+          }}
+        />
+      )}
+      {day?.retry !== undefined && (
+        <div role="alert" className="flex items-center gap-2 text-xs">
+          Could not change the date. Try again.
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => day.retry !== undefined && onDate(day.retry)}
+          >
+            Retry
+          </Button>
+        </div>
       )}
       {pin?.retry !== undefined && (
         <div role="alert" className="flex items-center gap-2 text-xs">

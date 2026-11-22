@@ -195,11 +195,157 @@ export async function journal(
   await send(n.id, { journal_date: "" }, device);
   assert.equal((await row(n.id)).journal_date, "");
 
+  // FR-003: Journal lists each active dated note once across folders, newest day first,
+  // most recently edited first within a day; pin does not lift a note.
+  let clock = 0;
+  async function touch(id: string) {
+    clock++;
+    const stamp = `2026-01-01 00:00:${String(clock).padStart(2, "0")}.000Z`;
+    const done = await admin.sql.run(
+      `UPDATE notes SET updated='${stamp}' WHERE id='${id}'`,
+    );
+    assert.equal(done.affectedRows, 1);
+  }
+  const ids = (page: { items: { id: string }[] }) =>
+    page.items.map((r) => r.id);
+  const journalView = (pb = owner.pb) =>
+    pb.collection("notes").getList(1, 20, {
+      fields: "id,folder,journal_date,pinned",
+      filter: active + ' && journal_date != ""',
+      sort: "-journal_date,-updated,-id",
+      requestKey: null,
+    });
+  const dayView = (day: string, pb = owner.pb) =>
+    pb.collection("notes").getList(1, 20, {
+      fields: "id,folder,journal_date",
+      filter: active + " && " + pb.filter("journal_date = {:day}", { day }),
+      sort: "-updated,-id",
+      requestKey: null,
+    });
+  const folderList = (folder?: string) =>
+    notes.getList(1, 20, {
+      fields: "id",
+      filter: folder
+        ? active + " && " + owner.pb.filter("folder = {:folder}", { folder })
+        : active,
+      sort: "-pinned,-updated,-id",
+      requestKey: null,
+    });
+  await admin.sql.run(
+    `UPDATE notes SET journal_date='' WHERE user='${owner.id}'`,
+  );
+  const older = await make("Older day in Notes");
+  const early = await make("Same day, edited first", garden);
+  const late = await make("Same day, edited last");
+  const newest = await make("Newest day in Garden", garden);
+  const undated = await make("Undated");
+  const seeded = [older, early, late, newest, undated].map((n) => n.id);
+  for (const id of seeded) await touch(id);
+  await send(older.id, { journal_date: "2026-11-19" });
+  await send(early.id, { journal_date: "2026-11-20" });
+  await send(late.id, { journal_date: "2026-11-20" });
+  await send(newest.id, { journal_date: "2026-11-21" });
+  await owner.pb.send(`/api/notebook/notes/${early.id}/pin`, {
+    method: "POST",
+    body: { pinned: true },
+    requestKey: null,
+  });
+  const view = await journalView();
+  assert.deepEqual(
+    view.items.map((r) => [r.id, r.folder, r.journal_date]),
+    [
+      [newest.id, garden, "2026-11-21"],
+      [late.id, home, "2026-11-20"],
+      [early.id, garden, "2026-11-20"],
+      [older.id, home, "2026-11-19"],
+    ],
+  );
+  assert.equal(view.items[2].pinned, true);
+  // Folder lists, All Notes and search keep their R7 and R4 order: a day never reorders them.
+  assert.deepEqual(ids(await folderList(garden)), [early.id, newest.id]);
+  assert.deepEqual(
+    ids(await folderList()).filter((id) => seeded.includes(id)),
+    [early.id, undated.id, newest.id, late.id, older.id],
+  );
+  const hits = await notes.getList(1, 20, {
+    query: { searchTerm: "day" },
+    fields: "id,folder,title,updated,snippet",
+    filter:
+      active + " && " + owner.pb.filter("search_key ~ {:p}", { p: "%DAY%" }),
+    sort: "-updated,-id",
+    requestKey: null,
+  });
+  assert.deepEqual(
+    ids(hits).filter((id) => seeded.includes(id)),
+    [newest.id, late.id, early.id, older.id],
+  );
+  for (const hit of hits.items)
+    assert.deepEqual(Object.keys(hit).sort(), [
+      "folder",
+      "id",
+      "snippet",
+      "title",
+      "updated",
+    ]);
+
+  // FR-004: one day lists only that day's notes; an empty day lists none.
+  assert.deepEqual(ids(await dayView("2026-11-20")), [late.id, early.id]);
+  assert.equal((await dayView("2026-11-22")).totalItems, 0);
+
+  // FR-012: another account sees none of these days.
+  assert.equal((await journalView(other.pb)).totalItems, 0);
+  assert.equal((await dayView("2026-11-20", other.pb)).totalItems, 0);
+
+  // FR-008: the day survives pin, move, delete and restore; deleted notes never show.
+  const act = async (verb: string, id: string, extra = {}) => {
+    const { revision } = await notes.getOne(id);
+    return owner.pb.send(`/api/notebook/notes/${id}/${verb}`, {
+      method: "POST",
+      body: { revision, ...extra },
+      requestKey: null,
+    });
+  };
+  const day = async (id: string) => (await row(id)).journal_date;
+  await owner.pb.send(`/api/notebook/notes/${older.id}/pin`, {
+    method: "POST",
+    body: { pinned: true },
+    requestKey: null,
+  });
+  assert.equal(await day(older.id), "2026-11-19");
+  await act("move", older.id, { folder: garden });
+  assert.equal(await day(older.id), "2026-11-19");
+  await act("delete", older.id);
+  assert.equal(await day(older.id), "2026-11-19");
+  assert.equal(
+    await status(send(older.id, { journal_date: "2026-11-18" })),
+    400,
+  );
+  assert.equal(await day(older.id), "2026-11-19");
+  assert.equal(ids(await journalView()).includes(older.id), false);
+  assert.equal(ids(await dayView("2026-11-19")).includes(older.id), false);
+  await act("restore", older.id);
+  assert.equal(await day(older.id), "2026-11-19");
+  assert.equal(
+    ids(await journalView()).filter((id) => id === older.id).length,
+    1,
+  );
+
+  // Folder delete with a dated member, then restore into Notes.
+  const preview = await owner.pb.send<{ snapshot: string }>(
+    `/api/notebook/folders/${garden}/delete-preview`,
+    { requestKey: null },
+  );
+  await folders.delete(garden, { query: { snapshot: preview.snapshot } });
+  assert.deepEqual(ids(await journalView()), [late.id]);
+  await act("restore", newest.id);
+  const back = await notes.getOne(newest.id);
+  assert.deepEqual([back.folder, back.journal_date], [home, "2026-11-21"]);
+  assert.deepEqual(ids(await journalView()), [newest.id, late.id]);
+
   console.log("Journal", {
     n: n.id,
     composed: composed.id,
     message,
-    garden,
-    active,
+    view: ids(view),
   });
 }

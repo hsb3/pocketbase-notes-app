@@ -10,7 +10,7 @@ fi
 
 profile=${CONTAINED_PROFILE:-default}
 case "$1/$profile" in
-  api/default|api/accounts|api/restore|api/load|browser/recover|browser/pin|browser/live|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/plain|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
+  api/default|api/accounts|api/restore|api/load|browser/recover|browser/pin|browser/journal|browser/live|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/plain|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
   *) echo "Unsupported contained profile: $1/$profile" >&2; exit 2 ;;
 esac
 
@@ -216,7 +216,7 @@ else
   if [[ $profile = plain ]]; then browser_env=(-u CONTAINED_TEST); fi
   tests=(env "${browser_env[@]}" node node_modules/playwright/cli.js test)
   case $profile in
-    default|plain|signup|signup-disabled|recover|pin|live)
+    default|plain|signup|signup-disabled|recover|pin|journal|live)
       report=$profile
       case $profile in
         default)
@@ -232,6 +232,10 @@ else
         pin)
           inside browser mkdir -p /tmp/r7-views
           tests+=(tests/e2e/pin.spec.cjs --workers=1 --retries=0)
+          ;;
+        journal)
+          inside browser mkdir -p /tmp/r8-views
+          tests+=(tests/e2e/journal.spec.cjs --workers=1 --retries=0)
           ;;
         live) tests+=(tests/e2e/live-updates.spec.cjs --workers=1 --retries=0) ;;
         signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
@@ -255,11 +259,13 @@ else
   esac
   test_status=0
   inside browser "${tests[@]}" || test_status=$?
-  if [[ $profile = search || $profile = recover || $profile = pin || $profile = live ]]; then
+  if [[ $profile = search || $profile = recover || $profile = pin || $profile = journal || $profile = live ]]; then
     if [[ $profile = search ]]; then
       report=sc004.json views=r4-search-views states=(filled empty)
     elif [[ $profile = pin ]]; then
       report=pin.json views=r7-views states=(folder-pinned pinned-view pinned-empty)
+    elif [[ $profile = journal ]]; then
+      report=journal.json views=r8-views states=(journal-days journal-day-empty journal-empty date-dialog)
     elif [[ $profile = live ]]; then
       # Live updates add no UI, so the report is the only artifact.
       report=live.json views=
@@ -282,7 +288,7 @@ def cases(suite):
     for child in suite.get("suites", []):
         yield from cases(child)
 suites = json.load(open(sys.argv[1]))["suites"]
-expected = {"pin": {"pin.spec.cjs"}, "live": {"live-updates.spec.cjs"}}.get(
+expected = {"pin": {"pin.spec.cjs"}, "journal": {"journal.spec.cjs"}, "live": {"live-updates.spec.cjs"}}.get(
     sys.argv[2], {"note-actions.spec.cjs", "recently-deleted.spec.cjs"})
 assert {s["file"].split("/")[-1] for s in suites if list(cases(s))} == expected, "Missing suite"
 tests = list(cases({"suites": suites}))

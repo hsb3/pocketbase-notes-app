@@ -6,7 +6,12 @@ const {
   defaultFolder,
   createFolder,
 } = require("../../src/features/folders/data.ts");
-const { getNote, listNotes } = require("../../src/features/notes/data.ts");
+const {
+  getNote,
+  listNotes,
+  localDate,
+  validDate,
+} = require("../../src/features/notes/data.ts");
 const { NoteDraft } = require("../../src/features/notes/draft.ts");
 
 const user = "owner0000000001",
@@ -85,6 +90,7 @@ function record(draft, revision, content = draft.body) {
     title: "From server",
     updated: "",
     deleted: "",
+    journal_date: "",
   };
 }
 
@@ -255,7 +261,9 @@ test("folder creation, unique owned default and bounded active note projection u
   const query = list.url.searchParams;
   expect(query.get("page")).toBe("2");
   expect(query.get("perPage")).toBe("20");
-  expect(query.get("fields")).toBe("id,folder,title,updated,excerpt,pinned");
+  expect(query.get("fields")).toBe(
+    "id,folder,title,updated,excerpt,pinned,journal_date",
+  );
   expect(query.get("sort")).toBe("-pinned,-updated,-id");
   expect(query.get("filter")).toContain('deleted = ""');
   expect(query.get("filter")).toContain(folder);
@@ -274,7 +282,7 @@ test("folder creation, unique owned default and bounded active note projection u
   const inactive = getNote("inactive0000001");
   const detail = await call(4);
   expect(detail.url.searchParams.get("fields").split(",").sort()).toEqual(
-    "deleted,id,user,folder,title,body,attachments,revision,updated,pinned"
+    "deleted,id,user,folder,title,body,attachments,revision,updated,pinned,journal_date"
       .split(",")
       .sort(),
   );
@@ -299,6 +307,7 @@ const savedNote = {
   revision: 4,
   attachments: ["file-one", "file-two"],
   deleted: "",
+  journal_date: "",
 };
 const noteCalls = () =>
   calls.filter((c) => c.url.pathname.includes("/notes/records"));
@@ -556,4 +565,93 @@ test("a masked create denial checks the captured owner's session before retry", 
   expect(await draft.retry()).toBe(false);
   expect(methods().filter((m) => m === "POST")).toEqual(["POST"]);
   expect(draft.body).toEqual(body("Still mine"));
+});
+
+test("Journal lists filter dated notes by day, newest day first, binding the day", async () => {
+  const all = listNotes("journal", 1);
+  const query = (await call(0)).url.searchParams;
+  expect(query.get("filter")).toBe('deleted = "" && journal_date != ""');
+  expect(query.get("sort")).toBe("-journal_date,-updated,-id");
+  await reply(0, { items: [] });
+  await all;
+  const one = listNotes("journal", 1, "2026-11-21");
+  const day = (await call(1)).url.searchParams;
+  expect(day.get("filter")).toBe('deleted = "" && journal_date = "2026-11-21"');
+  expect(day.get("sort")).toBe("-updated,-id");
+  await reply(1, { items: [] });
+  await one;
+  expect(validDate("2026-02-31")).toBe(false);
+  expect(validDate("0001-01-01")).toBe(true);
+  expect(localDate(new Date(2026, 10, 21, 23, 59))).toBe("2026-11-21");
+});
+
+test("a draft composed from Journal sends its day on create only, and keeps it while held", async () => {
+  const draft = new NoteDraft({ user, folder, journalDate: "2026-11-21" });
+  draft.edit(body("Dated"));
+  const held = draft.suspend();
+  expect(held.journalDate).toBe("2026-11-21");
+  const resumed = new NoteDraft({ user, folder }, held);
+  const saving = resumed.retry();
+  const create = await call(0);
+  expect(create.method).toBe("POST");
+  expect(create.body).toEqual({
+    id: draft.id,
+    user,
+    folder,
+    attachments: [],
+    body: body("Dated"),
+    journal_date: "2026-11-21",
+  });
+  await reply(0, {
+    ...record(resumed, 1, body("Dated")),
+    journal_date: "2026-11-21",
+  });
+  expect(await saving).toBe(true);
+  resumed.edit(body("Dated, then edited"));
+  const update = await call(1);
+  expect(update.method).toBe("PATCH");
+  expect(update.body).toEqual({
+    revision: 1,
+    body: body("Dated, then edited"),
+  });
+  await reply(1, { ...record(resumed, 2), journal_date: "2026-11-21" });
+  await resumed.flush();
+  resumed.dispose();
+});
+
+test("a create reply without the composed day is not confirmed", async () => {
+  const draft = new NoteDraft({ user, folder, journalDate: "2026-11-21" });
+  draft.edit(body("Dated"));
+  const saving = draft.flush();
+  await reply(0, record(draft, 1, body("Dated")));
+  expect(await saving).toBe(false);
+  draft.dispose();
+});
+
+test("a notice is an echo only when its day is absent or equal to the held day", () => {
+  const draft = new NoteDraft({
+    user,
+    folder,
+    note: record({ id: "note00000000001", body: body("x") }, 3),
+  });
+  const notice = { id: draft.id, folder, deleted: false, revision: 3 };
+  expect(draft.isEcho(notice, false, "2026-11-21")).toBe(true);
+  expect(
+    draft.isEcho(
+      { ...notice, journal_date: "2026-11-21" },
+      false,
+      "2026-11-21",
+    ),
+  ).toBe(true);
+  expect(
+    draft.isEcho(
+      { ...notice, journal_date: "2026-11-20" },
+      false,
+      "2026-11-21",
+    ),
+  ).toBe(false);
+  expect(
+    draft.isEcho({ ...notice, journal_date: "" }, false, "2026-11-21"),
+  ).toBe(false);
+  draft.dispose();
 });
