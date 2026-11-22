@@ -124,6 +124,7 @@ function noticeSaved(e) {
     deleted: e.record.getString("deleted"),
     revision: e.record.getInt("revision"),
     pinned: e.record.getBool("pinned"),
+    journal_date: e.record.getString("journal_date"),
   });
 }
 onRecordAfterCreateSuccess(noticeSaved, "notes");

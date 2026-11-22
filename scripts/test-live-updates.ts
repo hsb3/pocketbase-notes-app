@@ -161,12 +161,15 @@ export async function liveUpdates(
       revision: 1,
       ...fields,
     });
-    assert.deepEqual(a1.notices()[0], notice({ pinned: false }));
+    assert.deepEqual(
+      a1.notices()[0],
+      notice({ pinned: false, journal_date: "" }),
+    );
     seen.push(a1.notices()[0]);
     await expect(
       async () =>
         (note = await notes.update(id, { body: doc("Live two"), revision: 1 })),
-      notice({ revision: 2, pinned: false }),
+      notice({ revision: 2, pinned: false, journal_date: "" }),
     );
     await expect(
       () => action(id, "move", { revision: 2, folder: garden }),
@@ -180,6 +183,13 @@ export async function liveUpdates(
       () => action(id, "pin", { pinned: false }),
       notice({ folder: garden, revision: 3, pinned: false }),
     );
+    // A day change keeps the revision and carries the day (specs/002-notes-redesign/r8-journal/contracts/journal.md).
+    for (const day of ["2026-11-21", "2026-11-21", ""]) {
+      await expect(
+        () => action(id, "date", { journal_date: day }),
+        notice({ folder: garden, revision: 3, journal_date: day }),
+      );
+    }
     await expect(
       () => action(id, "delete", { revision: 3 }),
       notice({ folder: garden, revision: 4, deleted: true }),
@@ -194,6 +204,11 @@ export async function liveUpdates(
     await quiet(() => action(id, "pin", { pinned: true, revision: 5 }), 400);
     await quiet(
       () => action(id, "move", { revision: 5, folder: home }, otherB.pb),
+      404,
+    );
+    await quiet(() => action(id, "date", { journal_date: "2026-02-31" }), 400);
+    await quiet(
+      () => action(id, "date", { journal_date: "2026-11-21" }, otherB.pb),
       404,
     );
     await quiet(

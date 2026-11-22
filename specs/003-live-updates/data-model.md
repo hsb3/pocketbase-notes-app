@@ -15,6 +15,7 @@ One realtime message on the topic `notebook-changes`. Full wire format: [contrac
 | `deleted` | boolean | `true` when the note is soft-deleted after the write |
 | `revision` | integer ≥ 1 | Revision after the write (unchanged by pin) |
 | `pinned` | boolean, optional | Pin after the write. Absent from move, delete and restore notices, which keep R7's reply shape |
+| `journal_date` | string, optional | Journal day after the write (`""` for none). Added by R8 for create, save and the date verb ([R8 notice addition](../../002-notes-redesign/r8-journal/contracts/journal.md#change-notice)) |
 
 Recipient: every realtime client subscribed to exactly `notebook-changes` whose bound auth is the `users` record that owns the note. No one else.
 
@@ -35,7 +36,7 @@ The draft's **baseline** is the last saved note it confirmed (`NoteDraft.baselin
 
 | State | Notice | Result |
 |---|---|---|
-| any | `revision` below baseline, or equal with same folder, not deleted, `pinned` absent or equal to local | Ignored: own echo or stale |
+| any | `revision` below baseline, or equal with same folder, not deleted, `pinned` and `journal_date` absent or equal to local | Ignored: own echo or stale |
 | busy | anything else | Kept as the newest notice; checked again when no longer busy |
 | not busy | anything else | Pause autosave, read the note, apply `remote()` ([research §4](research.md#4-a-remote-change-versus-the-pending-and-in-flight-autosave)), resume |
 

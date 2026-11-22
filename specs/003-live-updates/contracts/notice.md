@@ -17,7 +17,7 @@ SSE event name `notebook-changes`; `data` is one JSON object:
 { "id": "a1b2c3d4e5f6g7h", "folder": "f1f2f3f4f5f6f7f", "deleted": false, "revision": 4, "pinned": true }
 ```
 
-- Keys are exactly `id`, `folder`, `deleted`, `revision`, and `pinned` when the write path knows it ([data model](../data-model.md#change-notice-never-stored)).
+- Keys are exactly `id`, `folder`, `deleted`, `revision`, and `pinned` when the write path knows it ([data model](../data-model.md#change-notice-never-stored)). R8 adds `journal_date` the same way ([R8 notice addition](../../002-notes-redesign/r8-journal/contracts/journal.md#change-notice)).
 - No `user`, `title`, `text`, `body`, `excerpt`, `search_key`, `tasks` or attachment data, ever.
 - Sent only after the write committed. Never sent for a refused or rolled-back write.
 - At most once, in commit order per connection. Not replayed after a disconnect.
