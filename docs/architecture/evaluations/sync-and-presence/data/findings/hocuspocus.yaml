@@ -1,0 +1,71 @@
+candidate: hocuspocus
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/ueberdosis/hocuspocus"
+layer_fit:
+  verdict: in-layer
+  note: "Yjs WebSocket sync server (Tiptap GmbH) with auth, persistence and awareness hooks. Integration effort: documented adapter. Persistence through the generic @hocuspocus/extension-database fetch/store (or onLoadDocument/onStoreDocument), auth through onAuthenticate, client binding through ProseKit's own prosekit/extensions/yjs (y-prosemirror). There is no PocketBase-specific adapter; the PocketBase glue (token check, writing Y state and ProseMirror JSON into the notes record) is ours. Adds a second always-on Node 22+ or Bun process and a WebSocket endpoint PocketBase cannot proxy."
+license:
+  components:
+    - {name: "@hocuspocus/server, provider, extension-database, extension-sqlite, transformer, common and all other packages in packages/ (14, v4.9.0)", license: MIT, source: "https://github.com/ueberdosis/hocuspocus/blob/main/LICENSE.md"}
+    - {name: "runtime deps crossws, lib0, async-mutex, kleur, @lifeomic/attempt, better-sqlite3 (sqlite ext only)", license: MIT, source: "https://registry.npmjs.org/crossws/latest"}
+    - {name: "yjs, y-protocols, y-prosemirror, y-indexeddb (peer/optional)", license: MIT, source: "https://github.com/yjs/yjs/blob/main/LICENSE"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "Grep of the published @hocuspocus/server 4.9.0 dist for telemetry, license key and non-GitHub URLs found nothing. Tiptap Collab (cloud) is advertised in the README but is a separate hosted product; no Pro package exists in the repo."
+filters:
+  - {id: osi-license, verdict: pass, evidence: "Root LICENSE.md is MIT (Copyright 2023 Tiptap GmbH); npm license field MIT for all 14 @hocuspocus packages at 4.9.0 and their runtime deps.", source: "https://github.com/ueberdosis/hocuspocus/blob/main/LICENSE.md"}
+  - {id: self-hosted-no-key, verdict: pass, evidence: "Self-hosted Server class or Hocuspocus.handleConnection on Node, Bun or Deno; no key.", source: "https://github.com/ueberdosis/hocuspocus/blob/main/RELEASE_NOTES_V4.md"}
+  - {id: pocketbase-record, verdict: pass, evidence: "Database extension takes any async fetch/store of a Yjs Uint8Array, so the state can live in a PocketBase record (via REST from the Hocuspocus process); no Postgres or Redis required for one instance.", source: "https://tiptap.dev/docs/hocuspocus/server/extensions/database"}
+capabilities:
+  - {id: no-false-conflict, verdict: "yes", note: "Body edits become Yjs updates outside the note revision; pin/move/delete stay PocketBase fields, so a metadata action cannot fail a body sync. Requires notes.pb.js to stop gating server-written body saves on the revision.", source: "https://tiptap.dev/docs/hocuspocus/guides/persistence"}
+  - {id: text-merge, verdict: "yes", note: "Yjs CRDT merge of concurrent edits through y-prosemirror; no dialog.", source: "https://tiptap.dev/docs/hocuspocus/guides/collaborative-editing"}
+  - {id: edit-queue, verdict: partial, note: "Yjs updates are idempotent and the provider resyncs on reconnect with retry (maxAttempts default unlimited). Survival across reload needs y-indexeddb added on the client; the provider itself keeps unsynced state in memory.", source: "https://tiptap.dev/docs/hocuspocus/provider/configuration"}
+  - {id: presence, verdict: "yes", note: "Yjs awareness via provider.setAwarenessField and awarenessUpdate/awarenessChange events; ephemeral, not stored; onAwarenessUpdate and onDisconnect server hooks; v4 adds app-level Ping/Pong.", source: "https://tiptap.dev/docs/hocuspocus/guides/awareness"}
+  - {id: live-update, verdict: partial, note: "Open note documents update live. The notes list (titles, pins, folders) is not a Yjs doc, so list updates still need PocketBase realtime.", source: "https://tiptap.dev/docs/hocuspocus/guides/collaborative-editing"}
+  - {id: prosemirror-binding, verdict: "yes", note: "Uses y-prosemirror; ProseKit ships prosekit/extensions/yjs (peer deps yjs >= 13.6.18, y-prosemirror >= 1.2.9).", source: "https://registry.npmjs.org/prosekit/latest"}
+  - {id: pocketbase-auth, verdict: partial, note: "onAuthenticate receives the client token and can reject; we would verify the PocketBase token by calling PocketBase (e.g. fetch the note with that token so viewRule decides). Documented hook, our glue.", source: "https://tiptap.dev/docs/hocuspocus/guides/authentication"}
+  - {id: server-derivation, verdict: "yes", note: "In onStoreDocument (debounced) the sidecar can convert Y.Doc to ProseMirror JSON (TiptapTransformer/ProsemirrorTransformer in @hocuspocus/transformer, or y-prosemirror yDocToProsemirrorJSON) and write it to notes.body, so the existing JSVM derivation keeps running. Needs a Node/Bun sidecar; the JSVM cannot decode Yjs itself (not documented).", source: "https://tiptap.dev/docs/hocuspocus/server/extensions/database"}
+  - {id: single-image, verdict: partial, note: "Can run in the same image with Bun via crossws (playground/backend/src/bun.ts) or Node >= 22, but it is a second always-on process needing a supervisor and its own WebSocket port; today's runtime stage is alpine + pocketbase only. No documented resource sizing.", source: "https://github.com/ueberdosis/hocuspocus/blob/main/playground/backend/src/bun.ts"}
+biases:
+  - {id: reuse-over-build, met: true, note: "Mature, widely used packages; integration effort documented adapter (extension-database, onAuthenticate) plus our PocketBase glue."}
+  - {id: small-change, met: false, note: "Touches deploy/docker/Dockerfile (Bun/Node runtime, process supervisor, extra port), a new server package, a migration for a Y-state field, notes.pb.js update rule, and replaces most of src/features/notes/draft.ts. Large for one owner."}
+maturity:
+  stars: 2665
+  recurring_contributors: 4
+  single_merger: false
+  institutional_backing: "Tiptap GmbH (copyright holder, ueberdosis org)"
+  commits_by_month: {"2026-06": 16, "2026-07": 13, "2026-08": 15, "2026-09": 12, "2026-10": 18, "2026-11": 10}
+  last_commit: "2026-11-20"
+  last_release: "2026-11-20"
+  open_issues: 21
+  open_prs: 9
+  backlog_trend: growing
+  regime_change: "v4 (2026) rewrite of the transport onto crossws; Node >= 22 required; hook payloads now web Request/Headers."
+  adopters: ["Tiptap Collab (vendor's hosted offering, README)"]
+  downloads: "@hocuspocus/server 2,313,070 and @hocuspocus/provider 3,292,252 npm downloads, week 2026-11-14..2026-11-20"
+  signals:
+    - {id: recency, passed: true, evidence: "Last commit 2026-11-20."}
+    - {id: releases, passed: true, evidence: "v4.9.0 2026-11-20; v4.8.0 2026-10-28; v4.7.1 2026-10-12."}
+    - {id: breadth, passed: true, evidence: "Authors active in 2 or more months of the window: janthurau (7 months incl. May), whoalin1, KevinHosey, breken-ai (2 each); plus Tiptap backing."}
+    - {id: breadth-preference, passed: true, evidence: "4 recurring contributors (breken-ai may be an automation account; 3 without it)."}
+    - {id: not-dying, passed: true, evidence: "Oct+Nov average 14/month vs Jun-Sep average 14/month; no drop."}
+  verdict: adequate
+sources:
+  - "https://github.com/ueberdosis/hocuspocus/blob/main/LICENSE.md"
+  - "https://github.com/ueberdosis/hocuspocus/blob/main/RELEASE_NOTES_V4.md"
+  - "https://github.com/ueberdosis/hocuspocus/blob/main/packages/server/src/types.ts"
+  - "https://tiptap.dev/docs/hocuspocus/guides/authentication"
+  - "https://tiptap.dev/docs/hocuspocus/guides/persistence"
+  - "https://tiptap.dev/docs/hocuspocus/server/extensions/database"
+  - "https://tiptap.dev/docs/hocuspocus/guides/awareness"
+  - "https://tiptap.dev/docs/hocuspocus/provider/configuration"
+  - "https://registry.npmjs.org/@hocuspocus/server/latest"
+  - "https://registry.npmjs.org/prosekit/latest"
+  - "https://api.npmjs.org/downloads/point/last-week/@hocuspocus/server"
+verification:
+  - claim: "All Hocuspocus 4.x packages are MIT, no paid package exists, and v4 runs under Bun."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "npm registry for 13 @hocuspocus packages; server README. Caveat: extension-sqlite needs the native better-sqlite3 addon; Bun support unverified."

@@ -1,0 +1,141 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: prosekit
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/prosekit/prosekit"
+layer_fit:
+  verdict: in-layer
+  note: "ProseMirror toolkit with headless React components; the editor in use today (prosekit ^0.23, latest 0.23.3)."
+license:
+  components:
+    - name: "prosekit (and @prosekit/core, extensions, react, web, basic, pm)"
+      license: MIT
+      source: "https://github.com/prosekit/prosekit/blob/master/LICENSE"
+    - name: "runtime deps (prosemirror-flat-list, prosemirror-highlight, @aria-ui/core, @aria-ui/elements)"
+      license: MIT
+      source: "https://registry.npmjs.org/@prosekit/web/latest"
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "grep of the prosekit 0.23.3 npm tarball for licenseKey, telemetry, posthog, mixpanel: no matches. No hosted service in the docs; Yjs/Loro transport is user-supplied."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Repo LICENSE is MIT; npm license field MIT for prosekit 0.23.3; listed runtime deps are MIT. No commercial add-on tier."
+    source: "https://github.com/prosekit/prosekit/blob/master/LICENSE"
+  - id: no-key-no-cloud
+    verdict: pass
+    evidence: "No license key, no vendor cloud, no telemetry found in package source; collaboration docs say transport and persistence are handled by the CRDT the app supplies."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/guides/collaboration.md"
+  - id: react-19
+    verdict: pass
+    evidence: "peerDependencies react >= 18.2.0, react-dom >= 18.2.0; running today on React 19 in this repo."
+    source: "https://registry.npmjs.org/prosekit/latest"
+capabilities:
+  - id: checklists
+    verdict: "yes"
+    note: "list node (prosemirror-flat-list) with kind task and checked attr; indentList nests items. Stored as list{kind:task,checked}."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/extensions/list.mdx"
+  - id: tables
+    verdict: "yes"
+    note: "defineTable: insertTable, row/column add and delete, selectTableCell, cell selection; table-handle component already used."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/extensions/table.mdx"
+  - id: images-uploads
+    verdict: "yes"
+    note: "uploadImage command with a custom uploader; defineImageUploadHandler shows the image before the upload finishes (pending state); defineFilePasteHandler/defineFileDropHandler for other files."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/extensions/file.mdx"
+  - id: code-blocks
+    verdict: "yes"
+    note: "codeBlock node with language attr; defineCodeBlockShiki highlighting via prosemirror-highlight + Shiki."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/extensions/code-block.mdx"
+  - id: menus
+    verdict: "yes"
+    note: "Headless slash menu, inline menu, block handle, table handle, toolbar, mention menu; shadcn registry components (Tailwind v4)."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/components/overview.mdx"
+  - id: mobile
+    verdict: partial
+    note: "No mobile support page. Tracked toolkit fixes exist for WebKit composition in menus (PR #1759 work around WebKit compositionend; #1743 IME keydown open; #1773 isWebKit). Zero issues with iOS/Android in the title (low report volume, not proof of reliability). Core text input, IME and selection are handled by prosemirror-view (changelog has 18 Android and 45 iOS/Safari mentions), shared with every ProseMirror candidate."
+    source: "https://github.com/prosekit/prosekit/pull/1759"
+  - id: accessibility
+    verdict: partial
+    note: "Keyboard shortcuts documented (defineKeymap); UI primitives built on @aria-ui (ARIA patterns). No accessibility or screen-reader page."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/guides/keyboard-shortcuts.mdx"
+  - id: json-schema
+    verdict: "yes"
+    note: "JSON is the recommended storage (native ProseMirror document); schema declared by extensions. pb/hooks/entry-validation.js already validates this JSON and derives text."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/guides/saving-and-loading.mdx"
+  - id: prosemirror-compat
+    verdict: "yes"
+    note: "Incumbent: today's documents are ProseKit ProseMirror JSON; no conversion."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/concepts/schema.md"
+  - id: collab-binding
+    verdict: "yes"
+    note: "prosekit/extensions/yjs (y-prosemirror) and a Loro extension; MIT, no hosted service."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/extensions/yjs.mdx"
+  - id: markdown
+    verdict: partial
+    note: "Markdown input rules ship with the extensions; no built-in Markdown serializer. Docs give a recipe: getDocHTML then remark/rehype HTML-Markdown conversion."
+    source: "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/guides/markdown.mdx"
+biases:
+  - id: reuse-over-build
+    met: true
+    note: "Lists/checklists, tables, upload handler, Shiki code blocks, math, mention, headless menus and handles all ship as maintained packages; only Markdown export is a recipe."
+  - id: migration-cost
+    met: true
+    note: "Zero migration: current format, editor components and server validator stay."
+maturity:
+  stars: 1235
+  recurring_contributors: 2
+  single_merger: true
+  institutional_backing: "None; individual maintainer (ocavue) with GitHub Sponsors."
+  commits_by_month:
+    "2026-06": 49
+    "2026-07": 39
+    "2026-08": 13
+    "2026-09": 12
+    "2026-10": 20
+    "2026-11": 14
+  last_commit: "2026-11-14"
+  last_release: "2026-11-14"
+  open_issues: 16
+  open_prs: 16
+  backlog_trend: stable
+  regime_change: null
+  adopters: []
+  downloads: "prosekit 17,584 per week (npm, 2026-11-14..2026-11-20)"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "Last commit on master 2026-11-14 (7 days)."
+    - id: releases
+      passed: true
+      evidence: "v0.23.3 released 2026-11-14; 5 releases since 2026-10-09."
+    - id: breadth
+      passed: true
+      evidence: "2 human authors with commits in 2+ months of the window (ocavue 7 months, shlroland 2 months); meets floor 2 exactly."
+    - id: breadth-preference
+      passed: false
+      evidence: "Only 2 recurring contributors; ocavue authored 82 of 86 human commits (plus 56 by ocavuebot). 158 commits since 2026-05-21."
+    - id: not-dying
+      passed: true
+      evidence: "Oct-Nov average 17/month vs Jun-Sep 28.25/month: 40% drop, under 60%. 158 PRs merged in window."
+  verdict: early
+sources:
+  - "https://github.com/prosekit/prosekit"
+  - "https://github.com/prosekit/prosekit/blob/master/LICENSE"
+  - "https://registry.npmjs.org/prosekit/latest"
+  - "https://api.npmjs.org/downloads/point/last-week/prosekit"
+  - "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/extensions/list.mdx"
+  - "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/extensions/table.mdx"
+  - "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/extensions/image.mdx"
+  - "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/extensions/file.mdx"
+  - "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/guides/markdown.mdx"
+  - "https://github.com/prosekit/prosekit/blob/master/website/src/content/docs/components/overview.mdx"
+  - "https://github.com/prosekit/prosekit/pull/1759"
+  - "https://github.com/ProseMirror/prosemirror-view/blob/master/CHANGELOG.md"
+verification:
+  - claim: "MIT; 2 recurring human contributors in the window, ocavue 82 of 86 human commits; v0.23.3 on 2026-11-14; ships Yjs and Loro extensions and a shadcn registry; no markdown serializer."
+    outcome: verified
+    correction: "A further 56 commits come from ocavuebot, ocavue's own automation account; counted together the project is 138 of 142 one person."
+    checked_on: "2026-11-21"
+    evidence: "GitHub commits API; npm latest; package exports (absence for markdown)."

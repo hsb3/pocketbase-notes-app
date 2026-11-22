@@ -150,6 +150,10 @@ export default defineConfig({
         items: [
           ...page("Tech stack", "docs/architecture/tech-stack.md"),
           ...page("Product spec", "docs/architecture/spec.md"),
+          ...page(
+            "Technology evaluations",
+            "docs/architecture/evaluations/index.md",
+          ),
         ],
       },
       {

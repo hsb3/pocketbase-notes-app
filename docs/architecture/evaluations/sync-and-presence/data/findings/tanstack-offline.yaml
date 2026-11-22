@@ -1,0 +1,76 @@
+candidate: tanstack-offline
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/TanStack/query"
+layer_fit:
+  verdict: in-layer
+  note: "Client-only edit queue. Two options: TanStack Query paused mutations persisted with persistQueryClient and resumed with resumePausedMutations; or TanStack DB collections with @tanstack/offline-transactions (durable outbox). Both call our own PocketBase API, no server component. Maturity below measures TanStack/db because the durable-queue verdict rests on offline-transactions; TanStack Query figures are in the signal evidence."
+license:
+  components:
+    - {name: "TanStack Query (@tanstack/react-query, query-persist-client-core, react-query-persist-client)", license: MIT, source: "https://github.com/TanStack/query/blob/main/LICENSE"}
+    - {name: "TanStack DB (@tanstack/db, react-db, query-db-collection, offline-transactions 1.2.1)", license: MIT, source: "https://github.com/TanStack/db/blob/main/LICENSE"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "Client libraries only; no server, no key. offline-transactions package.json license MIT; no network calls beyond the app's own mutation functions."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Both repos have a single root MIT LICENSE; no other LICENSE files in TanStack/db except a vendored test fixture; npm metadata MIT."
+    source: "https://github.com/TanStack/db/blob/main/LICENSE"
+  - id: self-hosted-no-key
+    verdict: pass
+    evidence: "Pure client libraries bundled into our SPA."
+    source: "https://github.com/TanStack/db/blob/main/docs/guides/offline-transactions.md"
+  - id: pocketbase-record
+    verdict: pass
+    evidence: "Mutation functions call any API (our PocketBase SDK); query-collection loads from any fetcher. PocketBase stays the system of record."
+    source: "https://github.com/TanStack/db/blob/main/docs/collections/query-collection.md"
+capabilities:
+  - {id: no-false-conflict, verdict: partial, note: "Queue carries whatever request we write (e.g. a metadata-only PATCH vs a body save); conflict rules remain our PocketBase hooks. Core DB has conflicting-transaction handling only on the client.", source: "https://github.com/TanStack/db/blob/main/docs/guides/offline-transactions.md"}
+  - {id: text-merge, verdict: "no", note: "Row/field values only; no text type or CRDT.", source: "https://github.com/TanStack/db/blob/main/docs/guides/mutations.md"}
+  - {id: edit-queue, verdict: "yes", note: "offline-transactions: outbox in IndexedDB (localStorage fallback), FIFO creation order kept across retries, shouldRetry hook and NonRetriableError, stable idempotencyKey per transaction that the server must honour, optimistic state restored after restart. Boundary: only the leader tab (Web Locks/BroadcastChannel) gets the durable path; follower tabs use online-only writes. Query's persisted mutations are weaker: need setMutationDefaults to resume after reload, persister throttleTime defaults to 1000 ms, parallel unless scope.id set.", source: "https://github.com/TanStack/db/blob/main/docs/guides/offline-transactions.md"}
+  - {id: presence, verdict: not-documented, note: "No presence API in Query or DB docs.", source: "https://github.com/TanStack/db/blob/main/docs/overview.md"}
+  - {id: live-update, verdict: partial, note: "No transport; we would wire PocketBase realtime into a custom collection (collection-options-creator guide) or invalidate queries on SSE events.", source: "https://github.com/TanStack/db/blob/main/docs/guides/collection-options-creator.md"}
+  - {id: prosemirror-binding, verdict: "no", note: "Not an editor binding.", source: "https://github.com/TanStack/db/blob/main/docs/overview.md"}
+  - {id: pocketbase-auth, verdict: "yes", note: "Requests go through the existing PocketBase SDK with the user token and existing owner rules.", source: "https://github.com/TanStack/db/blob/main/docs/guides/offline-transactions.md"}
+  - {id: server-derivation, verdict: "yes", note: "Server state stays ordinary PocketBase records; hooks unchanged.", source: "https://github.com/TanStack/db/blob/main/docs/collections/query-collection.md"}
+  - {id: single-image, verdict: "yes", note: "No server component.", source: "https://github.com/TanStack/db/blob/main/docs/guides/offline-transactions.md"}
+biases:
+  - {id: reuse-over-build, met: true, note: "Packaged durable outbox with retry, ordering and idempotency-key replay instead of a homegrown queue."}
+  - {id: small-change, met: false, note: "App uses neither TanStack Query nor DB today (package.json has only @tanstack/react-router); adopting DB collections for notes plus a server idempotency-key check is a moderate client refactor."}
+maturity:
+  stars: 3988
+  recurring_contributors: 10
+  single_merger: false
+  institutional_backing: "TanStack (open source org; Electric team members maintain DB)"
+  commits_by_month: {"2026-06": 26, "2026-07": 38, "2026-08": 54, "2026-09": 126, "2026-10": 219, "2026-11": 52}
+  last_commit: "2026-11-19"
+  last_release: "2026-11-11"
+  open_issues: 157
+  open_prs: 42
+  backlog_trend: growing
+  regime_change: null
+  adopters: []
+  downloads: "npm @tanstack/db 2,296,691/week; @tanstack/offline-transactions 122,128/week; @tanstack/react-query 92,000,339/week; @tanstack/react-query-persist-client 5,279,980/week (2026-11-14..20)"
+  signals:
+    - {id: recency, passed: true, evidence: "TanStack/db last commit 2026-11-19; TanStack/query 2026-11-21."}
+    - {id: releases, passed: true, evidence: "@tanstack/offline-transactions@1.2.1 on 2026-11-11; @tanstack/db latest 1.0.0-rc.1.5 (still release candidate). Query 5.108.2 on 2026-11-20."}
+    - {id: breadth, passed: true, evidence: "TanStack/db: 10 authors with >=2 commits in window (KyleAMathews 351, kevin-dp 22, tannerlinsley 7, ...); packages/offline-transactions only 2 (KyleAMathews 33, tannerlinsley 2). TanStack/query: 31."}
+    - {id: breadth-preference, passed: true, evidence: "10 >= 3 repo-wide; offline-transactions package alone has 2."}
+    - {id: not-dying, passed: true, evidence: "TanStack/db Jun-Sep avg 61/month vs Oct-Nov avg 135.5/month (rising)."}
+  verdict: early
+sources:
+  - "https://github.com/TanStack/query/blob/main/LICENSE"
+  - "https://github.com/TanStack/db/blob/main/LICENSE"
+  - "https://github.com/TanStack/query/blob/main/docs/framework/react/guides/mutations.md"
+  - "https://github.com/TanStack/query/blob/main/docs/framework/react/plugins/persistQueryClient.md"
+  - "https://github.com/TanStack/query/blob/main/docs/framework/react/plugins/createAsyncStoragePersister.md"
+  - "https://github.com/TanStack/db/blob/main/docs/guides/offline-transactions.md"
+  - "https://github.com/TanStack/db/blob/main/packages/offline-transactions/package.json"
+  - "https://registry.npmjs.org/@tanstack/db"
+verification:
+  - claim: "IndexedDB outbox, serial in creation order, idempotencyKey; only the leader tab is durable; @tanstack/db still 1.0 RC."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "@tanstack/offline-transactions 1.2.1 README; npm dist-tags (1.0.0-rc.1.5)."

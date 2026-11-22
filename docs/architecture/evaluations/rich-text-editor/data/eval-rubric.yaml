@@ -1,0 +1,66 @@
+# Schema: ../schemas/eval-rubric.schema.yaml
+requirements_ref: data/requirements.yaml
+
+capability_verdicts:
+  - {verdict: "yes", meaning: "Works as the bar states in the free self-hosted build; confirmed from docs or code.", score: 1, satisfies_hard: true}
+  - {verdict: partial, meaning: "Works with a stated boundary; the note states it.", score: 0.5, satisfies_hard: true}
+  - {verdict: paywalled, meaning: "Exists only in a paid tier or the vendor cloud.", score: 0, satisfies_hard: false}
+  - {verdict: "no", meaning: "Confirmed absent; docs state the limit or the code lacks it.", score: 0, satisfies_hard: false}
+  - {verdict: not-documented, meaning: "Could not confirm either way; never asserted as absent.", score: 0, satisfies_hard: false}
+
+filter_verdicts:
+  - {verdict: pass, meaning: "Criterion holds, with evidence.", eliminates: false}
+  - {verdict: fail, meaning: "Criterion does not hold, with evidence.", eliminates: true}
+  - {verdict: source-available, meaning: "Source-available license (BSL, FSL, SSPL, Elastic); flagged with what it restricts.", eliminates: true}
+  - {verdict: wrong-layer, meaning: "Operates at another layer; rejected, never scored.", eliminates: true}
+  - {verdict: unverified, meaning: "Not resolved from primary sources; treated as fail.", eliminates: true}
+
+maturity:
+  signals:
+    - {id: recency, measure: Date of last commit to the default branch., pass_when: within last_commit_max_days, on_fail: eliminate}
+    - {id: releases, measure: Tagged release in the window., pass_when: within last_release_max_days, on_fail: down-rank}
+    - {id: breadth, measure: Recurring contributors in the window., pass_when: ">= recurring_contributor_floor, or 1 with institutional backing", on_fail: eliminate}
+    - {id: breadth-preference, measure: Recurring contributors in the window., pass_when: ">= recurring_contributor_preference", on_fail: down-rank}
+    - {id: not-dying, measure: Last 2 months vs prior 4 months of merged commits., pass_when: "drop < dying_drop_pct", on_fail: down-rank}
+  verdicts:
+    - {verdict: strong, rule: All signals pass and named production adopters exist.}
+    - {verdict: adequate, rule: All eliminate-class signals pass.}
+    - {verdict: early, rule: "Eliminate-class signals pass but the project is under 2 years old or before 1.0."}
+    - {verdict: at-risk, rule: Any eliminate-class signal fails.}
+
+ranking:
+  order:
+    - Apply hard_filters; an eliminating verdict rejects the candidate with the reason.
+    - Apply maturity eliminate-class signals.
+    - Score survivors as the sum of weight times score over bias capabilities, plus biases met.
+    - Baselines skip the first two steps; a baseline winning is a valid result.
+  capability_weights:
+    checklists: 3
+    tables: 2
+    images-uploads: 3
+    code-blocks: 1
+    menus: 2
+    mobile: 3
+    accessibility: 2
+    json-schema: 3
+    prosemirror-compat: 2
+    collab-binding: 1
+    markdown: 1
+  bias_weights:
+    reuse-over-build: 2
+    migration-cost: 2
+  proof_weights: {}
+  tie_breakers:
+    - Higher maturity verdict.
+    - Fewer not-documented verdicts.
+  stated_bias: "Mobile reliability, checklists, uploads and a server-validatable JSON schema weigh most because the roadmap (R9 to R11) depends on them; collaboration weighs least in the one-owner scope."
+
+verification:
+  min_decision_critical_claims: 5
+  outcomes: [verified, refuted, uncertain]
+  never_counts_as_evidence:
+    - Vendor benchmark scores; record as claims only.
+    - Listicles and comparison blogs.
+  must_verify:
+    - Every license identification for a shortlisted candidate.
+    - Every claim that eliminates or down-ranks a candidate.

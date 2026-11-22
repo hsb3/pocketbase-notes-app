@@ -1,0 +1,262 @@
+# Schema: ../../schemas/landscape.schema.yaml
+# Practitioner and prior-art scan. Feeds candidate discovery and proofs only;
+# no capability verdict rests on this file. Undated pages carry the scan date
+# as "published" and say so in trust_basis.
+scanned_on: "2026-11-21"
+entries:
+  - source: "https://www.figma.com/blog/how-figmas-multiplayer-technology-works/"
+    author: "Evan Wallace (Figma co-founder)"
+    trust_basis: "Co-founder and author of Figma's multiplayer system, describing the shipped design on the vendor's engineering blog."
+    evidence_type: production-report
+    published: "2019-10-16"
+    claim: "The server is the authority; it keeps the latest value each client sent for each (object, property), so edits to different properties never conflict and same-property edits are last-writer-wins. Clients discard incoming server changes that conflict with their own unacknowledged property changes. OT was overkill and CRDT overhead unneeded with a central server; concurrent edits to one text value do not merge."
+    verdict: works-with-caveat
+    candidates: [field-version-baseline, note-revision-baseline, pocketbase-realtime]
+    implication: "Strongest precedent for pin/folder/deleted as independent last-writer-wins fields on a server-authoritative record, with the client keeping its pending value until acked. The caveat (no text merge) is exactly what a notes body cannot accept, so body needs a different rule than metadata."
+  - source: "https://www.figma.com/blog/making-multiplayer-more-reliable/"
+    author: "Darren Tsung (Figma infrastructure engineer)"
+    trust_basis: "Figma engineer reporting measured production numbers for the multiplayer service."
+    evidence_type: measured
+    published: "2022-10-20"
+    claim: "Checkpointing the whole file every 30-60 s could lose up to 60 s of work on a crash; they added a sequence-numbered write-ahead journal and report 95% of edits saved within 600 ms, recovering by checkpoint plus journal replay."
+    verdict: works
+    candidates: [hocuspocus, y-sweet]
+    implication: "Any in-memory collaboration server (Hocuspocus, Y-Sweet) must be checked for its persistence debounce and crash-loss window; PocketBase per-save writes have no such window. Add 'kill the sync server mid-edit, count lost words' to the proofs for server candidates."
+  - source: "https://www.inkandswitch.com/essay/local-first/"
+    author: "Martin Kleppmann, Adam Wiggins, Peter van Hardenberg, Mark McGranaghan (Ink & Switch)"
+    trust_basis: "Automerge authors reporting on prototypes they built; peer-reviewed at Onward! 2019."
+    evidence_type: anecdote
+    published: "2019-04-01"
+    claim: "Automatic CRDT merging was almost always seamless and conflicts were rarer than expected, arising only when the same property of the same object changed concurrently, where the CRDT keeps both values for the app to resolve. CRDTs accumulate a large change history that creates performance problems and cannot easily be truncated."
+    verdict: works-with-caveat
+    candidates: [automerge, yjs, loro]
+    implication: "Supports field-level merging as the main lever against false conflicts. History growth is a cost to measure for any CRDT body (document size after a month of edits; whether GC/compaction exists). Date is April 2019, day not stated."
+  - source: "https://github.com/wzhudev/reverse-linear-sync-engine"
+    author: "wzhudev (reverse-engineering study, endorsed in its README by Linear CTO Tuomas Artman)"
+    trust_basis: "README quotes Linear's CTO calling it correct and more complete than Linear's internal docs; based on Linear's shipping client."
+    evidence_type: production-report
+    published: "2024-05-31"
+    claim: "Local edits become transactions persisted in an IndexedDB __transactions table, sent in batches as GraphQL mutations, reloaded and resent after restart or disconnect, rolled back if the server rejects. A global monotonically increasing lastSyncId orders delta packets over a WebSocket; pending UpdateTransactions are rebased on incoming deltas and conflicts are resolved last-writer-wins."
+    verdict: works
+    candidates: [replicache-zero, tanstack-offline, field-version-baseline, pocketbase-realtime]
+    implication: "Reference design for edit-queue: durable outbox, server total order, ack by matching sync id, rebase pending field values on remote deltas, LWW per field. Our version can be far smaller (one owner, online only), but the reload-survival and ack-by-id properties are the bar for the edit-queue capability."
+  - source: "https://linear.app/changelog/2023-12-06-editor-improvements"
+    author: "Linear"
+    trust_basis: "Vendor's own changelog for a shipped feature."
+    evidence_type: production-report
+    published: "2023-12-06"
+    claim: "All documents and issue descriptions can now be edited by multiple people at the same time, with input cursors for others editing or viewing, and changes instantly saved and synced in realtime. The page names no technology."
+    verdict: works
+    candidates: [yjs, hocuspocus, prosemirror-collab]
+    implication: "Linear runs two tiers: LWW field sync for issue metadata and a separate realtime text-collaboration channel (with presence) for long-form bodies. That split maps directly onto our pin/folder vs body. Do not cite Linear as a Yjs user; the changelog does not say so."
+  - source: "https://obsidian.md/help/sync/troubleshoot"
+    author: "Obsidian (Dynalist Inc.)"
+    trust_basis: "Vendor help docs for the shipped Sync product. Undated page; published is the scan date."
+    evidence_type: production-report
+    published: "2026-11-21"
+    claim: "Markdown files are merged with Google's diff-match-patch; other files are 'last modified wins'; settings JSON applies local keys over remote keys. Since 1.9.7 users can choose to get a conflict file such as 'Meeting notes (Conflicted copy MyMacBook2 202411281430).md' instead of auto-merge."
+    verdict: works-with-caveat
+    candidates: [note-revision-baseline, field-version-baseline]
+    implication: "A non-CRDT text-merge middle ground exists: three-way diff-match-patch on the body against the last-synced base, with a conflict-copy fallback. Users asked for the copy option, which suggests silent textual merges sometimes surprise. Candidate idea for field-version-baseline's body rule; diff-match-patch would need its own license and maturity check (Apache-2.0 upstream, not verified here)."
+  - source: "https://joplinapp.org/help/apps/conflict"
+    author: "Joplin project (Laurent Cozic, maintainer)"
+    trust_basis: "Official docs of an open-source notes app; page last changed 2026-02-10 in laurent22/joplin readme/apps/conflict.md."
+    evidence_type: production-report
+    published: "2026-02-10"
+    claim: "When the same note is changed on two devices, Joplin copies the local version into a 'Conflict' notebook and replaces the local note with the remote one; resolution is manual comparison or a plugin. Conflicts mostly occur because downloads run on an interval of minutes."
+    verdict: works-with-caveat
+    candidates: [note-revision-baseline]
+    implication: "Whole-note conflict copies are a working floor but are the experience the owner wants to avoid; Joplin's own advice (sync before and after editing) shows polling intervals cause most of them. Live push (pocketbase-realtime) removes much of the window even without merging."
+  - source: "https://github.com/standardnotes/app/blob/main/packages/models/src/Domain/Abstract/Item/Implementations/GenericItem.ts"
+    author: "Standard Notes (maintainers of standardnotes/app)"
+    trust_basis: "Shipping client source of an open-source notes app; file last changed 2026-10-08."
+    evidence_type: production-report
+    published: "2026-10-08"
+    claim: "On a rejected save, if the server's item equals the client's previous revision the local change is kept with no conflict (fast-forward); if only references (tags) differ they are merged; otherwise a duplicate is made, keeping the local copy in place if the user modified it within the last 20 seconds so the editor is not yanked."
+    verdict: works-with-caveat
+    candidates: [note-revision-baseline, field-version-baseline]
+    implication: "Two cheap tricks for our 409 path: (1) compare the server's current state with the base the client edited from and fast-forward when only our side changed; (2) never replace the note under an actively typing cursor; put the other version aside instead."
+  - source: "https://github.com/standardnotes/app/blob/main/packages/models/src/Domain/Abstract/Item/Implementations/DecryptedItem.ts"
+    author: "Standard Notes (maintainers of standardnotes/app)"
+    trust_basis: "Shipping client source; read together with GenericItem.ts and ItemContentsDiffer.ts."
+    evidence_type: production-report
+    published: "2026-10-08"
+    claim: "pinned, archived, locked, starred, trashed and protected live inside the same encrypted content object as the note text; the equality check that decides whether to duplicate ignores only conflict_of and the user-modified date."
+    verdict: does-not-work
+    candidates: [note-revision-baseline, field-version-baseline]
+    implication: "Inference from code, not a reported bug: a pin on one device and a body edit on another differ in content and would produce a conflicted copy. This is the false-conflict pattern our R7 plan reproduces by bumping the single note revision on pin; it argues for field-version-baseline (separate metadata version) before or with R7."
+  - source: "https://github.com/Simperium/node-simperium/blob/master/src/simperium/channel.js"
+    author: "Simperium / Automattic (Simplenote's sync service)"
+    trust_basis: "Source of the official Node client for the sync service behind Simplenote; last changed 2021-08-31."
+    evidence_type: production-report
+    published: "2021-08-31"
+    claim: "Each object has a 'ghost' (last version the server confirmed); local edits are queued as jsondiff changes against the ghost with a client change id (ccid). When a remote change arrives, pending local diffs are transformed over the remote patch (diff-match-patch for strings) and re-queued; acks match by ccid and a duplicate-change response is treated as already applied."
+    verdict: works
+    candidates: [sharedb, field-version-baseline, note-revision-baseline]
+    implication: "Per-field JSON diff with string-level transform is a proven, small design for one-owner notes: metadata keys merge independently, text merges by diff-match-patch, and ccid makes replay idempotent. A good template for the edit-queue proof (reload with a queued change; replay must not double-apply)."
+  - source: "https://github.com/TriliumNext/Trilium/blob/main/docs/Developer%20Guide/Developer%20Guide/Concepts/Synchronisation.md"
+    author: "TriliumNext maintainers"
+    trust_basis: "Developer guide in the official repo of an open-source notes app (CKEditor 5 for text, CodeMirror for code notes); last changed 2025-11-04."
+    evidence_type: production-report
+    published: "2025-11-04"
+    claim: "Every change to a note, branch (placement in the tree) or attribute writes an entity_changes row with a UUID changeId, hash and componentId; sync resolves content and attribute conflicts last-write-wins on utcDateModified 'without merge conflict indication', and the componentId lets the UI avoid refreshing the widget being edited."
+    verdict: works-with-caveat
+    candidates: [field-version-baseline, pocketbase-realtime]
+    implication: "Storing placement and labels as separate entities is why a move never conflicts with a body edit in Trilium; we get the same by versioning metadata separately. Body LWW silently loses words, so do not copy that part. The componentId idea maps to skipping our own echo in PocketBase realtime events."
+  - source: "https://github.com/logseq/logseq/blob/master/docs/adr/0008-db-sync-simulation-and-replay-coverage.md"
+    author: "Logseq maintainers"
+    trust_basis: "Accepted architecture decision record in the official repo describing bugs seen in production."
+    evidence_type: production-report
+    published: "2026-03-17"
+    claim: "Recent DB-sync bugs repeatedly escaped unit and simulation tests and surfaced only in real sessions, after long offline editing, undo/redo, delete/recreate and sequential reconnects; they added replay tests from persisted local-txs and remote tx batches and invariant checks for malformed pending tx items."
+    verdict: works-with-caveat
+    candidates: [field-version-baseline, tanstack-offline, replicache-zero]
+    implication: "A hand-built transaction queue with rebase is where bugs hide. Keep ours short-lived (online only, one in-flight write per note) and require reconnect-order and reload-replay tests in the proof. Related: ADR 0001 (2026-01-30) proposes a Node adapter to self-host this sync server, which conflicts with a 2025 forum report that DB sync would stay closed; Logseq is not a candidate either way."
+  - source: "https://discuss.logseq.com/t/logseq-db-changelog/30013/37"
+    author: "danzu (poster of the official Logseq DB changelog thread; role not stated)"
+    trust_basis: "Changelog post linking to Logseq commits; poster's role is not stated, so weak."
+    evidence_type: anecdote
+    published: "2026-05-16"
+    claim: "'Title sync conflicts keep the latest write' and a 'Notice surfaces when block content conflicts arise, flagging sync collisions'."
+    verdict: unclear
+    candidates: [field-version-baseline]
+    implication: "Same split again: short fields last-write-wins, body conflicts surfaced to the user. No action beyond the theme."
+  - source: "https://github.com/toeverything/y-octo"
+    author: "toeverything (AFFiNE team)"
+    trust_basis: "README of the CRDT engine maintained by AFFiNE's developers, stating their own production use; last changed 2026-11-21."
+    evidence_type: production-report
+    published: "2026-11-21"
+    claim: "y-octo is a Rust CRDT binary-compatible with Yjs; AFFiNE uses it in production in its Electron app and Node.js server, alongside yjs on the web. The README says the removed Node binding means applications need an adapter."
+    verdict: works
+    candidates: [yjs, hocuspocus]
+    implication: "Yjs at scale ships with a native/Node server that can decode documents. For us, server-derivation of title/search/tasks from a Yjs body likely needs Node or a Rust/WASM port, not PocketBase's Goja JSVM; verify whether yjs runs inside Goja in Phase 2. AFFiNE itself is not a candidate (whole app)."
+  - source: "https://github.com/AppFlowy-IO/AppFlowy-Collab"
+    author: "AppFlowy maintainers"
+    trust_basis: "README of AppFlowy's own collaboration layer; last changed 2025-10-30; repo last push 2026-02-18."
+    evidence_type: production-report
+    published: "2025-10-30"
+    claim: "AppFlowy-Collab is a Rust crate built on yrs; every document, database, folder and user-awareness change is a yrs transaction, persisted by plugins (RocksDB locally, Supabase or websocket sync remotely) and fanned out to other clients."
+    verdict: works
+    candidates: [yjs]
+    implication: "Folder tree and metadata also live in CRDTs here, which avoids false conflicts but makes the whole data model CRDT-shaped; that is far beyond a small change for a PocketBase-record app. Note AGPL-3.0 and a quiet repo since February 2026."
+  - source: "https://github.com/siyuan-note/siyuan/blob/master/kernel/conf/sync.go"
+    author: "SiYuan maintainers (B3log)"
+    trust_basis: "Shipping kernel source of an open-source notes app; last changed 2026-11-01."
+    evidence_type: production-report
+    published: "2026-11-01"
+    claim: "Sync config has GenerateConflictDoc ('whether to generate a conflict document on cloud sync conflict'), and the default is false."
+    verdict: works-with-caveat
+    candidates: [note-revision-baseline]
+    implication: "A mature notes app defaults to not creating conflict documents (relying on its data history instead), a sign that conflict copies annoy users more than rare overwrites with recoverable history. Our R5 history/Recently Deleted is the analogous safety net."
+  - source: "https://bear.app/faq/how-bear-pro-handles-conflicted-notes"
+    author: "Bear (Shiny Frog)"
+    trust_basis: "Vendor FAQ for a shipped CloudKit-synced notes app. Undated page; published is the scan date."
+    evidence_type: production-report
+    published: "2026-11-21"
+    claim: "In rare cases, such as editing offline on one device and online on another, a note develops a second conflicted version; conflicted notes move to the top of the list, even above pinned notes, linked by a line, and the user moves text between them and deletes one."
+    verdict: works-with-caveat
+    candidates: [note-revision-baseline]
+    implication: "If we keep a conflict-copy fallback, surface it above pinned notes and link the pair. Bear describes conflicts only for offline edits, which is outside our scope."
+  - source: "https://support.google.com/keep/answer/6102239?hl=en"
+    author: "Google"
+    trust_basis: "Vendor help page for Google Keep."
+    evidence_type: production-report
+    published: "2026-11-21"
+    claim: "Editing the same note on two devices while one is offline (or on slow Wi-Fi) can show 'Conflicting edits found'; the user picks a version with 'Keep selected' or taps 'Keep both'."
+    verdict: works-with-caveat
+    candidates: [note-revision-baseline]
+    implication: "Pick-one-or-keep-both is the minimal conflict UI. Undated page; published is the scan date."
+  - source: "https://dev.evernote.com/doc/articles/synchronization.php"
+    author: "Evernote"
+    trust_basis: "Vendor developer docs (legacy, marked deprecated). Undated; published is the scan date."
+    evidence_type: opinion
+    published: "2026-11-21"
+    claim: "Third-party sync clients must follow the sync specification (edam-sync.pdf) so they 'do not overwrite user data in the event of conflicting changes'; the page itself gives no algorithm."
+    verdict: unclear
+    candidates: [note-revision-baseline]
+    implication: "Nothing primary found on Evernote's current conflict-note behavior; do not cite Evernote for any specific mechanism without reading edam-sync.pdf."
+  - source: "https://github.com/dunhamsteve/notesutils/blob/master/notes.md"
+    author: "Steve Dunham"
+    trust_basis: "Independent reverse engineering of the Apple Notes database format, published with working extraction code; not Apple."
+    evidence_type: anecdote
+    published: "2018-01-10"
+    claim: "Apple Notes stores note text as a CRDT Apple calls 'topotext' (characters with clocks forming a DAG), with last-write-wins registers and dictionaries for other values; he suspects topotext is not a true CvRDT but notes that iCloud serializes merges anyway."
+    verdict: works
+    candidates: [yjs, automerge, loro]
+    implication: "Even Apple pairs a text CRDT with a central server that orders merges, and uses LWW registers for scalar values. Supports the body-merge plus field-LWW split; third-party evidence only."
+  - source: "https://www.notion.com/blog/how-we-made-notion-available-offline"
+    author: "Raymond Xu (Notion software engineer)"
+    trust_basis: "Notion engineer on the vendor's engineering blog describing a shipped feature."
+    evidence_type: production-report
+    published: "2025-12-11"
+    claim: "Pages marked available offline are dynamically migrated to a new CRDT data model for conflict resolution; rich-text conflict resolution was named among the hard problems, and freshness moved from polling to push channels with timestamp catch-up on reconnect."
+    verdict: works-with-caveat
+    candidates: [yjs, automerge, loro, pocketbase-realtime]
+    implication: "Notion moved to a CRDT only for the offline case; online it relied on server-ordered transactions. Since offline-first is out of our scope, this weakens the case for a CRDT body. Push plus catch-up-on-reconnect is the live-update pattern to copy."
+  - source: "https://marijnhaverbeke.nl/blog/collaborative-editing.html"
+    author: "Marijn Haverbeke (author of ProseMirror)"
+    trust_basis: "Author of ProseMirror and prosemirror-collab explaining its design."
+    evidence_type: opinion
+    published: "2015-07-28"
+    claim: "A central authority that orders steps saves 'oh so much complexity'; clients rebase unconfirmed steps over remote ones, the only hard part. The model may silently throw away work or produce a strange mishmash when two people edit the same sentence offline, so offline branching needs a diff-based approach with conflict resolution."
+    verdict: works-with-caveat
+    candidates: [prosemirror-collab]
+    implication: "prosemirror-collab fits our online, server-authoritative shape and the ProseKit editor directly, but needs a step log on the server (a PocketBase collection or hook). Proof should test two devices typing in one paragraph and reconnect after a short outage."
+themes:
+  - theme: "Property-level last-writer-wins for metadata, text merge or conflict copy for bodies. Short fields (pin, folder, title, labels, placement) are versioned or timestamped independently and never conflict with body edits."
+    support:
+      - "https://www.figma.com/blog/how-figmas-multiplayer-technology-works/"
+      - "https://github.com/wzhudev/reverse-linear-sync-engine"
+      - "https://linear.app/changelog/2023-12-06-editor-improvements"
+      - "https://github.com/TriliumNext/Trilium/blob/main/docs/Developer%20Guide/Developer%20Guide/Concepts/Synchronisation.md"
+      - "https://github.com/dunhamsteve/notesutils/blob/master/notes.md"
+      - "https://discuss.logseq.com/t/logseq-db-changelog/30013/37"
+      - "https://obsidian.md/help/sync/troubleshoot"
+    action: "Score no-false-conflict as achievable without a CRDT; field-version-baseline is the reference. Verify in Phase 2 that the R7 pin as planned (revision +1 on one note revision) makes a pending body save on another device get 409."
+  - theme: "Metadata inside the same versioned blob as the body produces false conflicts and conflict copies."
+    support:
+      - "https://github.com/standardnotes/app/blob/main/packages/models/src/Domain/Abstract/Item/Implementations/DecryptedItem.ts"
+      - "https://joplinapp.org/help/apps/conflict"
+      - "https://bear.app/faq/how-bear-pro-handles-conflicted-notes"
+    action: "Add proof 'pin on A, then save body on B from the older revision' for note-revision-baseline (expect fail) and field-version-baseline (expect pass)."
+  - theme: "The edit queue is a server-ordered outbox: pending local changes carry a client id, the client keeps its pending value over server echoes until acked, then rebases or transforms what is still pending."
+    support:
+      - "https://github.com/wzhudev/reverse-linear-sync-engine"
+      - "https://www.figma.com/blog/how-figmas-multiplayer-technology-works/"
+      - "https://github.com/Simperium/node-simperium/blob/master/src/simperium/channel.js"
+      - "https://marijnhaverbeke.nl/blog/collaborative-editing.html"
+    action: "Edit-queue proof: queue a change, reload, reconnect; it must replay once (idempotent by client change id) and not flicker the editor back to the server value."
+  - theme: "Hand-built queues fail on long-lived pending state and reconnect order; teams that built their own sync ended up with replay and simulation tests."
+    support:
+      - "https://github.com/logseq/logseq/blob/master/docs/adr/0008-db-sync-simulation-and-replay-coverage.md"
+      - "https://www.inkandswitch.com/essay/local-first/"
+    action: "Keep any homegrown queue online-only with one in-flight write per note; require both-reconnect-orders and reload-replay tests before adoption. Weighs on reuse-over-build."
+  - theme: "CRDT bodies appear where offline or many-writer editing is core (AFFiNE, AppFlowy, Notion offline, Apple Notes), and they ship with a native or Node server that can decode the document. Online single-writer apps get by with server ordering plus diff merge or LWW."
+    support:
+      - "https://github.com/toeverything/y-octo"
+      - "https://github.com/AppFlowy-IO/AppFlowy-Collab"
+      - "https://www.notion.com/blog/how-we-made-notion-available-offline"
+      - "https://github.com/dunhamsteve/notesutils/blob/master/notes.md"
+      - "https://www.inkandswitch.com/essay/local-first/"
+    action: "Verify in Phase 2 whether yjs/automerge/loro can decode a body inside PocketBase's Goja JSVM or need a sidecar (server-derivation, single-image). Measure CRDT document growth after many edits."
+  - theme: "There is a middle ground between LWW and CRDT: three-way text merge (diff-match-patch) against the last-synced base, with a conflict copy only when the patch fails."
+    support:
+      - "https://obsidian.md/help/sync/troubleshoot"
+      - "https://github.com/Simperium/node-simperium/blob/master/src/simperium/channel.js"
+      - "https://github.com/standardnotes/app/blob/main/packages/models/src/Domain/Abstract/Item/Implementations/GenericItem.ts"
+    action: "Consider a variant of field-version-baseline with a diff-match-patch body merge on stale write; check that diff-match-patch has a maintained npm package, an OSI license, and a version that runs in Goja. Not seeded as a candidate."
+  - theme: "Conflict UI, when it exists, is pick-one or keep-both, with the copy surfaced at the top and the open editor never replaced under the cursor; some apps default to no copy and rely on history."
+    support:
+      - "https://support.google.com/keep/answer/6102239?hl=en"
+      - "https://bear.app/faq/how-bear-pro-handles-conflicted-notes"
+      - "https://obsidian.md/help/sync/troubleshoot"
+      - "https://github.com/standardnotes/app/blob/main/packages/models/src/Domain/Abstract/Item/Implementations/GenericItem.ts"
+      - "https://github.com/siyuan-note/siyuan/blob/master/kernel/conf/sync.go"
+    action: "none for candidates; feeds the R7+ conflict UX spec if a conflict path remains."
+  - theme: "Presence is an ephemeral side channel, separate from the record store, and appears together with realtime text editing."
+    support:
+      - "https://linear.app/changelog/2023-12-06-editor-improvements"
+      - "https://github.com/AppFlowy-IO/AppFlowy-Collab"
+      - "https://github.com/toeverything/y-octo"
+      - "https://www.figma.com/blog/how-figmas-multiplayer-technology-works/"
+    action: "Verify in Phase 2 whether PocketBase realtime can carry an ephemeral 'editing on device X' signal without writing note records, or whether presence only comes with a Yjs-style awareness server."

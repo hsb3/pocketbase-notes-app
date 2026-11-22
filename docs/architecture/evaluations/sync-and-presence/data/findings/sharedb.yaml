@@ -1,0 +1,62 @@
+candidate: sharedb
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/share/sharedb"
+layer_fit:
+  verdict: in-layer
+  note: "Node OT server and client (json0 default, rich-text registrable) with middleware auth and presence. Integration effort: DIY. No ProseMirror type or binding exists (npm search 'sharedb prosemirror' returns none), and the only production database adapters are MongoDB and PostgreSQL; a PocketBase/SQLite adapter would be ours and is not documented."
+license:
+  components:
+    - {name: "sharedb 8.0.0 (server and client)", license: MIT, source: "https://github.com/share/sharedb/blob/main/LICENSE"}
+    - {name: "ot-json0, rich-text types", license: MIT, source: "https://registry.npmjs.org/sharedb/latest"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "Library embedded in our own Node server; no hosted component."
+filters:
+  - {id: osi-license, verdict: pass, evidence: "LICENSE 'standard MIT license' (Nate Smith, Joseph Gentle); npm license MIT.", source: "https://github.com/share/sharedb/blob/main/LICENSE"}
+  - {id: self-hosted-no-key, verdict: pass, evidence: "Self-hosted Node backend (Express + ws example).", source: "https://github.com/share/sharedb/blob/main/docs/getting-started.md"}
+  - {id: pocketbase-record, verdict: fail, evidence: "Documented adapters: MemoryDB (not for production), sharedb-mongo, sharedb-postgres, sharedb-mingo-memory. Persisting snapshots and ops needs MongoDB or PostgreSQL unless we write an undocumented adapter.", source: "https://github.com/share/sharedb/blob/main/docs/adapters/database.md"}
+capabilities:
+  - {id: no-false-conflict, verdict: partial, note: "OT on the doc's own version; metadata outside it would not conflict, but only if body and metadata are split across systems.", source: "https://github.com/share/sharedb/blob/main/docs/api/doc.md"}
+  - {id: text-merge, verdict: partial, note: "Concurrent ops transform and merge for registered types (json0, rich-text Quill Delta); no ProseMirror document type, so for our editor it does not apply without a DIY mapping.", source: "https://github.com/share/sharedb/blob/main/docs/types/index.md"}
+  - {id: edit-queue, verdict: partial, note: "Client composes and resends pending ops after reconnect (maxSubmitRetries unlimited by default); held in memory, not across reload.", source: "https://github.com/share/sharedb/blob/main/docs/api/backend.md"}
+  - {id: presence, verdict: "yes", note: "connection.getPresence / getDocPresence; receive(id, null) when a remote client leaves; enable with presence: true. Typed presence only for rich-text.", source: "https://github.com/share/sharedb/blob/main/docs/presence.md"}
+  - {id: live-update, verdict: partial, note: "Subscribed docs and queries update live, but only for data stored in ShareDB, not PocketBase records.", source: "https://github.com/share/sharedb/blob/main/docs/middleware/access-control.md"}
+  - {id: prosemirror-binding, verdict: "no", note: "No maintained ProseMirror binding found on npm; ShareDB ships only json0 and documents rich-text (Quill).", source: "https://registry.npmjs.org/-/v1/search?text=sharedb%20prosemirror"}
+  - {id: pocketbase-auth, verdict: partial, note: "connect/readSnapshots/op/submit middleware with agent.custom can enforce a PocketBase token check we write.", source: "https://github.com/share/sharedb/blob/main/docs/middleware/access-control.md"}
+  - {id: server-derivation, verdict: partial, note: "Snapshot data is plain JSON in Node; writing it back to PocketBase is a sidecar we would build.", source: "https://github.com/share/sharedb/blob/main/docs/api/snapshot.md"}
+  - {id: single-image, verdict: "no", note: "Needs a Node server plus MongoDB or PostgreSQL for persistence.", source: "https://github.com/share/sharedb/blob/main/docs/adapters/database.md"}
+biases:
+  - {id: reuse-over-build, met: false, note: "Integration effort DIY (no ProseMirror type, no SQLite/PocketBase adapter)."}
+  - {id: small-change, met: false, note: "New Node service, new database or custom adapter, custom OT type, editor rewrite."}
+maturity:
+  stars: 6564
+  recurring_contributors: 1
+  single_merger: true
+  commits_by_month: {"2026-06": 12, "2026-07": 7, "2026-08": 3, "2026-09": 16, "2026-10": 38, "2026-11": 19}
+  last_commit: "2026-11-17"
+  last_release: "2026-11-12"
+  open_issues: 148
+  open_prs: 18
+  backlog_trend: growing
+  regime_change: "Three majors in a month: v6.0.5 and v7.0.0 2026-10-22, v8.0.0 2026-11-12 (breaking: multi-channel query polling default removed)."
+  adopters: []
+  downloads: "sharedb 37,664 npm downloads, week 2026-11-14..2026-11-20"
+  signals:
+    - {id: recency, passed: true, evidence: "Last commit 2026-11-17."}
+    - {id: releases, passed: true, evidence: "v8.0.0 2026-11-12."}
+    - {id: breadth, passed: false, evidence: "88 of 95 window commits by alecgibson, 6 dependabot, 1 dawidreedsy (one month); no institutional backing verified from primary sources."}
+    - {id: breadth-preference, passed: false, evidence: "1 recurring contributor."}
+    - {id: not-dying, passed: true, evidence: "Oct+Nov average 28.5/month vs Jun-Sep 9.5/month; rising."}
+  verdict: at-risk
+sources:
+  - "https://github.com/share/sharedb/blob/main/LICENSE"
+  - "https://github.com/share/sharedb/blob/main/docs/getting-started.md"
+  - "https://github.com/share/sharedb/blob/main/docs/adapters/database.md"
+  - "https://github.com/share/sharedb/blob/main/docs/types/index.md"
+  - "https://github.com/share/sharedb/blob/main/docs/presence.md"
+  - "https://github.com/share/sharedb/blob/main/docs/middleware/access-control.md"
+  - "https://github.com/share/sharedb/blob/main/docs/api/backend.md"
+  - "https://github.com/share/sharedb/releases/tag/v8.0.0"
+  - "https://registry.npmjs.org/sharedb/latest"

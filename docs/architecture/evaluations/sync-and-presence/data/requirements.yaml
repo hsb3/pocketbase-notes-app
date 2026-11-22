@@ -1,0 +1,105 @@
+# Schema: ../schemas/requirements.schema.yaml
+decision_question: Which write-coordination, edit-queue and presence approach should PocketBase Notes adopt so one writer can use several devices at once without losing words or seeing spurious conflicts?
+dated: "2026-11-21"
+layer:
+  must_do:
+    - Decide how concurrent changes to one note from two devices or tabs of the same owner are ordered, merged or refused (body text and metadata such as pin, folder, deleted).
+    - Carry pending local changes to the server in order, with retry, and tell the writer what is saved.
+    - Optionally show that the note is open or being edited on another device, and push remote changes into open views.
+  wrong_layer:
+    - Rich-text editor UI toolkits (covered by the rich-text-editor evaluation); only their collaboration bindings count here.
+    - Hosted collaboration SaaS (Liveblocks, Ably, Pusher, Firebase); eliminated by the self-hosted filter, not scored.
+    - General databases that would replace PocketBase as the system of record; rejected by the pocketbase-record filter.
+hard_filters:
+  - id: osi-license
+    statement: Every component we would ship is under an OSI-approved license.
+    rationale: Owner decision 2026-11-21. Source-available or commercial-only parts are flagged, not adopted.
+    verify_by: Read the LICENSE file of each shipped package (client, server, bindings).
+  - id: self-hosted-no-key
+    statement: Runs entirely inside our own deployment with no license key, no vendor cloud and no mandatory telemetry.
+    rationale: The app ships as one self-hosted Docker image for private notes.
+    verify_by: Docs and code search for license key, telemetry, cloud endpoints; self-hosting docs.
+  - id: pocketbase-record
+    statement: Keeps PocketBase 0.40 as the auth provider and system of record; no replacement primary database (for example Postgres).
+    rationale: AGENTS.md pins PocketBase 0.40.x; replacing the backend is outside this decision.
+    verify_by: Integration docs, required backends, whether data can be stored in a PocketBase record or SQLite.
+capabilities:
+  - id: no-false-conflict
+    name: Independent changes do not conflict
+    required: bias
+    what_counts: A metadata change (pin, move) on device A does not make device B's next body save fail or need user action.
+    verify_by: Docs of the merge model (per-field versions, CRDT map semantics) or our code.
+  - id: text-merge
+    name: Concurrent body edits merge
+    required: bias
+    what_counts: Two devices typing in the same note while both online end with both edits kept, no dialog. Last-writer-wins on the whole body is "no".
+    verify_by: Docs of the text type and its ProseMirror binding.
+  - id: edit-queue
+    name: Durable ordered edit queue
+    required: bias
+    what_counts: Pending changes are queued client-side in order, retried after failure, deduplicated or idempotent on replay, and survive a page reload.
+    verify_by: Docs for the client persistence and replay model.
+  - id: presence
+    name: Presence on other devices
+    required: bias
+    what_counts: An ephemeral signal (open, editing, cursor) that appears within seconds and disappears on disconnect or timeout, without writing note records.
+    verify_by: Awareness/presence API docs.
+  - id: live-update
+    name: Remote changes reach open views
+    required: bias
+    what_counts: An open list or note receives another device's committed change without reload, scoped to the owner.
+    verify_by: Realtime/subscription docs and their auth model.
+  - id: prosemirror-binding
+    name: ProseMirror / ProseKit binding
+    required: bias
+    what_counts: A maintained binding to ProseMirror (ProseKit is built on it), not a sample.
+    verify_by: Binding package and its maintenance.
+  - id: pocketbase-auth
+    name: Uses PocketBase auth per note
+    required: bias
+    what_counts: The sync channel can authorize each connection or document with the PocketBase user token and owner rule.
+    verify_by: Auth hooks in the server or protocol docs.
+  - id: server-derivation
+    name: Server can still derive title, search text and tasks
+    required: bias
+    what_counts: The server can turn stored state into plain JSON or text in a hook (PocketBase JSVM or Go) or a documented sidecar, so search, titles and Open Tasks keep working.
+    verify_by: Server-side decode APIs and runtime requirements (Node, WASM, Go port).
+  - id: single-image
+    name: Fits the single image
+    required: bias
+    what_counts: No extra always-on service, or one that runs in the same image with documented resource needs.
+    verify_by: Server runtime and deployment docs.
+biases:
+  - id: reuse-over-build
+    statement: Prefer mature packages and PocketBase built-ins over homegrown protocols.
+    rationale: Owner direction 2026-11-21.
+    verify_by: Maturity verdict plus integration effort level.
+  - id: small-change
+    statement: Prefer the smallest change that delivers the capabilities the current scope needs (one owner, many devices).
+    rationale: Constitution IV; offline-first and multi-user sharing are out of scope.
+    verify_by: Integration effort estimate and files touched.
+proofs: []
+maturity_bar:
+  window_months: 6
+  recurring_contributor_floor: 2
+  recurring_contributor_preference: 3
+  last_commit_max_days: 90
+  last_release_max_days: 180
+  dying_drop_pct: 60
+candidates:
+  - {id: note-revision-baseline, name: "Current: one revision per note, 409 on stale write (R3/R5)", kind: baseline, seed_reason: Incumbent design; R7 plan extends it.}
+  - {id: field-version-baseline, name: "Hand-built: separate content and metadata versions, server-side per-field resolver", kind: baseline, seed_reason: Smallest change that removes false conflicts.}
+  - {id: pocketbase-realtime, name: PocketBase realtime (SSE subscriptions), kind: candidate, repo: "https://github.com/pocketbase/pocketbase", seed_reason: Built in; candidate for live updates and presence.}
+  - {id: yjs, name: "Yjs + y-prosemirror + y-protocols awareness", kind: candidate, repo: "https://github.com/yjs/yjs", seed_reason: "Most used text CRDT; owner asked about edit queue, resolver and presence."}
+  - {id: automerge, name: "Automerge + automerge-prosemirror", kind: candidate, repo: "https://github.com/automerge/automerge", seed_reason: Major CRDT alternative.}
+  - {id: loro, name: "Loro + loro-prosemirror", kind: candidate, repo: "https://github.com/loro-dev/loro", seed_reason: Newer CRDT with rich-text and ProseMirror binding.}
+  - {id: hocuspocus, name: Hocuspocus (Yjs server), kind: candidate, repo: "https://github.com/ueberdosis/hocuspocus", seed_reason: Yjs server with auth and persistence hooks.}
+  - {id: y-sweet, name: Y-Sweet, kind: candidate, repo: "https://github.com/jamsocket/y-sweet", seed_reason: Self-hostable Yjs server.}
+  - {id: prosemirror-collab, name: prosemirror-collab (central authority steps), kind: candidate, repo: "https://github.com/ProseMirror/prosemirror-collab", seed_reason: ProseMirror's own rebase-and-confirm protocol; a ready-made edit queue and resolver.}
+  - {id: sharedb, name: ShareDB (OT), kind: candidate, repo: "https://github.com/share/sharedb", seed_reason: Mature OT server.}
+  - {id: replicache-zero, name: Replicache / Zero (Rocicorp), kind: candidate, repo: "https://github.com/rocicorp/mono", seed_reason: Sync engine with client mutation queue and server rebase.}
+  - {id: powersync, name: PowerSync, kind: candidate, repo: "https://github.com/powersync-ja/powersync-service", seed_reason: SQLite-client sync engine; check backends and license.}
+  - {id: electric, name: ElectricSQL, kind: candidate, repo: "https://github.com/electric-sql/electric", seed_reason: Sync engine; expected to need Postgres.}
+  - {id: tanstack-offline, name: "TanStack Query persisted mutations / TanStack DB", kind: candidate, repo: "https://github.com/TanStack/query", seed_reason: Off-the-shelf client mutation queue.}
+  - {id: tinybase, name: TinyBase, kind: candidate, repo: "https://github.com/tinyplex/tinybase", seed_reason: Local-first store with sync and CRDT merge.}
+deliverable: report

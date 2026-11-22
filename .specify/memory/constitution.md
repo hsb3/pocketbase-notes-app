@@ -21,9 +21,16 @@ Denied requests are tested as well as the happy path, including cross-account is
 
 ### III. Never lose a user's words
 
-Saves go through the entry `revision` check (HTTP 409 on a stale revision). Any new write path
-to an entry MUST reuse that check rather than bypass it, so an editor's unsaved draft is never
-silently overwritten.
+Content saves go through the note's `revision` check (HTTP 409 on a stale revision). Any new
+write path that changes note content (body, attachments) MUST reuse that check rather than
+bypass it, so an editor's unsaved draft is never silently overwritten.
+
+A metadata-only write (an absolute value such as pin) cannot overwrite words, so it does not use
+that check. A new metadata-only write path MUST leave every content column unchanged, MUST NOT
+advance the revision, and resolves last change wins for its own field. A pin on one device must
+never make a content save on another device fail. R5 move, delete and restore predate this rule
+and still advance the revision. Moving them to it is separate work.
+[Why](../../docs/architecture/evaluations/sync-and-presence/report.md)
 
 ### IV. Smallest complete change, no new dependencies
 
@@ -64,4 +71,4 @@ This constitution is a summary of `AGENTS.md` and the feature workflow; amend th
 then this file. Reviews check a PR against the principles above. Versioning: MAJOR for removed
 or redefined principles, MINOR for added ones, PATCH for wording.
 
-**Version**: 1.1.0 | **Ratified**: 2026-11-15 | **Last Amended**: 2026-11-16
+**Version**: 2.0.0 | **Ratified**: 2026-11-15 | **Last Amended**: 2026-11-21

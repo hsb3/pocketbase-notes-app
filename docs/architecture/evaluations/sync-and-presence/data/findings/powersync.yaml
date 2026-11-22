@@ -1,0 +1,78 @@
+candidate: powersync
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/powersync-ja/powersync-service"
+layer_fit:
+  verdict: in-layer
+  note: "Sync engine: a PowerSync Service replicates a source database into client-side SQLite (read path); client writes go to a local ordered upload queue that the app uploads through its own backend (write path)."
+license:
+  components:
+    - {name: "powersync-service (root, service/, packages/*, modules/*, libs/*)", license: Apache-2.0, source: "https://github.com/powersync-ja/powersync-service/blob/main/LICENSE"}
+    - {name: "powersync-js client SDKs (@powersync/web, common, react)", license: Apache-2.0, source: "https://github.com/powersync-ja/powersync-js/blob/main/LICENSE"}
+    - {name: "powersync-sqlite-core (client SQLite extension)", license: Apache-2.0, source: "https://github.com/powersync-ja/powersync-sqlite-core"}
+phone_home:
+  telemetry: opt-out
+  opt_out_toggle: "telemetry.disable_telemetry_sharing: true in the service config"
+  license_key: false
+  evidence: "service-core metrics/open-telemetry/util.ts starts an OTLP exporter to telemetry.internal_service_endpoint (default https://pulse.journeyapps.com/v... in compound-config-collector.ts) every 5 minutes unless disable_telemetry_sharing is true. No license-key code found in service-core or service."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Every LICENSE file in powersync-service (24 files, root and per module) is Apache-2.0 since commit 574ddbd on 2026-11-03 'Change license from FSL to Apache-2.0 (#878)'; before that the service was FSL-1.1-ALv2. Releases after the switch: v1.28.3 (2026-11-12), v1.29.0, v1.29.1 (2026-11-18). Client SDKs Apache-2.0."
+    source: "https://github.com/powersync-ja/powersync-service/commit/574ddbd"
+  - id: self-hosted-no-key
+    verdict: pass
+    evidence: "Self-hosted Docker image, no license key; telemetry sharing on by default but disable_telemetry_sharing turns it off."
+    source: "https://docs.powersync.com/maintenance-ops/self-hosting/usage-reporting"
+  - id: pocketbase-record
+    verdict: fail
+    evidence: "Source-database modules are module-postgres, module-mongodb, module-mysql, module-mssql and module-convex; there is no SQLite source, so PocketBase's database cannot be replicated. Bucket storage also needs MongoDB or Postgres (module-mongodb-storage, module-postgres-storage). Using it means adding a second primary database."
+    source: "https://github.com/powersync-ja/powersync-service/tree/main/modules"
+capabilities:
+  - {id: no-false-conflict, verdict: partial, note: "Uploads are per-row CRUD operations (PUT/PATCH/DELETE with changed columns) applied by our backend, so a pin PATCH need not touch the body; conflict policy is entirely the backend's.", source: "https://docs.powersync.com/handling-writes/write-path/overview"}
+  - {id: text-merge, verdict: partial, note: "Rows are last-write-wins; text merge only via a Yjs-updates table demo (demos/yjs-react-supabase-text-collab), not a product feature.", source: "https://github.com/powersync-ja/powersync-js/tree/main/demos/yjs-react-supabase-text-collab"}
+  - {id: edit-queue, verdict: "yes", note: "Client SDK records writes in an ordered upload queue in local SQLite (survives reload); uploadData() throws on retryable errors and 'later writes wait behind them until a retry succeeds'. Idempotency of replay is the backend's job.", source: "https://docs.powersync.com/handling-writes/write-path/overview"}
+  - {id: presence, verdict: not-documented, note: "No presence/awareness API found in service or JS SDK docs.", source: "https://docs.powersync.com/client-sdks/writing-data"}
+  - {id: live-update, verdict: "yes", note: "Sync streams push source-DB changes to subscribed clients; only with a supported source DB (not PocketBase).", source: "https://docs.powersync.com/configuration/source-db/setup"}
+  - {id: prosemirror-binding, verdict: "no", note: "No ProseMirror binding; table/row model only.", source: "https://github.com/powersync-ja/powersync-js"}
+  - {id: pocketbase-auth, verdict: partial, note: "Service verifies client JWTs via JWKS or static keys (RSA/oct/OKP/EC in PowerSyncConfig). PocketBase tokens are signed with a per-user tokenKey plus collection secret, so a PocketBase route would have to mint a separate PowerSync JWT (custom auth).", source: "https://docs.powersync.com/configuration/auth/custom"}
+  - {id: server-derivation, verdict: "yes", note: "Writes pass through our backend connector (could be PocketBase REST), so PocketBase hooks still derive title/search/tasks.", source: "https://docs.powersync.com/configuration/app-backend/client-side-integration"}
+  - {id: single-image, verdict: "no", note: "Adds the Node PowerSync Service plus MongoDB or Postgres bucket storage plus a supported source DB.", source: "https://github.com/powersync-ja/powersync-service/blob/main/service/README.md"}
+biases:
+  - {id: reuse-over-build, met: true, note: "Mature packaged queue and sync, Apache-2.0 since 2026-11-03."}
+  - {id: small-change, met: false, note: "Requires a new source database, bucket storage and a second service; out of scope for one owner."}
+maturity:
+  stars: 406
+  recurring_contributors: 14
+  single_merger: false
+  institutional_backing: JourneyApps (PowerSync)
+  commits_by_month: {"2026-06": 34, "2026-07": 31, "2026-08": 32, "2026-09": 31, "2026-10": 27, "2026-11": 31}
+  last_commit: "2026-11-18"
+  last_release: "2026-11-18"
+  open_issues: 18
+  open_prs: 16
+  backlog_trend: stable
+  regime_change: "License change FSL-1.1-ALv2 -> Apache-2.0 on 2026-11-03."
+  adopters: []
+  downloads: "npm @powersync/web 269,202/week; @powersync/common 376,780/week (2026-11-14..20)"
+  signals:
+    - {id: recency, passed: true, evidence: "Last commit 2026-11-18 (service); powersync-js 2026-11-19."}
+    - {id: releases, passed: true, evidence: "v1.29.1 on 2026-11-18."}
+    - {id: breadth, passed: true, evidence: "14 authors with >=2 commits in window (rkistner 82, stevensJourney 21, simolus3 21, ...); powersync-js 12."}
+    - {id: breadth-preference, passed: true, evidence: "14 >= 3."}
+    - {id: not-dying, passed: true, evidence: "Jun-Sep avg 32/month vs Oct-Nov avg 29/month (9% drop; November partial)."}
+  verdict: adequate
+sources:
+  - "https://github.com/powersync-ja/powersync-service/blob/main/LICENSE"
+  - "https://github.com/powersync-ja/powersync-service/commit/574ddbd"
+  - "https://github.com/powersync-ja/powersync-js/blob/main/LICENSE"
+  - "https://github.com/powersync-ja/powersync-service/tree/main/modules"
+  - "https://github.com/powersync-ja/powersync-service/blob/main/packages/service-core/src/metrics/open-telemetry/util.ts"
+  - "https://docs.powersync.com/handling-writes/write-path/overview"
+  - "https://docs.powersync.com/maintenance-ops/self-hosting/usage-reporting"
+  - "https://docs.powersync.com/configuration/auth/custom"
+verification:
+  - claim: "Relicensed FSL to Apache-2.0 on 2026-11-03; no SQLite source module; needs MongoDB or Postgres storage."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "Commit 574ddbd and parent LICENSE; modules directory listing (absence for SQLite)."

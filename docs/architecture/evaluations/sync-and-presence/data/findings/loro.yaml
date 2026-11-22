@@ -1,0 +1,143 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: loro
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/loro-dev/loro"
+layer_fit:
+  verdict: in-layer
+  note: >-
+    CRDT library (Rust core, WASM for JS) with an EphemeralStore for presence, plus the
+    loro-prosemirror binding. Transport-agnostic: export/import bytes over any channel;
+    optional loro-websocket (MIT) packages exist in loro-dev/protocol.
+license:
+  components:
+    - {name: "loro-crdt (core, Rust + WASM)", license: MIT, source: "https://github.com/loro-dev/loro/blob/main/LICENSE"}
+    - {name: "loro-prosemirror (binding, derived from y-prosemirror)", license: MIT, source: "https://github.com/loro-dev/loro-prosemirror/blob/main/LICENSE"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: >-
+    Library only. Grep of loro-crdt@1.18.0 web/loro_wasm.js found only fetch() of its own
+    .wasm module and docs URLs in comments; loro-prosemirror@0.4.4 dist had no matches.
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: loro and loro-prosemirror LICENSE files are MIT (read 2026-11-21); npm metadata MIT.
+    source: "https://github.com/loro-dev/loro/blob/main/LICENSE"
+  - id: self-hosted-no-key
+    verdict: pass
+    evidence: Client libraries, no account, key or cloud endpoint.
+    source: "https://github.com/loro-dev/loro"
+  - id: pocketbase-record
+    verdict: pass
+    evidence: >-
+      doc.export({mode: "snapshot"}) / ({mode: "update"}) return Uint8Array; docs recommend
+      storing snapshots plus updates in your own storage, so a PocketBase file or base64
+      text field works. Imports validate an embedded checksum.
+    source: "https://github.com/loro-dev/loro-docs/blob/main/pages/docs/tutorial/persistence.mdx"
+capabilities:
+  - id: no-false-conflict
+    verdict: "yes"
+    note: LoroMap keys merge independently; docs state convergence regardless of order or duplicates.
+    source: "https://github.com/loro-dev/loro-docs/blob/main/pages/docs/tutorial/sync.mdx"
+  - id: text-merge
+    verdict: "yes"
+    note: loro-prosemirror stores the doc as LoroMap nodes with LoroList children and LoroText leaves (rich-text marks); concurrent edits merge.
+    source: "https://github.com/loro-dev/loro-prosemirror/blob/main/src/lib.ts"
+  - id: edit-queue
+    verdict: partial
+    note: >-
+      Updates are order-independent and duplicate-safe on import, and exportPendingUpdates()
+      preserves pending imports. Boundary: no official browser persistence package is
+      documented; the IndexedDB store, resend loop and transport are ours.
+    source: "https://github.com/loro-dev/loro-docs/blob/main/pages/docs/tutorial/persistence.mdx"
+  - id: presence
+    verdict: partial
+    note: >-
+      EphemeralStore holds non-persisted presence/cursor state with a timeout (default
+      30000 ms) and emits local/import/timeout events; loro-prosemirror's
+      LoroEphemeralCursorPlugin renders cursors from it. Boundary: bytes need a relay transport.
+    source: "https://github.com/loro-dev/loro-docs/blob/main/pages/docs/tutorial/ephemeral.mdx"
+  - id: live-update
+    verdict: partial
+    note: Imported remote updates flow into the bound editor via LoroSyncPlugin; delivery and owner scoping are the transport's (our PocketBase glue).
+    source: "https://github.com/loro-dev/loro-prosemirror#readme"
+  - id: prosemirror-binding
+    verdict: "yes"
+    note: >-
+      loro-prosemirror 0.4.4 (sync, undo, cursor plugins; generic schema mapping). ProseKit
+      ships a first-party prosekit/extensions/loro with loro-crdt >=1.10.0 and
+      loro-prosemirror >=0.4.1 as optional peers. Pre-1.0, last commit 2026-08-22,
+      6 commits in the window, 21,781 npm downloads/week.
+    source: "https://github.com/loro-dev/loro-prosemirror"
+  - id: pocketbase-auth
+    verdict: "no"
+    note: No auth in the library; authorization belongs to whatever transport we build.
+    source: "https://github.com/loro-dev/loro"
+  - id: server-derivation
+    verdict: partial
+    note: >-
+      JSVM: not possible; loro-crdt in JS is WASM-only (3.7 MB .wasm) and Goja has no
+      WebAssembly. Go: no official binding. Third-party Deln0r/loro-go (pure Go, no cgo,
+      v1.0.0 2026-10-28, byte-compat claimed with loro-crdt 1.17.1, Text with marks, Map,
+      List; one author, 6 stars) or aholstenson/loro-go (cgo wrapper, bundles Loro 1.13.6,
+      22 stars). Either requires building PocketBase as a Go app; neither documents
+      converting loro-prosemirror's layout to ProseMirror JSON (we would write that walk).
+    source: "https://github.com/Deln0r/loro-go"
+  - id: single-image
+    verdict: partial
+    note: No service if relayed through PocketBase ourselves; loro-websocket server would be an extra Node process.
+    source: "https://github.com/loro-dev/protocol"
+biases:
+  - id: reuse-over-build
+    met: false
+    note: Core is active but single-merger; binding is pre-1.0; persistence, transport and Go decode are all ours or third-party.
+  - id: small-change
+    met: false
+    note: Adds a 1.2 MB gzipped WASM, our own IndexedDB queue and transport, and a Go PocketBase build for server derivation.
+maturity:
+  stars: 6311
+  recurring_contributors: 7
+  single_merger: true
+  institutional_backing: "Loro (loro-dev organisation, sponsor-funded)"
+  commits_by_month: {"2026-06": 36, "2026-07": 16, "2026-08": 20, "2026-09": 61, "2026-10": 26, "2026-11": 94}
+  last_commit: "2026-11-18"
+  last_release: "2026-11-16"
+  open_issues: 46
+  open_prs: 23
+  backlog_trend: stable
+  regime_change: null
+  adopters: []
+  downloads: "npm last week (2026-11-14..20): loro-crdt 228,081; loro-prosemirror 21,781"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "Core last commit 2026-11-18. Binding loro-prosemirror last commit 2026-08-22 (91 days, just over the 90-day bar)."
+    - id: releases
+      passed: true
+      evidence: "loro-crdt 1.18.0 2026-11-16; loro-prosemirror v0.4.4 2026-08-22."
+    - id: breadth
+      passed: true
+      evidence: "Window authors >=2 commits (excluding bots): zxch3n 157, petralithic 3, clearly-outsane 3, SamGalanakis 2, rexikan 2, hngpt52 2; plus lody-ai 21 (AI-agent account)."
+    - id: breadth-preference
+      passed: true
+      evidence: "Count meets 3, but zxch3n authors ~60% and merged 14 of the last 15 merged PRs (one by lodyai[bot])."
+    - id: not-dying
+      passed: true
+      evidence: "205 PRs merged in window; issues opened 93 vs closed 77."
+  verdict: early
+sources:
+  - "https://github.com/loro-dev/loro"
+  - "https://github.com/loro-dev/loro/blob/main/LICENSE"
+  - "https://github.com/loro-dev/loro-prosemirror"
+  - "https://github.com/loro-dev/loro-prosemirror/blob/main/LICENSE"
+  - "https://github.com/loro-dev/loro-prosemirror/blob/main/src/lib.ts"
+  - "https://github.com/loro-dev/loro-docs/blob/main/pages/docs/tutorial/ephemeral.mdx"
+  - "https://github.com/loro-dev/loro-docs/blob/main/pages/docs/tutorial/persistence.mdx"
+  - "https://github.com/loro-dev/loro-docs/blob/main/pages/docs/tutorial/sync.mdx"
+  - "https://github.com/loro-dev/protocol"
+  - "https://github.com/Deln0r/loro-go"
+  - "https://github.com/aholstenson/loro-go"
+  - "https://pocketbase.io/docs/js-overview/"
+  - "https://github.com/prosekit/prosekit/blob/master/packages/extensions/package.json"
+  - "https://api.npmjs.org/downloads/point/last-week/loro-crdt"

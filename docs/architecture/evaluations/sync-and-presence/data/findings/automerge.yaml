@@ -1,0 +1,157 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: automerge
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/automerge/automerge"
+layer_fit:
+  verdict: in-layer
+  note: >-
+    CRDT document library (Rust core compiled to WASM for JS) plus @automerge/prosemirror
+    binding. Sync/storage/presence come from the separate automerge-repo package
+    (network and storage adapters, ephemeral messages, Presence class), which needs a
+    sync peer (Node sync server or a custom NetworkAdapter).
+license:
+  components:
+    - {name: "@automerge/automerge (core, Rust + WASM)", license: MIT, source: "https://github.com/automerge/automerge/blob/main/LICENSE"}
+    - {name: "@automerge/prosemirror (binding)", license: MIT, source: "https://github.com/automerge/automerge-prosemirror/blob/main/package.json"}
+    - {name: "@automerge/automerge-repo (sync, storage, presence)", license: MIT, source: "https://github.com/automerge/automerge-repo"}
+    - {name: "automerge-go (cgo Go bindings, server option)", license: MIT, source: "https://github.com/automerge/automerge-go/blob/main/LICENSE.MIT"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: >-
+    Library only. Grep of @automerge/automerge@3.5.0 dist/mjs/index.js and
+    @automerge/prosemirror@0.2.0 dist for fetch/XMLHttpRequest/sendBeacon/telemetry found
+    only a docs URL. No account or key in docs.
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: >-
+      automerge LICENSE is MIT text; automerge-repo MIT; automerge-go LICENSE.MIT. Caveat:
+      the automerge-prosemirror repo has no LICENSE file (GitHub license null) and the
+      published npm tarball contains none; MIT is declared only in package.json "license".
+    source: "https://github.com/automerge/automerge-prosemirror/blob/main/package.json"
+  - id: self-hosted-no-key
+    verdict: pass
+    evidence: Client libraries; automerge-repo sync server is self-hosted Node; no vendor cloud or key.
+    source: "https://github.com/automerge/automerge-repo"
+  - id: pocketbase-record
+    verdict: pass
+    evidence: >-
+      Automerge.save(doc) yields a compressed Uint8Array (saveIncremental for deltas,
+      load/loadIncremental to restore), storable in a PocketBase file or base64 text field.
+    source: "https://automerge.org/blog/automerge-3/"
+capabilities:
+  - id: no-false-conflict
+    verdict: "yes"
+    note: Map keys merge independently in the CRDT doc; metadata changes do not invalidate a concurrent body change.
+    source: "https://github.com/automerge/automerge"
+  - id: text-merge
+    verdict: "yes"
+    note: >-
+      Rich text is a text object with marks and block markers (Automerge rich text
+      schema); concurrent edits merge. The ProseMirror document must map to that schema.
+    source: "https://automerge.org/docs/reference/under-the-hood/rich-text-schema/"
+  - id: edit-queue
+    verdict: partial
+    note: >-
+      automerge-repo-storage-indexeddb persists the doc locally across reloads and the
+      repo sync protocol resends what the peer lacks (changes are hash-identified, so
+      replay is idempotent). Boundary: needs automerge-repo plus a sync peer (Node
+      automerge-repo-sync-server or our own NetworkAdapter over PocketBase).
+    source: "https://github.com/automerge/automerge-repo"
+  - id: presence
+    verdict: partial
+    note: >-
+      automerge-repo has DocHandle.broadcast() ephemeral messages and a Presence class
+      with heartbeats for per-doc ephemeral state; not written to the doc. Boundary: only
+      over an automerge-repo network adapter, which needs a relay peer.
+    source: "https://github.com/automerge/automerge-repo/blob/main/packages/automerge-repo/src/presence/Presence.ts"
+  - id: live-update
+    verdict: partial
+    note: Remote changes apply into open DocHandles through automerge-repo; delivery and owner scoping depend on the transport we provide.
+    source: "https://github.com/automerge/automerge-repo"
+  - id: prosemirror-binding
+    verdict: partial
+    note: >-
+      @automerge/prosemirror 0.2.0 self-describes as "beta quality software ... there are
+      bugs". It requires a SchemaAdapter mapping every node/mark to Automerge block
+      markers ("a very specific subset of the ProseMirror schema"), so our ProseKit schema
+      needs a hand-written adapter. No commits since 2026-02-25. ProseKit has no Automerge extension.
+    source: "https://github.com/automerge/automerge-prosemirror#readme"
+  - id: pocketbase-auth
+    verdict: "no"
+    note: No auth in the library; automerge-repo peers authorize nothing by themselves. Authorization would be our transport's.
+    source: "https://github.com/automerge/automerge-repo"
+  - id: server-derivation
+    verdict: partial
+    note: >-
+      JSVM: not possible; the JS package is WASM-only (dist/automerge.wasm 3.6 MB) and
+      PocketBase's Goja engine has no WebAssembly. Go: official automerge-go wraps
+      automerge-rs via cgo with vendored static libs (linux amd64/arm64), last commit
+      2024-10-30; its Text API exposes only plain-string Get/Splice, no marks or block
+      API, so titles/search text are plausible but Open Tasks (block attrs) are not
+      documented. Also requires building PocketBase as a Go app with cgo.
+    source: "https://github.com/automerge/automerge-go"
+  - id: single-image
+    verdict: partial
+    note: >-
+      No extra service if we relay changes through PocketBase ourselves; the documented
+      automerge-repo sync server is a separate Node process.
+    source: "https://github.com/automerge/automerge-repo"
+biases:
+  - id: reuse-over-build
+    met: false
+    note: Core is mature but the ProseMirror binding is beta and idle, and needs a custom schema adapter for ProseKit.
+  - id: small-change
+    met: false
+    note: Adds a 1.1 MB gzipped WASM, a schema adapter, automerge-repo or our own sync glue, and a cgo Go server build for derivation.
+maturity:
+  stars: 6747
+  recurring_contributors: 5
+  single_merger: false
+  institutional_backing: Ink & Switch
+  commits_by_month: {"2026-06": 8, "2026-07": 56, "2026-08": 61, "2026-09": 49, "2026-10": 24, "2026-11": 10}
+  last_commit: "2026-11-13"
+  last_release: "2026-09-16"
+  open_issues: 79
+  open_prs: 136
+  backlog_trend: shrinking
+  regime_change: null
+  adopters: ["Ink & Switch research tools"]
+  downloads: "npm last week (2026-11-14..20): @automerge/automerge 121,555; @automerge/prosemirror 10,613; @automerge/automerge-repo 52,974"
+  signals:
+    - id: recency
+      passed: false
+      evidence: "Core last commit 2026-11-13 passes, but the binding automerge-prosemirror last commit is 2026-02-25 (269 days) and automerge-go 2024-10-30."
+    - id: releases
+      passed: false
+      evidence: "Core js/automerge-3.5.0 2026-09-16 passes; binding v0.2.0 2026-02-25 is past 180 days."
+    - id: breadth
+      passed: true
+      evidence: "Core window authors >=2 commits: FintanH 83, alexjg 74, orionz 27, aran 5, ept 3. Binding: alexjg authored 117 of ~125 commits ever."
+    - id: breadth-preference
+      passed: true
+      evidence: 5 recurring core contributors; merges split alexjg 9, FintanH 3, orionz 3 of the last 15.
+    - id: not-dying
+      passed: true
+      evidence: "Core: 92 PRs merged in window; issues opened 21 vs closed 46. Binding shows no activity in the window (1 issue opened, 0 closed)."
+  verdict: at-risk
+sources:
+  - "https://github.com/automerge/automerge"
+  - "https://github.com/automerge/automerge/blob/main/LICENSE"
+  - "https://github.com/automerge/automerge-prosemirror#readme"
+  - "https://github.com/automerge/automerge-prosemirror/blob/main/package.json"
+  - "https://github.com/automerge/automerge-repo"
+  - "https://github.com/automerge/automerge-repo/blob/main/packages/automerge-repo/src/presence/Presence.ts"
+  - "https://github.com/automerge/automerge-go"
+  - "https://automerge.org/blog/automerge-3/"
+  - "https://automerge.org/docs/reference/under-the-hood/rich-text-schema/"
+  - "https://pocketbase.io/docs/js-overview/"
+  - "https://cdn.jsdelivr.net/npm/@automerge/automerge@3.5.0/dist/automerge.wasm"
+  - "https://api.npmjs.org/downloads/point/last-week/@automerge/automerge"
+verification:
+  - claim: "@automerge/prosemirror is beta quality, last commit and release 2026-02-25; the JS package needs WebAssembly."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "README; GitHub commits; @automerge/automerge 3.5.0 ships a 3.6 MB wasm."

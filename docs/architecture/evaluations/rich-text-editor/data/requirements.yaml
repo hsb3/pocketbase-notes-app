@@ -1,0 +1,109 @@
+# Schema: ../schemas/requirements.schema.yaml
+decision_question: Which rich-text editor foundation should PocketBase Notes build on for a private notes app on phone and desktop?
+dated: "2026-11-21"
+layer:
+  must_do:
+    - Edit a structured rich-text note document in the browser (headings, marks, lists, checklists, tables, code, images) on desktop and mobile web.
+    - Store the document as JSON the server can validate and derive text from.
+    - Offer extension points for our own nodes (attachments, math, diagrams) and UI built from our shadcn components.
+  wrong_layer:
+    - Code editors (CodeMirror, Monaco) as the note editor; they edit plain text. They are scored only as a code-block component.
+    - Markdown-only textareas and preview renderers.
+    - Hosted document platforms (Notion API, Google Docs).
+hard_filters:
+  - id: osi-license
+    statement: The editor and every feature package we would use is under an OSI-approved license.
+    rationale: Owner decision 2026-11-21.
+    verify_by: LICENSE files per package; note GPL obligations and commercial-only add-ons.
+  - id: no-key-no-cloud
+    statement: Works offline from our own bundle with no license key check, no vendor cloud service and no mandatory telemetry.
+    rationale: Self-hosted private notes.
+    verify_by: Docs and source search for licenseKey, telemetry, cloud services.
+  - id: react-19
+    statement: Supported with React 19 in a Vite single-page app.
+    rationale: Current stack.
+    verify_by: Peer dependencies and docs.
+capabilities:
+  - id: checklists
+    name: Checklists / task items
+    required: bias
+    what_counts: Nested checkable items stored in the document.
+    verify_by: Official extension docs.
+  - id: tables
+    name: Tables
+    required: bias
+    what_counts: Insert, add/remove rows and columns, cell selection, free.
+    verify_by: Official extension docs and pricing.
+  - id: images-uploads
+    name: Images and file uploads to our storage
+    required: bias
+    what_counts: Custom upload adapter to a PocketBase file field with pending state, no vendor storage.
+    verify_by: Upload docs.
+  - id: code-blocks
+    name: Code blocks with highlighting
+    required: bias
+    what_counts: Syntax-highlighted code blocks with a language choice, ideally via CodeMirror or Shiki.
+    verify_by: Extension docs.
+  - id: menus
+    name: Slash, inline and block menus
+    required: bias
+    what_counts: Headless or customizable UI for slash commands, selection toolbar and block handles that we can style with shadcn.
+    verify_by: Docs and examples.
+  - id: mobile
+    name: Mobile web reliability
+    required: bias
+    what_counts: Documented support or tracked fixes for iOS Safari and Android IME, software keyboard and selection.
+    verify_by: Docs, issue tracker labels, known-issue pages.
+  - id: accessibility
+    name: Accessibility
+    required: bias
+    what_counts: Documented keyboard and screen-reader support.
+    verify_by: Accessibility docs.
+  - id: json-schema
+    name: JSON document with a strict schema
+    required: bias
+    what_counts: Document serializes to JSON with a declared schema, so the server can validate and derive plain text.
+    verify_by: Data model docs.
+  - id: prosemirror-compat
+    name: Reads our existing ProseMirror JSON
+    required: bias
+    what_counts: Can load today's ProseKit documents without a lossy conversion (shared ProseMirror model).
+    verify_by: Underlying model.
+  - id: collab-binding
+    name: Free Yjs or other collaboration binding
+    required: bias
+    what_counts: OSI binding for a CRDT or OT backend, not a paid cloud.
+    verify_by: Collaboration docs and pricing.
+  - id: markdown
+    name: Markdown shortcuts and import/export
+    required: bias
+    what_counts: Input rules for markdown syntax and documented markdown conversion.
+    verify_by: Extension docs.
+biases:
+  - id: reuse-over-build
+    statement: Prefer feature-rich, mature packages over homegrown extensions.
+    rationale: Owner direction 2026-11-21.
+    verify_by: Count of required features available as maintained packages.
+  - id: migration-cost
+    statement: Prefer options that keep the current document format and UI components.
+    rationale: Swapping editors rewrites src/components/editor and the server validator.
+    verify_by: Model compatibility and effort level.
+proofs: []
+maturity_bar:
+  window_months: 6
+  recurring_contributor_floor: 2
+  recurring_contributor_preference: 3
+  last_commit_max_days: 90
+  last_release_max_days: 180
+  dying_drop_pct: 60
+candidates:
+  - {id: prosekit, name: ProseKit (incumbent), kind: candidate, repo: "https://github.com/prosekit/prosekit", seed_reason: Current editor.}
+  - {id: tiptap, name: Tiptap, kind: candidate, repo: "https://github.com/ueberdosis/tiptap", seed_reason: Most used ProseMirror toolkit; check Pro gating.}
+  - {id: blocknote, name: BlockNote, kind: candidate, repo: "https://github.com/TypeCellOS/BlockNote", seed_reason: Notion-style editor on ProseMirror and Yjs; check XL licensing.}
+  - {id: milkdown, name: Milkdown, kind: candidate, repo: "https://github.com/Milkdown/milkdown", seed_reason: Markdown-first ProseMirror editor.}
+  - {id: remirror, name: Remirror, kind: candidate, repo: "https://github.com/remirror/remirror", seed_reason: ProseMirror React toolkit; check activity.}
+  - {id: ckeditor5, name: CKEditor 5, kind: candidate, repo: "https://github.com/ckeditor/ckeditor5", seed_reason: Named by owner; check GPL and license key.}
+  - {id: lexical, name: Lexical, kind: candidate, repo: "https://github.com/facebook/lexical", seed_reason: Meta's editor framework.}
+  - {id: plate, name: Plate (Slate), kind: candidate, repo: "https://github.com/udecode/plate", seed_reason: Feature-rich Slate toolkit with shadcn UI.}
+  - {id: codemirror, name: CodeMirror 6, kind: candidate, repo: "https://github.com/codemirror/dev", seed_reason: "Named by owner; expected wrong-layer as note editor, scored as code-block component."}
+deliverable: report

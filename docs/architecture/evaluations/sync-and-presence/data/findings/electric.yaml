@@ -1,0 +1,78 @@
+candidate: electric
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/neondatabase/electric"
+layer_fit:
+  verdict: in-layer
+  note: "Read-path sync engine for Postgres: an Elixir sync service streams 'shapes' of Postgres tables to clients over HTTP. Writes go through the app's own API; y-electric is a Yjs provider over Electric plus Postgres."
+license:
+  components:
+    - {name: "repo root", license: Apache-2.0, source: "https://github.com/neondatabase/electric/blob/main/LICENSE"}
+    - {name: "sync-service (Elixir server, Docker image electricsql/electric)", license: Apache-2.0, source: "https://github.com/neondatabase/electric/blob/main/packages/sync-service/LICENSE"}
+    - {name: "@electric-sql/client (TypeScript client)", license: Apache-2.0, source: "https://github.com/neondatabase/electric/blob/main/packages/typescript-client/package.json"}
+    - {name: "@electric-sql/y-electric (Yjs provider)", license: Apache-2.0, source: "https://github.com/neondatabase/electric/blob/main/packages/y-electric/package.json"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "sync-service CHANGELOG 1.7.12: 'Remove the call-home reporter that sent anonymous usage data to checkpoint.electric-sql.com. Electric no longer phones home; the ELECTRIC_USAGE_REPORTING and ELECTRIC_TELEMETRY_URL environment variables are gone.' Remaining OpenTelemetry/StatsD/Prometheus export is opt-in (config docs, Telemetry section)."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Root, sync-service and elixir-client LICENSE files are Apache-2.0; JS packages declare Apache-2.0."
+    source: "https://github.com/neondatabase/electric/blob/main/packages/sync-service/LICENSE"
+  - id: self-hosted-no-key
+    verdict: pass
+    evidence: "Self-hosted Docker image; only DATABASE_URL and ELECTRIC_SECRET required; no call-home since 1.7.12."
+    source: "https://github.com/neondatabase/electric/blob/main/website/docs/sync/api/config.md"
+  - id: pocketbase-record
+    verdict: fail
+    evidence: "Installation guide: 'You need to have a Postgres database and to run the Electric sync service in front of it.' It reads Postgres logical replication; PocketBase's SQLite cannot be a source."
+    source: "https://github.com/neondatabase/electric/blob/main/website/docs/sync/guides/installation.md"
+capabilities:
+  - {id: no-false-conflict, verdict: partial, note: "Electric has no write path; merge rules live in our API. Rows sync as whole-row shape updates.", source: "https://github.com/neondatabase/electric/blob/main/website/docs/sync/guides/writes.md"}
+  - {id: text-merge, verdict: partial, note: "Via y-electric (Yjs updates stored in Postgres, merged by Yjs); Electric itself has no text type.", source: "https://github.com/neondatabase/electric/blob/main/packages/y-electric/README.md"}
+  - {id: edit-queue, verdict: partial, note: "Writes guide gives patterns (online, optimistic, shared persistent optimistic state, through-the-DB); no packaged durable queue in Electric itself (it points to TanStack DB).", source: "https://github.com/neondatabase/electric/blob/main/website/docs/sync/guides/writes.md"}
+  - {id: presence, verdict: partial, note: "y-electric 'supports Awareness' (y-protocols), but only with the Electric plus Postgres stack.", source: "https://github.com/neondatabase/electric/blob/main/packages/y-electric/README.md"}
+  - {id: live-update, verdict: "yes", note: "Shapes stream Postgres changes to clients live over HTTP long-polling; requires Postgres.", source: "https://github.com/neondatabase/electric/blob/main/website/docs/sync/guides/shapes.md"}
+  - {id: prosemirror-binding, verdict: partial, note: "Only indirectly: y-electric is a Yjs provider, so y-prosemirror (Yjs project) would bind the editor.", source: "https://github.com/neondatabase/electric/blob/main/packages/y-electric/README.md"}
+  - {id: pocketbase-auth, verdict: partial, note: "Auth is done by an authorizing proxy in front of the shape API; a PocketBase route could proxy with the user token, but the data still lives in Postgres.", source: "https://github.com/neondatabase/electric/blob/main/website/docs/sync/guides/auth.md"}
+  - {id: server-derivation, verdict: partial, note: "Derivation would have to run against Postgres rows (or Yjs blobs in Postgres), not PocketBase hooks.", source: "https://github.com/neondatabase/electric/blob/main/website/docs/sync/guides/writes.md"}
+  - {id: single-image, verdict: "no", note: "Adds the Elixir sync service and a Postgres with logical replication.", source: "https://github.com/neondatabase/electric/blob/main/website/docs/sync/guides/installation.md"}
+biases:
+  - {id: reuse-over-build, met: false, note: "Mature, but reuse requires adopting Postgres."}
+  - {id: small-change, met: false, note: "New database plus new service."}
+maturity:
+  stars: 10435
+  recurring_contributors: 11
+  single_merger: false
+  institutional_backing: "ElectricSQL; repo now under the neondatabase GitHub org"
+  commits_by_month: {"2026-06": 165, "2026-07": 33, "2026-08": 17, "2026-09": 19, "2026-10": 3, "2026-11": 0}
+  last_commit: "2026-10-06"
+  last_release: "2026-09-07"
+  open_issues: 186
+  open_prs: 114
+  backlog_trend: shrinking
+  regime_change: "Repository transferred from electric-sql/electric to neondatabase/electric; repo description now 'The agent platform built on sync.' and the tree is dominated by agents-* packages. No main-branch commits since 2026-10-06."
+  adopters: []
+  downloads: "npm @electric-sql/client 2,706,174/week (2026-11-14..20)"
+  signals:
+    - {id: recency, passed: true, evidence: "Last main commit 2026-10-06 (46 days)."}
+    - {id: releases, passed: true, evidence: "@core/sync-service@1.8.1 on 2026-09-07; @electric-sql/client@1.5.28 on 2026-09-09."}
+    - {id: breadth, passed: true, evidence: "11 authors with >=2 commits in window (KyleAMathews 64, kevin-dp 27, robacourt 26, alco 25, ...)."}
+    - {id: breadth-preference, passed: true, evidence: "11 >= 3."}
+    - {id: not-dying, passed: false, evidence: "Jun-Sep avg 58.5 commits/month vs Oct-Nov avg 1.5/month (97% drop) on main."}
+  verdict: adequate
+sources:
+  - "https://github.com/neondatabase/electric/blob/main/LICENSE"
+  - "https://github.com/neondatabase/electric/blob/main/packages/sync-service/LICENSE"
+  - "https://github.com/neondatabase/electric/blob/main/packages/sync-service/CHANGELOG.md"
+  - "https://github.com/neondatabase/electric/blob/main/website/docs/sync/guides/installation.md"
+  - "https://github.com/neondatabase/electric/blob/main/website/docs/sync/guides/writes.md"
+  - "https://github.com/neondatabase/electric/blob/main/website/docs/sync/api/config.md"
+  - "https://github.com/neondatabase/electric/blob/main/packages/y-electric/README.md"
+  - "https://api.github.com/repos/electric-sql/electric"
+verification:
+  - claim: "Requires Postgres; repo moved to neondatabase/electric; no commits on main after 2026-10-06."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "GitHub redirect, README, commits API. Other branches still pushed 2026-11-18."

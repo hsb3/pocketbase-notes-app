@@ -1,0 +1,131 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: remirror
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/remirror/remirror"
+layer_fit:
+  verdict: in-layer
+  note: "ProseMirror React toolkit (remirror 3.0.3, @remirror/react 3.0.3) with many extensions; development has effectively stopped."
+license:
+  components:
+    - name: "remirror monorepo (remirror, @remirror/react, @remirror/extension-*, a11y-status)"
+      license: MIT
+      source: "https://github.com/remirror/remirror/blob/main/LICENSE"
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "grep of remirror and @remirror/core npm tarballs for licenseKey, telemetry, posthog, mixpanel: no matches."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Monorepo LICENSE is MIT; npm license MIT for remirror, @remirror/react, extension-list, extension-yjs."
+    source: "https://github.com/remirror/remirror/blob/main/LICENSE"
+  - id: no-key-no-cloud
+    verdict: pass
+    evidence: "No key, cloud or telemetry in package source; Yjs provider is user-supplied."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__extension-yjs"
+  - id: react-19
+    verdict: fail
+    evidence: "@remirror/react 3.0.3 peerDependencies react ^16.14.0 || ^17 || ^18 (no 19); issue #2309 React 19 support open since 2025-01-31 with no release since 2025-08-02."
+    source: "https://github.com/remirror/remirror/issues/2309"
+capabilities:
+  - id: checklists
+    verdict: "yes"
+    note: "TaskListExtension in @remirror/extension-list (nested task items)."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__extension-list"
+  - id: tables
+    verdict: "yes"
+    note: "@remirror/extension-tables and extension-react-tables on prosemirror-tables."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__extension-react-tables"
+  - id: images-uploads
+    verdict: partial
+    note: "extension-image and extension-file accept an upload handler; pending-state behaviour not re-verified from docs."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__extension-file"
+  - id: code-blocks
+    verdict: "yes"
+    note: "extension-code-block (refractor highlighting, language attr) and extension-codemirror6."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__extension-codemirror6"
+  - id: menus
+    verdict: partial
+    note: "Positioner hooks and react-components exist, but prebuilt UI is MUI-based; slash and block-handle UI would be ours."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__react-components"
+  - id: mobile
+    verdict: partial
+    note: "No mobile docs; 5 closed Android-titled and 2 closed iOS-titled issues, none open, no fixes in the window. Input handling is prosemirror-view's, but remirror pins older ProseMirror via @remirror/pm and gets no new releases."
+    source: "https://github.com/remirror/remirror/issues?q=is%3Aissue+Android+in%3Atitle"
+  - id: accessibility
+    verdict: partial
+    note: "Ships an a11y-status package for screen-reader status announcements; no current accessibility guide verified."
+    source: "https://github.com/remirror/remirror/tree/main/packages/a11y-status"
+  - id: json-schema
+    verdict: "yes"
+    note: "ProseMirror JSON via getJSON/state.doc.toJSON with extension-declared schema."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__core"
+  - id: prosemirror-compat
+    verdict: partial
+    note: "Shared ProseMirror model; nested bulletList/orderedList/taskList node names differ from ProseKit's flat list, so a scripted migration or custom nodes are needed."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__extension-list"
+  - id: collab-binding
+    verdict: "yes"
+    note: "@remirror/extension-yjs (MIT, 4.0.3)."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__extension-yjs"
+  - id: markdown
+    verdict: "yes"
+    note: "@remirror/extension-markdown for Markdown conversion; input rules in node extensions."
+    source: "https://github.com/remirror/remirror/tree/main/packages/remirror__extension-markdown"
+biases:
+  - id: reuse-over-build
+    met: false
+    note: "Extension list is broad but unmaintained, so every gap or React 19 break would be ours to patch."
+  - id: migration-cost
+    met: false
+    note: "Editor rewrite plus list node migration."
+maturity:
+  stars: 3029
+  recurring_contributors: 0
+  single_merger: true
+  institutional_backing: "None"
+  commits_by_month:
+    "2026-06": 1
+    "2026-07": 0
+    "2026-08": 0
+    "2026-09": 0
+    "2026-10": 0
+    "2026-11": 0
+  last_commit: "2026-06-22"
+  last_release: "2025-08-02"
+  open_issues: 177
+  open_prs: 31
+  backlog_trend: unknown
+  regime_change: "Activity stopped: one commit since 2026-05-21 (by ocavue, now the ProseKit author); no release since 2025-08-02; React 19 issue unanswered."
+  adopters: []
+  downloads: "remirror 108,192 per week (npm, 2026-11-14..2026-11-20)"
+  signals:
+    - id: recency
+      passed: false
+      evidence: "Last commit on main 2026-06-22, 152 days ago (limit 90)."
+    - id: releases
+      passed: false
+      evidence: "Last release remirror@3.0.3 on 2025-08-02, 476 days ago (limit 180)."
+    - id: breadth
+      passed: false
+      evidence: "0 recurring contributors in the window; 1 commit total."
+    - id: breadth-preference
+      passed: false
+      evidence: "0 recurring contributors."
+    - id: not-dying
+      passed: false
+      evidence: "0 commits Oct-Nov vs 1 Jun-Sep (100% drop); 0 issues opened or closed since 2026-05-21; 1 PR merged."
+  verdict: at-risk
+sources:
+  - "https://github.com/remirror/remirror"
+  - "https://github.com/remirror/remirror/blob/main/LICENSE"
+  - "https://github.com/remirror/remirror/releases"
+  - "https://github.com/remirror/remirror/issues/2309"
+  - "https://registry.npmjs.org/@remirror/react/latest"
+  - "https://api.npmjs.org/downloads/point/last-week/remirror"
+verification:
+  - claim: "@remirror/react has no React 19 peer, no release after 2025-08-02, issue #2309 open."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "npm 3.0.3 peerDependencies; GitHub issue."

@@ -1,0 +1,137 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: lexical
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/meta/lexical"
+layer_fit:
+  verdict: in-layer
+  note: "Extensible contenteditable editor framework (lexical 0.53.0, @lexical/react). Its own immutable node tree, not ProseMirror. The repo moved from facebook/lexical to meta/lexical (GitHub redirects)."
+license:
+  components:
+    - name: "lexical monorepo (lexical, @lexical/react, list, table, code, code-shiki, code-prism, markdown, yjs, a11y, history, link, utils, extension)"
+      license: MIT
+      source: "https://github.com/meta/lexical/blob/main/LICENSE"
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "grep of packages/*/src for licenseKey or telemetry: the only hits are doc comments saying embedders may route warnings to their own telemetry. No license key, no vendor service. Collaboration uses any Yjs provider."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Root LICENSE and every packages/*/LICENSE checked are MIT. There is no commercial tier."
+    source: "https://github.com/meta/lexical/blob/main/LICENSE"
+  - id: no-key-no-cloud
+    verdict: pass
+    evidence: "Runs from our bundle. No key, cloud or telemetry in source."
+    source: "https://github.com/meta/lexical/tree/main/packages/lexical/src"
+  - id: react-19
+    verdict: pass
+    evidence: "@lexical/react 0.53.0 peerDependencies react >=18.x, react-dom >=18.x (yjs >=13.5.37 peer)."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-react/package.json"
+capabilities:
+  - id: checklists
+    verdict: "yes"
+    note: "CheckListPlugin / CheckListExtension in @lexical/list. Check items are ListItemNodes with checked state and can nest as lists."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/react/plugins.md"
+  - id: tables
+    verdict: "yes"
+    note: "@lexical/table with LexicalTablePlugin: table cell selection, insert/delete rows and columns, merge cells."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/react/plugins.md"
+  - id: images-uploads
+    verdict: partial
+    note: "No first-party image or file node package. ImageNode exists only in lexical-playground. We would write our own DecoratorNode with upload and pending state."
+    source: "https://github.com/meta/lexical/tree/main/packages/lexical-playground/src/nodes"
+  - id: code-blocks
+    verdict: "yes"
+    note: "@lexical/code CodeNode has a language attribute. Highlighting comes from @lexical/code-shiki (Shiki) or @lexical/code-prism. No CodeMirror integration."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-code-shiki/README.md"
+  - id: menus
+    verdict: partial
+    note: "Headless LexicalTypeaheadMenuPlugin and LexicalNodeMenuPlugin (slash or mention menus with our own UI) and DraggableBlockPlugin_EXPERIMENTAL. The floating selection toolbar exists only as playground code, not as a package."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/react/plugins.md"
+  - id: mobile
+    verdict: partial
+    note: "Supported browsers list Android Chrome 86+ and iOS Safari 15+. The android-bug label has 7 open issues (oldest 2023, e.g. #7566 Android selection inserts ZWS, #5042 cannot backspace inline images) and 12 closed. ios-bug has 0 open / 14 closed."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/getting-started/supported-browsers.md"
+  - id: accessibility
+    verdict: "yes"
+    note: "Keyboard-accessibility doc follows the WAI-ARIA APG model (no Tab trap, Escape blurs). @lexical/a11y offers live regions, focus management and roving tabindex."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/concepts/keyboard-accessibility.md"
+  - id: json-schema
+    verdict: partial
+    note: "editorState.toJSON() / parseEditorState(). Node properties can declare value schemas (stringValue, enumValue, ...) that tooling can inspect. Allowed structure is enforced by node classes and transforms, not a standalone declarative content schema, so the server would need its own validator."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/serialization/serialization.md"
+  - id: prosemirror-compat
+    verdict: "no"
+    note: "Different model. Inline formatting is format flags on TextNode, and links are inline ElementNodes, not marks. Lexical's own compared-with-prosemirror page lists the differences, so ProseKit JSON needs a conversion."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/concepts/compared-with-prosemirror.md"
+  - id: collab-binding
+    verdict: "yes"
+    note: "@lexical/yjs (MIT) with CollaborationPlugin, plus a documented y-server setup. Any Yjs provider works."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/collaboration/y.md"
+  - id: markdown
+    verdict: "yes"
+    note: "MarkdownShortcutPlugin (headings, lists, code, quotes, links, inline styles) and @lexical/markdown conversion. There is also a markdown-mdast serialization doc."
+    source: "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/serialization/markdown-mdast.md"
+biases:
+  - id: reuse-over-build
+    met: false
+    note: "Core features (lists, checklists, tables, code, markdown, Yjs) are packages, but image/file nodes, the floating toolbar and the block handle are playground code or experimental, so we would build them."
+  - id: migration-cost
+    met: false
+    note: "Non-ProseMirror model. Moving means a document conversion, a rewritten editor component and a rewritten server validator."
+maturity:
+  stars: 24039
+  recurring_contributors: 20
+  single_merger: false
+  institutional_backing: "Meta Platforms"
+  commits_by_month:
+    "2026-06": 105
+    "2026-07": 91
+    "2026-08": 102
+    "2026-09": 111
+    "2026-10": 167
+    "2026-11": 149
+  last_commit: "2026-11-20"
+  last_release: "2026-10-28"
+  open_issues: 396
+  open_prs: 132
+  backlog_trend: shrinking
+  regime_change: "Repository moved from github.com/facebook/lexical to github.com/meta/lexical (README links meta/lexical). Still pre-1.0 (0.53.0)."
+  adopters: []
+  downloads: "lexical 9,469,911 per week; @lexical/react 8,655,989 (npm, 2026-11-14..2026-11-20)"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "Last commit on main 2026-11-20."
+    - id: releases
+      passed: true
+      evidence: "v0.53.0 2026-10-28, v0.52.0 2026-09-28, v0.51.0 2026-09-17."
+    - id: breadth
+      passed: true
+      evidence: "20 human authors with commits in 2+ months of the window, 110 human authors in total since 2026-05-21."
+    - id: breadth-preference
+      passed: true
+      evidence: "20 recurring. Top authors zurfyx 197, etrepum 130, mayrang 86, potatowagon 71 of 769."
+    - id: not-dying
+      passed: true
+      evidence: "Oct-Nov 158/month vs Jun-Sep 102/month. Issues: 147 opened in window still open, 193 older issues closed in window."
+  verdict: early
+sources:
+  - "https://github.com/meta/lexical/blob/main/LICENSE"
+  - "https://github.com/meta/lexical/blob/main/packages/lexical-react/package.json"
+  - "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/react/plugins.md"
+  - "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/getting-started/supported-browsers.md"
+  - "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/concepts/keyboard-accessibility.md"
+  - "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/concepts/compared-with-prosemirror.md"
+  - "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/serialization/serialization.md"
+  - "https://github.com/meta/lexical/blob/main/packages/lexical-website/docs/collaboration/y.md"
+  - "https://github.com/meta/lexical/blob/main/packages/lexical-code-shiki/README.md"
+  - "https://github.com/meta/lexical/issues?q=is%3Aissue+is%3Aopen+label%3Aandroid-bug"
+  - "https://api.github.com/repos/meta/lexical"
+  - "https://api.npmjs.org/downloads/point/last-week/lexical"
+verification:
+  - claim: "MIT; repo at meta/lexical; v0.53.x pre-1.0; image node only in the playground."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "GitHub redirect; npm; code search (absence, default branch only)."

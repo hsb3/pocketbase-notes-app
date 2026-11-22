@@ -1,0 +1,144 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: blocknote
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/TypeCellOS/BlockNote"
+layer_fit:
+  verdict: in-layer
+  note: "Block-based (Notion-style) editor built on ProseMirror and Tiptap (@blocknote/core depends on @tiptap/core ^3.31.3); ships its own block JSON model and React UI (Mantine, shadcn, Ariakit variants)."
+license:
+  components:
+    - name: "@blocknote/core"
+      license: MPL-2.0
+      source: "https://github.com/TypeCellOS/BlockNote/blob/main/packages/core/LICENSE"
+    - name: "@blocknote/react, @blocknote/shadcn, @blocknote/mantine, @blocknote/code-block, @blocknote/math-block, @blocknote/diagram-block, @blocknote/server-util"
+      license: MPL-2.0
+      source: "https://github.com/TypeCellOS/BlockNote/blob/main/LICENSE.txt"
+    - name: "@blocknote/xl-* (ai, ai-server, multi-column, docx/pdf/odt/email/typst exporters) - not needed"
+      license: "GPL-3.0 OR PROPRIETARY (commercial license sold)"
+      source: "https://github.com/TypeCellOS/BlockNote/blob/main/packages/xl-multi-column/LICENSE"
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: "grep of @blocknote/core, react and shadcn 0.57.0 tarballs: the only blocknotejs.org string is a docs link in a mobile viewport warning; no licenseKey or telemetry. XL commercial license is a legal grant, no key check found."
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: "Core and UI packages are MPL-2.0 (OSI; file-level copyleft on modified BlockNote files). XL packages are GPL-3.0 (OSI) or commercial; none of our capabilities needs XL (XL = AI, multi-column, DOCX/PDF/ODT/email/Typst export)."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/LICENSE.txt"
+  - id: no-key-no-cloud
+    verdict: pass
+    evidence: "No key or telemetry in package source; uploadFile and collaboration providers are app-supplied."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/getting-started/editor-setup.mdx"
+  - id: react-19
+    verdict: pass
+    evidence: "@blocknote/react and @blocknote/shadcn 0.57.0 peerDependencies react ^18.0 || ^19.0."
+    source: "https://registry.npmjs.org/@blocknote/shadcn/latest"
+capabilities:
+  - id: checklists
+    verdict: "yes"
+    note: "checkListItem block with checked prop; every block has children, so items nest."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/features/blocks/list-types.mdx"
+  - id: tables
+    verdict: "yes"
+    note: "Table block with row/column handles; split cells, header rows/columns and cell colours opt-in via tables option; prosemirror-tables underneath."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/features/blocks/tables.mdx"
+  - id: images-uploads
+    verdict: "yes"
+    note: "uploadFile editor option (file to URL promise) handles uploads to our backend; UploadTab and FileBlockWrapper render a loading state; resolveFileUrl (useResolveUrl) can map stored refs to private file URLs."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/getting-started/editor-setup.mdx"
+  - id: code-blocks
+    verdict: "yes"
+    note: "@blocknote/code-block (MPL-2.0) adds Shiki highlighting, language list, themes."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/features/blocks/code-blocks.mdx"
+  - id: menus
+    verdict: "yes"
+    note: "Suggestion (slash) menus, formatting toolbar, side menu (block handle) as replaceable React components; @blocknote/shadcn renders them with shadcn/Tailwind."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/getting-started/shadcn.mdx"
+  - id: mobile
+    verdict: "yes"
+    note: "Only candidate with an official Mobile compatibility section: formatting toolbar moves above the on-screen keyboard, recommends interactive-widget=resizes-content. Open toolkit-level bugs filed 2026-11-19: #3376/#3377 IME composition breaks the suggestion menu on iOS Safari, #3378 dropdown behind keyboard; #2035 Android backspace makes newline (open since 2025-09)."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/getting-started/index.mdx"
+  - id: accessibility
+    verdict: not-documented
+    note: "No accessibility page in docs; open issues #3208 accessibility test suite and #2853 table/video accessibility."
+    source: "https://github.com/TypeCellOS/BlockNote/issues/3208"
+  - id: json-schema
+    verdict: "yes"
+    note: "editor.document is BlockNote JSON (id, type, props, content, children) typed by a declared BlockNoteSchema; lossless storage format; ServerBlockNoteEditor (@blocknote/server-util) processes it server-side (Node, not Goja)."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/foundations/supported-formats.mdx"
+  - id: prosemirror-compat
+    verdict: "no"
+    note: "Stores BlockNote blocks, not arbitrary ProseMirror JSON; its PM schema wraps every block in blockGroup/blockContainer. ProseKit docs need a conversion (HTML import is documented as lossy); mention, mathInline and flat-list toggle need custom blocks/inline content."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/foundations/document-structure.mdx"
+  - id: collab-binding
+    verdict: "yes"
+    note: "Yjs via the collaboration option / withCollaboration with any provider (yjs, y-prosemirror peers)."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/features/collaboration/index.mdx"
+  - id: markdown
+    verdict: partial
+    note: "Markdown shortcuts as input rules; blocksToMarkdownLossy / tryParseMarkdownToBlocks documented as lossy, free (not Pro)."
+    source: "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/features/export/markdown.mdx"
+biases:
+  - id: reuse-over-build
+    met: true
+    note: "Most batteries-included option: menus, side menu, uploads, Shiki code, tables, math block and shadcn UI ship as packages."
+  - id: migration-cost
+    met: false
+    note: "New document model: rewrite of editor UI, server validator (pb/hooks/entry-validation.js) and a block conversion of every note."
+maturity:
+  stars: 10392
+  recurring_contributors: 6
+  single_merger: false
+  institutional_backing: "TypeCell; NLnet foundation grant (README)"
+  commits_by_month:
+    "2026-06": 89
+    "2026-07": 75
+    "2026-08": 48
+    "2026-09": 39
+    "2026-10": 72
+    "2026-11": 59
+  last_commit: "2026-11-20"
+  last_release: "2026-10-30"
+  open_issues: 60
+  open_prs: 113
+  backlog_trend: shrinking
+  regime_change: null
+  adopters:
+    - "La Suite Docs (suitenumerique/docs, French government) pins @blocknote/core 0.57.0"
+  downloads: "@blocknote/core 1,063,766 per week (npm, 2026-11-14..2026-11-20)"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "Last commit on main 2026-11-20."
+    - id: releases
+      passed: true
+      evidence: "v0.57.0 2026-10-30; v0.56.0 2026-10-14; v0.55.0 2026-09-22."
+    - id: breadth
+      passed: true
+      evidence: "6 human authors in 2+ months (nperez0111, matthewlipski, YousefED, adarshsm, RovshanMuradov, jkugsiya)."
+    - id: breadth-preference
+      passed: true
+      evidence: "6 recurring; nperez0111 authored 245 of 361 human commits."
+    - id: not-dying
+      passed: true
+      evidence: "Oct-Nov 65.5/month vs Jun-Sep 62.75/month: no drop. 247 PRs merged; 144 issues opened vs 175 closed in window."
+  verdict: early
+sources:
+  - "https://github.com/TypeCellOS/BlockNote"
+  - "https://github.com/TypeCellOS/BlockNote/blob/main/LICENSE.txt"
+  - "https://github.com/TypeCellOS/BlockNote/blob/main/packages/core/LICENSE"
+  - "https://github.com/TypeCellOS/BlockNote/blob/main/packages/xl-multi-column/LICENSE"
+  - "https://registry.npmjs.org/@blocknote/xl-multi-column/latest"
+  - "https://api.npmjs.org/downloads/point/last-week/@blocknote/core"
+  - "https://github.com/TypeCellOS/BlockNote/blob/main/docs/content/docs/foundations/supported-formats.mdx"
+  - "https://github.com/TypeCellOS/BlockNote/blob/main/packages/core/src/pm-nodes/BlockContainer.ts"
+  - "https://github.com/TypeCellOS/BlockNote/issues/3376"
+  - "https://github.com/TypeCellOS/BlockNote/issues/2035"
+  - "https://github.com/suitenumerique/docs/blob/main/src/frontend/apps/impress/package.json"
+verification:
+  - claim: "Core/react/shadcn/code-block are MPL-2.0; all @blocknote/xl-* packages are GPL-3.0 OR PROPRIETARY; block model wraps blocks in blockContainer/blockGroup."
+    outcome: refuted
+    correction: "@blocknote/xl-ai-server is AGPL-3.0 OR PROPRIETARY; the rest of xl-* are GPL-3.0 OR PROPRIETARY. Not loading generic ProseMirror JSON is inferred from the schema, not tested."
+    checked_on: "2026-11-21"
+    evidence: "npm registry license fields; packages/core/src/pm-nodes/README.md."

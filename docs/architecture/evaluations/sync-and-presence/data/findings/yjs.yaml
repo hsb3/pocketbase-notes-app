@@ -1,0 +1,194 @@
+# Schema: ../../../schemas/findings.schema.yaml
+candidate: yjs
+checked_on: "2026-11-21"
+kind: candidate
+repo: "https://github.com/yjs/yjs"
+layer_fit:
+  verdict: in-layer
+  note: >-
+    Client-side CRDT library (Y.Doc), its ProseMirror binding (y-prosemirror) and the
+    transport-agnostic sync/awareness encoders (y-protocols). It ships no server and no
+    transport: updates and awareness messages must travel over a provider (y-websocket,
+    Hocuspocus, a Go port's server) or over our own PocketBase routes/records.
+    y-indexeddb is the optional durable local store.
+license:
+  components:
+    - {name: "yjs (core CRDT)", license: MIT, source: "https://github.com/yjs/yjs/blob/main/LICENSE"}
+    - {name: "y-prosemirror (ProseMirror binding)", license: MIT, source: "https://github.com/yjs/y-prosemirror/blob/master/LICENSE"}
+    - {name: "y-protocols (sync + awareness)", license: MIT, source: "https://github.com/yjs/y-protocols/blob/master/LICENSE"}
+    - {name: "y-indexeddb (local persistence)", license: MIT, source: "https://github.com/yjs/y-indexeddb/blob/master/LICENSE"}
+    - {name: "lib0 (runtime dependency of all four)", license: MIT, source: "https://github.com/dmonad/lib0/blob/main/LICENSE"}
+phone_home:
+  telemetry: none
+  license_key: false
+  evidence: >-
+    Libraries only; no network code of their own. Grep of the published bundles
+    (yjs@13.6.33 dist/yjs.mjs, y-prosemirror@1.3.7 dist, y-protocols@1.0.7 awareness,
+    y-indexeddb@9.0.12 dist) for fetch/XMLHttpRequest/sendBeacon/telemetry/license key
+    found only documentation URLs inside error messages and comments.
+filters:
+  - id: osi-license
+    verdict: pass
+    evidence: >-
+      LICENSE files of yjs, y-prosemirror, y-protocols and y-indexeddb read on 2026-11-21:
+      all MIT. GitHub reports NOASSERTION for yjs and y-indexeddb only because the MIT
+      text carries a multi-party copyright header; npm metadata says MIT for all four.
+    source: "https://github.com/yjs/yjs/blob/main/LICENSE"
+  - id: self-hosted-no-key
+    verdict: pass
+    evidence: Pure client libraries bundled into our SPA; no account, key, cloud endpoint or telemetry.
+    source: "https://github.com/yjs/yjs"
+  - id: pocketbase-record
+    verdict: pass
+    evidence: >-
+      Y.encodeStateAsUpdate(doc) returns a Uint8Array that can be stored in a PocketBase
+      file field (uploaded as a Blob) or base64 in a text field; Y.applyUpdate restores
+      it. No database of its own.
+    source: "https://github.com/yjs/yjs#document-updates"
+capabilities:
+  - id: no-false-conflict
+    verdict: "yes"
+    note: >-
+      Y.Map merges per key, so pin/folder/deleted kept in a Y.Map (or kept as separate
+      PocketBase fields outside the doc) never block a body merge. Updates are documented
+      as commutative and idempotent, so there is no stale-revision failure inside the doc.
+      Our 409 revision check must then stop guarding the body field.
+    source: "https://github.com/yjs/yjs#document-updates"
+  - id: text-merge
+    verdict: "yes"
+    note: >-
+      Concurrent edits to the Y.XmlFragment bound by y-prosemirror merge without a dialog.
+      The binding documents recovery when concurrent edits produce an invalid schema.
+    source: "https://github.com/yjs/y-prosemirror/tree/v1.3.7#readme"
+  - id: edit-queue
+    verdict: partial
+    note: >-
+      y-indexeddb persists every update locally and reloads it before the network, so
+      unsent edits survive a reload; replay is safe because updates are idempotent and
+      order-independent (state-vector diff, not an ordered op log). Boundary: retry/resend
+      belongs to the provider (y-websocket); over PocketBase routes we write the resend
+      loop ourselves. y-indexeddb last released 2023-11-02 (v9.0.12), last commit 2025-02-12.
+    source: "https://github.com/yjs/y-indexeddb"
+  - id: presence
+    verdict: partial
+    note: >-
+      y-protocols Awareness holds ephemeral per-client state (open, cursor), never in the
+      document; a client not refreshed for 30 seconds is dropped, setLocalState(null)/
+      destroy() marks offline. Boundary: it is an encoder only; it needs a relay transport
+      (y-websocket server is Node; or a custom PocketBase route plus realtime SSE broadcast).
+    source: "https://github.com/yjs/y-protocols#awareness-protocol"
+  - id: live-update
+    verdict: partial
+    note: >-
+      Y.Doc emits 'update' events and applies remote updates into the bound editor live.
+      Boundary: delivery needs a provider; Yjs itself has no subscription or owner scoping.
+      PocketBase realtime on an owner-ruled updates collection could carry it (our glue).
+    source: "https://github.com/yjs/yjs#document-updates"
+  - id: prosemirror-binding
+    verdict: "yes"
+    note: >-
+      y-prosemirror 1.3.7 (stable, MIT, 3.7M npm downloads/week) maps any ProseMirror
+      schema to a Y.XmlFragment generically; ProseKit ships a first-party
+      prosekit/extensions/yjs with y-prosemirror >=1.2.9 and yjs >=13.6.18 as optional peers.
+      Caveat: main branch is the unstable @y/prosemirror v2 for Yjs v14 (@y/y); v1 docs
+      load in v2 per its CHANGELOG.
+    source: "https://github.com/yjs/y-prosemirror/tree/v1.3.7#readme"
+  - id: pocketbase-auth
+    verdict: "no"
+    note: >-
+      The libraries have no auth concept; authorization is whatever the transport does.
+      If updates travel through PocketBase records/routes, PocketBase rules and the user
+      token apply (our design, not a Yjs interface).
+    source: "https://github.com/yjs/y-protocols"
+  - id: server-derivation
+    verdict: "yes"
+    note: >-
+      Official decode is JS: y-prosemirror exports yXmlFragmentToProsemirrorJSON /
+      yDocToProsemirrorJSON (needs yjs only, no DOM). Yjs is pure JS (no WASM), so a
+      PocketBase JSVM require() of a CJS bundle is plausible but undocumented and
+      unverified: PocketBase JSVM loads only CJS (ESM must be pre-bundled) and is not a
+      browser; lib0/webcrypto reads global crypto.getRandomValues at load and Y.Doc uses it
+      for clientID, which Goja lacks (needs a shim). Go route: two pure-Go ports listed on
+      the official Yjs ports page implement XmlFragment (reearth/ygo, Deln0r/ygo, both
+      single-author, MIT), but using them means building PocketBase as a Go app instead of
+      the pinned prebuilt binary. Fallback: client sends derived ProseMirror JSON with each save.
+    source: "https://pocketbase.io/docs/js-overview/"
+  - id: single-image
+    verdict: partial
+    note: >-
+      Client-only libraries add no service if transport is PocketBase REST + realtime.
+      The standard y-websocket provider needs a Node server (extra always-on process);
+      a Go port's websocket server could run inside a Go-built PocketBase instead.
+    source: "https://docs.yjs.dev/ecosystem/ports-to-other-languages"
+biases:
+  - id: reuse-over-build
+    met: true
+    note: >-
+      Most mature option of the three (yjs 17.5M npm downloads/week, y-prosemirror 3.7M,
+      ProseKit first-party extension). Still needs our own transport glue unless we add a
+      provider server.
+  - id: small-change
+    met: false
+    note: >-
+      Moves the body from a JSON field to a CRDT blob, adds a Yjs transport (PocketBase
+      route + realtime or a websocket server), local persistence, and a server-side
+      derivation path. Larger than the field-version baseline for a one-owner app.
+maturity:
+  stars: 23096
+  recurring_contributors: 3
+  single_merger: true
+  institutional_backing: "Kevin Jahns (independent, sponsor-funded; RWTH Aachen in copyright)"
+  commits_by_month: {"2026-06": 16, "2026-07": 26, "2026-08": 3, "2026-09": 16, "2026-10": 15, "2026-11": 11}
+  last_commit: "2026-11-16"
+  last_release: "2026-11-14"
+  open_issues: 129
+  open_prs: 35
+  backlog_trend: growing
+  regime_change: >-
+    Yjs v14 in release candidate (v14.0.0-rc.30, 2026-11-14) renames packages to @y/y and
+    @y/prosemirror; stable line remains yjs 13.6.33 (2026-09-23) and y-prosemirror 1.3.7.
+  adopters: [AFFiNE, Evernote, Gitbook, Huly, Nimbus Note, Serenity Notes, "Tiptap / BlockNote (via y-prosemirror)"]
+  downloads: "npm last week (2026-11-14..20): yjs 17,457,205; y-prosemirror 3,742,668; y-protocols 9,777,630; y-indexeddb 1,555,000"
+  signals:
+    - id: recency
+      passed: true
+      evidence: "yjs last commit 2026-11-16 (5 days); y-prosemirror 2026-09-21; y-protocols 2026-05-05 and y-indexeddb 2025-02-12 are stale."
+    - id: releases
+      passed: true
+      evidence: "yjs v14.0.0-rc.30 2026-11-14, v13.6.33 stable 2026-09-23; y-prosemirror v2.0.0-15 2026-10-11 (prerelease). y-indexeddb last release 2023-11-02."
+    - id: breadth
+      passed: true
+      evidence: "Window commit authors with >=2 commits: dmonad/Kevin Jahns (80 of 88), Sall25 (2), davseby (2)."
+    - id: breadth-preference
+      passed: true
+      evidence: "3 recurring contributors meets the preference of 3, but one person authors ~90% and merged 15 of the last 15 merged PRs."
+    - id: not-dying
+      passed: true
+      evidence: "Commits steady (16/26/3/16/15/11 by month); 13 PRs merged in window; issues opened 32 vs closed 13 in window (backlog growing)."
+  verdict: adequate
+sources:
+  - "https://github.com/yjs/yjs"
+  - "https://github.com/yjs/yjs/blob/main/LICENSE"
+  - "https://github.com/yjs/yjs#document-updates"
+  - "https://github.com/yjs/y-prosemirror/tree/v1.3.7#readme"
+  - "https://github.com/yjs/y-prosemirror/blob/v1.3.7/src/lib.js"
+  - "https://github.com/yjs/y-prosemirror/blob/master/CHANGELOG.md"
+  - "https://github.com/yjs/y-protocols#awareness-protocol"
+  - "https://github.com/yjs/y-indexeddb"
+  - "https://github.com/dmonad/lib0/blob/main/src/webcrypto.js"
+  - "https://pocketbase.io/docs/js-overview/"
+  - "https://docs.yjs.dev/ecosystem/ports-to-other-languages"
+  - "https://github.com/reearth/ygo"
+  - "https://github.com/Deln0r/ygo"
+  - "https://github.com/prosekit/prosekit/blob/master/packages/extensions/package.json"
+  - "https://api.npmjs.org/downloads/point/last-week/yjs"
+verification:
+  - claim: "PocketBase 0.40.1 JSVM can load bundled yjs 13.6.33 + y-prosemirror 1.3.7 and decode a Y update to the same ProseMirror document."
+    outcome: verified
+    checked_on: "2026-11-21"
+    evidence: "Contained run (Docker, capped): byte-equal to Bun output, Node.eq to the source note; 0.76 ms average decode. Shims: globalThis.crypto.getRandomValues stub and a base64 decoder; all libraries in one 172 kB minified bundle. Not measured: memory per pooled VM, large notes, request-path hooks."
+  - claim: "dmonad authors about 90% of yjs commits; v14 RC renames packages to @y/y and @y/prosemirror; y-indexeddb last release 2023-11-02."
+    outcome: refuted
+    correction: "86 of 100 commits (86%). @y/y is at 14.0.0-rc.x; @y/prosemirror is on 2.0.0 prereleases, not RC. y-indexeddb date verified."
+    checked_on: "2026-11-21"
+    evidence: "GitHub commits API; npm registry dist-tags."
