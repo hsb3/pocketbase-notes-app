@@ -55,7 +55,7 @@ Lists, same spec file.
 Catch-up and fallback, same spec file.
 
 1. A1's `/api/realtime` is aborted by request interception. A2 changes the note and list. A1 is made visible again (`visibilitychange`): within 2 s A1's list and note match the server.
-2. A1 goes offline, A2 changes the note, A1 comes back online: after the SDK reconnects, A1 catches up within 2 s.
+2. A1 goes offline, A2 changes the note, A1 comes back online: A1 catches up within 2 s. Playwright's offline emulation keeps the SSE stream open in both engines and WebKit's fires no `online` event, so the WebKit run dispatches `online` itself; the SDK reconnect (`PB_CONNECT`) path is not exercised by the browser suite.
 3. With `/api/realtime` aborted for the whole test, the R3 two-context conflict still appears and every R3 recovery choice works.
 4. A1's session expires (the R3 expiry fixture): A2's saves cause no read in A1 until A re-signs in. Then A1 signs out; C signs in in the same tab. A2 (as A) saves: C's tab gets no notice and makes no read for A's note.
 5. SC-001: 20 edit-to-visible trials per engine at 1440 px, at least 19 within 2 s; timings recorded in the report.

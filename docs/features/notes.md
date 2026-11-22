@@ -26,6 +26,22 @@ A pin is not an edit. It keeps the note's last-edit time, writing, folder and re
 
 At the API, `POST /api/notebook/notes/<id>/pin` takes exactly `{ "pinned": true }` or `{ "pinned": false }`. It returns `id`, `user`, `folder`, `deleted`, `revision` and `pinned`. Setting the value the note already has succeeds without a write. A deleted note returns HTTP 400. The ordinary records API cannot create a note with `pinned` or change it.
 
+## Live updates
+
+A note open on one device follows saves, moves, pins and deletes made on another device or tab signed in to the same account, usually within two seconds and without a reload.
+
+- **No unsaved edits.** The newer words replace the editor's contents, the status shows **Saved**, and screen readers hear "Updated from another device." If the editor had focus it keeps it, with the caret at the start of the note. Typing then saves on top of the newer version without a conflict.
+- **Unsaved edits and different words saved elsewhere.** Autosave stops and the [save conflict](#recovering-an-uncertain-save-in-r3) dialog opens at once. Every local word stays in the editor and in **Copy draft**. Further saves elsewhere change nothing on screen until **Reload saved**, which loads the newest version.
+- **A move elsewhere.** The note keeps its address and shows its new folder. Unsaved edits are kept and save into the new folder, because the saved words they started from did not change. A save that was in flight when the move happened is sent again on the new revision.
+- **A pin elsewhere.** **Note actions** offers **Unpin** or **Pin** to match. Writing and saving are unaffected.
+- **A delete elsewhere.** With no unsaved edits the editor shows **Note unavailable**. With unsaved edits it offers **Copy draft**. A later restore elsewhere returns the note to the lists, while the open view stays unavailable until the note is opened again.
+
+While a save, a pin, a move or delete, a leave or sign-out choice, or the conflict dialog is in progress, a change from elsewhere waits until it ends and is then checked against the result. This device's own saves and actions are never treated as changes from elsewhere.
+
+Missed changes are never resent. Returning to the tab, coming back online and every reconnect read the open note, the visible list and the folders again. The server closes each live connection after at most 30 minutes, and the app reconnects. Saving never depends on the live connection: if it cannot connect, saving, conflicts and every recovery path work as before, and the app tries again when the tab is next shown or the network returns. Signing out or switching accounts stops live updates before the next account's notes appear.
+
+At the API, subscribe to the PocketBase realtime topic `notebook-changes` with the signed-in user's token (`pb.realtime.subscribe("notebook-changes", …)`, no options). Each event carries exactly `id`, `folder`, `deleted` (boolean), `revision` and, for creates, content saves and pins, `pinned`. It carries no title, writing or other content: read the note through the ordinary records API. Events are sent after every committed create, content save, move, delete, restore, pin and folder delete (one per affected note), only to clients bound to the note's owner. Refused writes, other accounts, guests and superusers receive nothing. Purge sends nothing. [Contract](../../specs/003-live-updates/contracts/notice.md)
+
 ## Move, delete and restore
 
 See the [folder guide](folders.md#move-delete-and-restore) to move a saved note, delete a note or folder, or restore writing from Recently Deleted.

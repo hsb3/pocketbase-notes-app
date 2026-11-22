@@ -104,13 +104,13 @@
 
 ## Phase 7: Polish (W5 docs and gate)
 
-- [ ] T021 [P] Modify `docs/features/notes.md`: add a "Live updates" section. Cover when an open note takes another device's version, when the conflict dialog shows, the "Updated from another device." status, adopting a move with unsaved edits, catch-up on focus and reconnect, and that saving never depends on the live connection. Under the API part, document the `notebook-changes` topic and payload ([contract](contracts/notice.md)). Update the pin section's "sees the new pin state on its next read" wording if it is present
-- [ ] T022 [P] Modify `docs/features/folders.md`: lists and Recently Deleted follow other devices; the folder column itself refreshes on focus and reconnect only
-- [ ] T023 [P] Modify `docs/testing/verification.md`: add the `live` row to the additional-profiles table and a short "Live updates" section naming `scripts/test-live-updates.ts` and `tests/e2e/live-updates.spec.cjs`
-- [ ] T024 [P] Add an Unreleased entry for live updates to `CHANGELOG.md`, linking issue 68
-- [ ] T025 Run `python3 scripts/ai-context.py check` and `bun run docs:build`; fix any failure ([W5 exit](quickstart.md#w5-exit))
-- [ ] T026 Run the full gate `.specify/extensions/functionform-gate/scripts/gate.sh full` and `make test-browser-contained CONTAINED_PROFILE=live`. Append an "LU gate evidence" section to `specs/003-live-updates/tasks.md` (shape of the R7 ledger): tested commits, red and green commands with exits, SC-001 timings per engine, tests changed in T020, deviations from task text, and `docker ps -a` showing no leftover containers. Mark only demonstrated tasks
-- [ ] T027 Modify `specs/002-notes-redesign/versions.md` last: set the LU row to `done` once T026 is green
+- [X] T021 [P] Modify `docs/features/notes.md`: add a "Live updates" section. Cover when an open note takes another device's version, when the conflict dialog shows, the "Updated from another device." status, adopting a move with unsaved edits, catch-up on focus and reconnect, and that saving never depends on the live connection. Under the API part, document the `notebook-changes` topic and payload ([contract](contracts/notice.md)). Update the pin section's "sees the new pin state on its next read" wording if it is present
+- [X] T022 [P] Modify `docs/features/folders.md`: lists and Recently Deleted follow other devices; the folder column itself refreshes on focus and reconnect only
+- [X] T023 [P] Modify `docs/testing/verification.md`: add the `live` row to the additional-profiles table and a short "Live updates" section naming `scripts/test-live-updates.ts` and `tests/e2e/live-updates.spec.cjs`
+- [X] T024 [P] Add an Unreleased entry for live updates to `CHANGELOG.md`, linking issue 68
+- [X] T025 Run `python3 scripts/ai-context.py check` and `bun run docs:build`; fix any failure ([W5 exit](quickstart.md#w5-exit))
+- [X] T026 Run the full gate `.specify/extensions/functionform-gate/scripts/gate.sh full` and `make test-browser-contained CONTAINED_PROFILE=live`. Append an "LU gate evidence" section to `specs/003-live-updates/tasks.md` (shape of the R7 ledger): tested commits, red and green commands with exits, SC-001 timings per engine, tests changed in T020, deviations from task text, and `docker ps -a` showing no leftover containers. Mark only demonstrated tasks
+- [X] T027 Modify `specs/002-notes-redesign/versions.md` last: set the LU row to `done` once T026 is green
 
 ---
 
@@ -145,3 +145,42 @@ T015 src/features/notes/note-list.tsx ║ T016 src/features/notes/recently-delet
 3. **Add US2:** live lists.
 4. **Add US4:** catch-up, fallback, existing-suite adjustments.
 5. **Polish:** docs, gate, evidence, `versions.md`. One pull request to `main` for the increment, linking [issue 68](https://github.com/hsb3/pocketbase-notes-app/issues/68).
+
+## LU gate evidence
+
+| Gate | Command |
+| --- | --- |
+| Full gate | `.specify/extensions/functionform-gate/scripts/gate.sh full` (lint, knip, build, `make test-api-contained`, `make test-browser-contained`) |
+| Live browser suite | `make test-browser-contained CONTAINED_PROFILE=live` |
+| R3 recovery suite | `make test-browser-contained CONTAINED_PROFILE=resilience` |
+| Host checks | `bun test tests/unit`, `bun x tsc -p scripts/tsconfig.json`, `python3 scripts/ai-context.py check`, `bun run docs:build` |
+
+| Tasks and commit | Failing observation | Passing result |
+| --- | --- | --- |
+| T001 baseline · `7c392b2` | — | `bun run lint`, `bun run knip`, `bun run build` exited 0. |
+| W1 T002–T006 · `f65025a` | With the test and no hooks, the API suite exited 2: `FAIL live updates … Timed out waiting for A1 create notice` (PB_CONNECT and the 204 subscribe succeeded; A1 received zero notices). The first run with hooks also exited 2: `scripts/test-r2-upgrade.sh` copies a fixed hook list without `note-notice.js`, so a create in the staged upgrade returned 400. | API suite exited 0 with `PASS live updates` (50 PASS lines). |
+| W2 T007–T013 · `b1c0d28` | Live profile on the W1 client: 36 of 36 failed (A1 never shows A2's words, no conflict, no adopted folder, no unavailable state; the pending-move case failed on a role query hidden by the modal sheet, fixed in the test). With the `reconcile()` adoption disabled, the held-PATCH move case failed in 6 of 6 runs: no **Saved** after the 409. | Live profile exited 0: 36 passed. |
+| W3 T014–T017 · `2ffafda` | Live profile on the W2 code: 22 of the 24 list cases failed (the two 390 px "stays unavailable" cases have no list pane to check) (rows stale after create, Recently Deleted never shows the delete, 19 extra rows after the 30-note folder delete). The resilience profile on W2 exited 2: 7 of 30 failed (6 "Lost acknowledgement", 1 WebKit "Retry after further typing"), because a lost-reply save echoed back as a remote change and opened a conflict. After the fix the full runs passed every resilience case. | Live profile: the 60 W2 and W3 cases passed (W4 cases still red, below). |
+| W4 T018–T020 · `8782a50` | Live profile on the W3 code: 12 failed (focus and `online` catch-up never re-read). First full default run with W4: 433 passed, 19 failed (the T020 stale-context tests below, and WebKit's offline case). | Full gate, below. |
+| Gate · `8782a50` | — | Full gate PASS: lint, knip, build exited 0; API exited 0 (`PASS live updates`); browser exited 0 with 452 passed in 19.2 min. |
+| Live profile · `8782a50` | — | Exited 0: 86 passed in 4.2 min; the report check confirmed `live-updates.spec.cjs` only, every case passed on its first attempt. `bun test tests/unit` 22 passed; scripts type check, `ai-context.py check` and `docs:build` exited 0. |
+
+**SC-001 edit-to-visible timings** (20 trials per engine at 1440 px, from the remote save to the words on the open note): Chromium max 29 ms, median 6 ms, 20/20 within 2 s; WebKit max 78 ms, median 10 ms, 20/20 within 2 s (full default run). Two `live` profile runs measured Chromium max 12 and 40 ms, WebKit max 60 and 65 ms, all 20/20. These are same-host container timings; a deployed instance adds network and edge latency.
+
+**Tests changed in T020** (each now aborts `**/api/realtime` with the shared `blockRealtime` helper so it keeps testing the fallback; no assertion changed):
+
+- `tests/e2e/note-actions.spec.cjs` "stale command, external delete and a late owner read": the R5 stale-move path needs a device that has not heard of the other writer.
+- `tests/e2e/note-recovery-controls.spec.cjs` "Conflict preserves both versions after denied clipboard / failed reload": a real 409 needs a device that has not picked up the newer save.
+- `tests/e2e/pin.spec.cjs` "a lost pin reply offers Retry and leaves the note pinned once": the pin's own notice settles the lost reply before **Retry** is needed.
+
+`save-resilience.spec.cjs` needed no change: the R3 two-device case still conflicts, because the notice waits while the held save is in flight.
+
+**Deviations from the task text and design.**
+
+- T010: `remote()` first acknowledges a read that matches a pending submission, as `reconcile()` does. A save whose reply was lost echoes back as a newer revision; without this the R3 "Lost acknowledgement" suite opened a false conflict. Recorded in research §4.
+- T013: `reconcile()` returns a new value, `"adopted"`, rather than `"replay"`, and only `"adopted"` lets the write loop continue. Reusing `"replay"` inside `write()` would also auto-retry ordinary transport failures. The submissions are cleared on adoption, because a 409 proves none of them landed.
+- T006: `scripts/test-r2-upgrade.sh` now copies `note-notice.js` beside `note-lifecycle.js` for the staged upgrade.
+- T018: Playwright's offline emulation keeps the SSE stream open in both engines (the notice arrives, its read fails), and WebKit's fires no `online` event. The WebKit offline case dispatches `online` itself; the `PB_CONNECT` reconnect path is not exercised by the browser suite. Recorded in quickstart W4 step 2. The W2 conflict case makes A1 dirty with a failed (aborted) first save instead of a held one, because a held save keeps the note busy and FR-007 defers the notice until it ends.
+- Unit tests: `tests/unit/note-draft.test.cjs` still expected the R6 list fields, sort and detail fields. It had been failing since R7; its expectations now include `pinned`.
+
+`docker ps -a` after the runs: no `notes-test-*` containers, networks or volumes remain (every runner printed `cleanup … empty`). The owner's `pocketbase-notes` stack was not touched.

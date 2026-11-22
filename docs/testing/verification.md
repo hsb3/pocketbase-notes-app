@@ -33,6 +33,7 @@ Choose one profile per invocation, for example `make test-api-contained CONTAINE
 | `test-browser-contained` | `plain` | Exercise the hosted default selection against the production bundle. Exclude the 12 ageing fixture cases at discovery. Retain `plain.list.json` and `plain.json`. |
 | `test-browser-contained` | `recover` | Exercise note moves, note and folder deletion, restore, interrupted replies and keyboard focus. Runs both complete recovery suites, including the 12 ageing cases, and retains the [recovery report and screenshots](#move-delete-and-restore). |
 | `test-browser-contained` | `pin` | Exercise Pin, the Pinned view and a lost pin reply. Runs `tests/e2e/pin.spec.cjs` and retains the [pin report and screenshots](#pin). |
+| `test-browser-contained` | `live` | Exercise [live updates](#live-updates) between two devices of one account. Runs `tests/e2e/live-updates.spec.cjs` and retains `live.json` with the SC-001 timings. |
 | `test-browser-contained` | `operator` | Run the operator commands against local services, including autosave, file access, failed-write cleanup, signup policy and Mailpit email. |
 | `test-browser-contained` | `signup`, `signup-disabled` | Exercise registration with the selected policy in Chromium and WebKit. Enabled signup sets both the frontend build flag and the backend runtime flag. |
 | `test-browser-contained` | `performance` | Chromium editor loading benchmark and [Chromium/WebKit flicker measurements](#note-list-and-editor-continuity). Copies the report under `test-results/<project>/performance/`. |
@@ -93,6 +94,12 @@ The default API gate exercises the retention boundary in the pinned PocketBase J
 Run `make test-browser-contained CONTAINED_PROFILE=pin`. The suite drives Chromium and WebKit at 390, 810 and 1440 CSS px with one worker and zero retries. It pins by keyboard, checks the folder order and marker, saves from a second browser that already had the note open, aborts a committed pin reply and retries it, and composes from Pinned. Independent record reads confirm that a pin leaves `revision` and `updated` unchanged. The runner saves `pin.json` and `r7-views/` under the printed project's `test-results/` directory: the folder list, the Pinned view and its empty state, in both themes.
 
 The default API gate runs `scripts/test-pins.ts` and the staged R7 migration up, down and up again in `scripts/test-r2-upgrade.sh`.
+
+### Live updates
+
+The default API gate runs `scripts/test-live-updates.ts`, which reads raw SSE from `/api/realtime` with `fetch` because Bun has no `EventSource`. It checks one owner-only notice per committed write with exactly the contract keys, none for refused writes, none for another account, a guest or a superuser, and a 403 when another account takes over the connection.
+
+Run `make test-browser-contained CONTAINED_PROFILE=live` for `tests/e2e/live-updates.spec.cjs` in Chromium and WebKit at 390, 810 and 1440 CSS px with one worker and zero retries. It covers a clean note taking another device's save, the conflict at once for unsaved words, moves adopted with a save in flight, pins, deletes, a pending move, live lists that keep rows, scroll, focus and search text, Recently Deleted, a 30-note folder delete, catch-up on focus and reconnect, the R3 path with realtime blocked, session end and account switch, and 20 timed edit-to-visible trials per engine. The runner saves `live.json` under the printed project's `test-results/` directory; the timings are attached to the SC-001 case. Tests that need a stale second device, such as R3 and R5 conflicts, abort `/api/realtime` in that context so they keep testing the fallback path.
 
 ## Commands and coverage
 

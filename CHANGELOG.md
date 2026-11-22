@@ -9,6 +9,8 @@ described in [docs/ci/releasing.md](docs/ci/releasing.md).
 
 ### Added
 
+- An open note and the visible lists follow saves, moves, pins, deletes and restores made on another device or tab, without a reload. A clean note takes the newer version, unsaved words get the conflict dialog at once, and a move elsewhere no longer causes a false conflict. Returning to the tab or reconnecting catches up. [Live updates, issue 68](https://github.com/hsb3/pocketbase-notes-app/issues/68)
+
 - Pin a note to the top of its folder and All Notes, and see every pinned note in the new Pinned view. A pin never changes the note's last-edit time and never causes a save conflict on another device. [Pin, issue 42](https://github.com/hsb3/pocketbase-notes-app/issues/42)
 
 - Move a saved note without losing its place in the editor. Delete a note or a custom folder and restore its notes and attachments from Recently Deleted for 30 days. Removed folders stay removed. [Move, delete and recover notes, issue 40](https://github.com/hsb3/pocketbase-notes-app/issues/40)
