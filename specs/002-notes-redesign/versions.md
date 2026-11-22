@@ -57,7 +57,7 @@ One row per increment. The ID never changes once a sub-spec uses it. Update Stat
 | R6 | Milestone 1 stabilization gate | R5 | done | [r6-gate](r6-gate/spec.md) |
 | R7 | Pin | R6 | done | [r7-pin](r7-pin/spec.md) |
 | LU | Live updates on open notes and lists | R7 | done | [003-live-updates](../003-live-updates/spec.md) |
-| R8 | Journal smart folder | R6 | planned | — |
+| R8 | Journal smart folder | R6 | in-progress | [r8-journal](r8-journal/spec.md) |
 | R9 | Rich text, checklists and the phone formatting bar | R6 | planned | — |
 | R10 | Open Tasks smart folder | R9 | planned | — |
 | R11 | Attachments | R6 | planned | — |
@@ -134,8 +134,8 @@ One row per increment. The ID never changes once a sub-spec uses it. Update Stat
 
 - **Goal.** Any note can carry a calendar date and appear in Journal.
 - **Covers.** Story 4; FR-007 journal; date parts of Story 3.
-- **Backend.** Add `journal_date` text (date-only), validated by `date()` in `pb/hooks/entry-validation.js`; index `(user, journal_date)`.
-- **Reuses.** `src/features/entries/date-picker.tsx`, `localDate()`/`validDate()` (git history).
+- **Backend.** Add `journal_date` text (date-only), validated by `date()` in `pb/hooks/entry-validation.js`. The [R8 plan](r8-journal/plan.md) supersedes the inferred index with `(user, journal_date, updated, id)` and writes the day through a metadata-only `date` verb.
+- **Reuses.** `localDate()`/`validDate()` (git history). The R8 plan replaces `src/features/entries/date-picker.tsx`, whose calendar dependency R2 removed, with the platform date input until the owner decides.
 - **Exit.** Two notes in different folders share a day; day filter; date unchanged under a different browser time zone; opening Journal creates no record.
 
 ### R9: Rich text, checklists and the phone formatting bar
