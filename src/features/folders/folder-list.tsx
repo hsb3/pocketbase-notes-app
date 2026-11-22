@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { Folder, FolderPlus, Trash2, UserRound } from "lucide-react";
+import { Folder, FolderPlus, Pin, Trash2, UserRound } from "lucide-react";
 import { ClientResponseError } from "pocketbase";
 import { NavUser } from "@/components/nav-user";
 import { Button } from "@/components/ui/button";
@@ -139,6 +139,7 @@ export function FolderList({
           <SidebarMenu>
             {[
               { id: "all", name: "All Notes" },
+              { id: "pinned", name: "Pinned" },
               ...folders,
               { id: "recently-deleted", name: "Recently Deleted" },
             ].map((item) => (
@@ -156,7 +157,13 @@ export function FolderList({
                       item.id === "recently-deleted" ? revisitTrash : undefined
                     }
                   >
-                    {item.id === "recently-deleted" ? <Trash2 /> : <Folder />}
+                    {item.id === "recently-deleted" ? (
+                      <Trash2 />
+                    ) : item.id === "pinned" ? (
+                      <Pin />
+                    ) : (
+                      <Folder />
+                    )}
                     <span>{item.name}</span>
                   </Link>
                 </SidebarMenuButton>

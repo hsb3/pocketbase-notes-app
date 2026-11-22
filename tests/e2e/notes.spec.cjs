@@ -19,7 +19,7 @@ const {
 } = require("./note-helpers.cjs");
 const gardenTitle = "Seed order";
 const gardenBody = "Buy calendula for the south wall";
-const fields = "id,folder,title,updated,excerpt";
+const fields = "id,folder,title,updated,excerpt,pinned";
 
 for (const width of [390, 810, 1440]) {
   test(`Garden capture at ${width}px reopens in an independent desktop session`, async ({
@@ -270,7 +270,7 @@ test("list transfers only projected rows and reads only the selected detail", as
   ]);
   const query = new URL(response.url()).searchParams;
   expect(query.get("fields")).toBe(fields);
-  expect(query.get("sort")).toBe("-updated,-id");
+  expect(query.get("sort")).toBe("-pinned,-updated,-id");
   expect(query.get("perPage")).toBe("20");
   expect(query.get("page")).toBe("1");
   expect(query.get("filter")).toMatch(/deleted\s*=\s*""/);

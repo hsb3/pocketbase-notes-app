@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import PocketBase, { ClientResponseError } from "pocketbase";
 import { markRetained, noteActions } from "./test-note-actions";
+import { pins } from "./test-pins";
 
 const url = process.env.TEST_PB_URL || process.env.VITE_PB_URL;
 assert(
@@ -1255,6 +1256,7 @@ try {
           ] as const,
         ]
       : []),
+    ["note pins", async () => pins(admin, await account(), b, anonymous)],
     ["folder access", () => folderAccess(a, b)],
     ["nonempty folder", () => nonemptyFolder(a)],
     ["folder names", () => folderNames(a, b)],

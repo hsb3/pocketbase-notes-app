@@ -87,6 +87,21 @@ export async function sendCommand(
   return row;
 }
 
+export async function setPin(
+  id: string,
+  user: string,
+  pinned: boolean,
+  session: Session,
+) {
+  const row = await pb.send<NoteState & { pinned: boolean }>(
+    `/api/notebook/notes/${id}/pin`,
+    { method: "POST", body: { pinned }, ...privateRead(session) },
+  );
+  if (!session.current()) throw new NoteAccessError("locked");
+  if (row?.id !== id || row.user !== user || row.pinned !== pinned)
+    throw Error("Unconfirmed pin.");
+}
+
 export async function readCommand(cmd: NoteCommand, session: Session) {
   await verifyOwner(cmd.user, session);
   try {

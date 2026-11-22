@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { Ellipsis } from "lucide-react";
+import { Ellipsis, Pin, PinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -35,6 +35,14 @@ export type ActionPanel = {
   quiet?: boolean;
 };
 
+export type PinState = {
+  id: string;
+  pinned: boolean;
+  busy?: boolean;
+  /** Set after a failed request: the absolute value Retry resends. */
+  retry?: boolean;
+};
+
 export function NoteActions({
   draft,
   folders,
@@ -44,6 +52,8 @@ export function NoteActions({
   submit,
   check,
   blocked,
+  pin,
+  onPin,
 }: {
   draft?: NoteDraft;
   folders: Awaited<ReturnType<typeof listFolders>>;
@@ -53,6 +63,8 @@ export function NoteActions({
   submit: (folder?: string) => void;
   check: () => void;
   blocked: boolean;
+  pin?: PinState;
+  onPin: (pinned: boolean) => void;
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const statusButton = useRef<HTMLButtonElement>(null);
@@ -106,6 +118,15 @@ export function NoteActions({
               }}
             >
               <DropdownMenuGroup>
+                {pin && (
+                  <DropdownMenuItem
+                    disabled={pin.busy}
+                    onSelect={() => onPin(!pin.pinned)}
+                  >
+                    {pin.pinned ? <PinOff /> : <Pin />}
+                    {pin.pinned ? "Unpin" : "Pin"}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onSelect={() => show("move")}>
                   Move…
                 </DropdownMenuItem>
@@ -240,6 +261,18 @@ export function NoteActions({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+      {pin?.retry !== undefined && (
+        <div role="alert" className="flex items-center gap-2 text-xs">
+          Could not pin this note. Try again.
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => pin.retry !== undefined && onPin(pin.retry)}
+          >
+            Retry
+          </Button>
+        </div>
       )}
       {(phase === "closed" || phase === "checking" || phase === "retry") && (
         <div className="flex items-center gap-2 text-xs">

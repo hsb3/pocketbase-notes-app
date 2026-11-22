@@ -123,6 +123,7 @@ export type NotesRecord<Tbody = unknown, Ttasks = unknown> = {
 	folder?: RecordIdString
 	id: string
 	open_tasks?: number
+	pinned?: boolean
 	revision: number
 	search_key?: string
 	tasks?: null | Ttasks

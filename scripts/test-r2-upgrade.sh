@@ -670,4 +670,86 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
         segment = trace.read_bytes()[offset:].decode()
         print("\n".join(l for l in segment.splitlines() if "R5 " in l or "Error:" in l),flush=True)
     assert "PASS R5 production UTC boundaries" in segment
+
+    r7 = "1795000500_note_pins.js"
+    pins = "idx_notes_user_pinned_updated_id"
+    r5_create = owner_rule + ' && @request.body.deleted:isset = false'
+    r5_update = (owner_rule + ' && @request.body.user:changed = false && @request.body.folder:changed = false'
+                 ' && @request.body.deleted:changed = false')
+    pre_rows, pre_schema, pre_history = snapshot()
+    pre_fields, pre_rules, pre_indexes, pre_physical = pre_schema[0]
+    assert pre_rules[2:4] == [r5_create, r5_update] and pins not in pre_physical, pre_rules
+    shutil.copy(source / r7, migrations)
+    up()
+    pin_rows, pin_schema, pin_history = snapshot()
+    fields, rules, indexes, physical = pin_schema[0]
+    assert pin_history == pre_history + [r7] and pin_schema[1:] == pre_schema[1:]
+    assert {i: {k: v for k, v in r.items() if k != "pinned"} for i, r in pin_rows[0].items()} == pre_rows[0]
+    assert {r["pinned"] for r in pin_rows[0].values()} == {0} and pin_rows[1] == pre_rows[1]
+    assert [(f["type"], f["required"]) for f in json.loads(fields) if f["name"] == "pinned"] == [("bool", False)]
+    assert [f for f in json.loads(fields) if f["name"] != "pinned"] == json.loads(pre_fields)
+    assert rules == [*pre_rules[:2], r5_create + ' && @request.body.pinned:isset = false',
+                     r5_update + ' && @request.body.pinned:changed = false', pre_rules[4]], rules
+    assert indexes == pre_indexes + ["CREATE INDEX `" + pins + "` ON `notes` (user, pinned, updated, id)"]
+    assert {n: s for n, s in physical.items() if n != pins} == pre_physical
+    assert " WHERE " not in physical[pins], physical[pins]
+    with closing(sqlite3.connect(dbfile)) as db:
+        assert [r[2] for r in db.execute(f"PRAGMA index_xinfo({pins})") if r[5]] == ["user", "pinned", "updated", "id"]
+
+    down(r7)
+    assert snapshot() == (pre_rows, pre_schema, pre_history)
+    # A same-name index that predates R7 must abort up and leave the operator's metadata alone.
+    wrong = "CREATE INDEX `" + pins + "` ON `notes` (user, updated)"
+    with closing(sqlite3.connect(dbfile)) as db:
+        db.execute("UPDATE _collections SET indexes=? WHERE name='notes'", (json.dumps(pre_indexes + [wrong]),))
+        db.execute(wrong)
+        db.commit()
+    unexpected = snapshot()
+    failed = subprocess.run([*offline, "migrate", "up"], capture_output=True, text=True)
+    assert failed.returncode != 0 and pins in failed.stdout + failed.stderr, (failed.returncode, failed.stdout, failed.stderr)
+    assert snapshot() == unexpected
+    with closing(sqlite3.connect(dbfile)) as db:
+        db.execute(f"DROP INDEX {pins}")
+        db.execute("UPDATE _collections SET indexes=? WHERE name='notes'", (json.dumps(pre_indexes),))
+        db.commit()
+    assert snapshot() == (pre_rows, pre_schema, pre_history)
+    up()
+    assert snapshot() == (pin_rows, pin_schema, pin_history)
+    print("PASS R7 up/down/up: rows byte-equal apart from pinned=0, R5 rules restored, unexpected index refusal exit",
+          failed.returncode, flush=True)
+
+    with server():
+        token = login("users", "r1@example.test")
+        assert request("collections/notes/records", {"user": current, "folder": folder["id"],
+                       "body": body("Forged pin"), "pinned": True}, "POST")[0] == 400
+        assert request("collections/notes/records", {"user": current, "folder": folder["id"],
+                       "body": body("Forged pin"), "pinned": False}, "POST")[0] == 400
+        assert request("collections/notes/records/" + edit, {"pinned": True}, "PATCH")[0] == 404
+        status, pinned = request(f"notebook/notes/{edit}/pin", {"pinned": True}, "POST")
+        assert status == 200 and pinned["pinned"] is True, (status, pinned)
+        assert stored(edit) == dict(pin_rows[0][edit], pinned=1)
+        offset = trace.stat().st_size
+        shapes = {
+            "folder": ("deleted = \"\" && folder = '" + folder["id"] + "'", "-pinned,-updated,-id"),
+            "all": ("deleted = \"\"", "-pinned,-updated,-id"),
+            "pinned": ("deleted = \"\" && pinned = true", "-updated,-id"),
+        }
+        for label, (where, order) in shapes.items():
+            page = api("collections/notes/records?" + urlencode({"filter": where, "sort": order, "perPage": 20,
+                       "fields": "id,pinned"}), token=token)
+            if label == "pinned":
+                assert [r["id"] for r in page["items"]] == [edit], page
+            else:
+                assert page["items"][0]["id"] == edit and all(not r["pinned"] for r in page["items"][1:]), page
+        with trace.open("rb") as log:
+            log.seek(offset)
+            segment = re.sub(r"\x1b\[[0-9;]*m", "", log.read().decode())
+        pages = [sql for sql in re.findall(r"^\[\d+\.\d+ms\] (.+)$", segment, re.MULTILINE)
+                 if sql.startswith("SELECT `notes`.*") and "LIMIT 20" in sql]
+        assert len(pages) == 3, pages
+        for label, sql in zip(shapes, pages):
+            plan = [r[-1] for r in api("sql", {"query": "EXPLAIN QUERY PLAN " + sql}, admin)["rows"]]
+            print("R7", label, "SQL:", sql, "\nplan:", plan, flush=True)
+            assert any(pins in p for p in plan) and not any("TEMP B-TREE" in p for p in plan), plan
+    print("PASS R7 forged pins refused, pin verb wrote only pinned, list plans recorded", flush=True)
 PY

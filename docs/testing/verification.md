@@ -32,6 +32,7 @@ Choose one profile per invocation, for example `make test-api-contained CONTAINE
 | `test-browser-contained` | `search` | Check cross-folder results, draft navigation, keyboard focus and layout. Retains the [search timings and screenshots](#cross-folder-search). |
 | `test-browser-contained` | `plain` | Exercise the hosted default selection against the production bundle. Exclude the 12 ageing fixture cases at discovery. Retain `plain.list.json` and `plain.json`. |
 | `test-browser-contained` | `recover` | Exercise note moves, note and folder deletion, restore, interrupted replies and keyboard focus. Runs both complete recovery suites, including the 12 ageing cases, and retains the [recovery report and screenshots](#move-delete-and-restore). |
+| `test-browser-contained` | `pin` | Exercise Pin, the Pinned view and a lost pin reply. Runs `tests/e2e/pin.spec.cjs` and retains the [pin report and screenshots](#pin). |
 | `test-browser-contained` | `operator` | Run the operator commands against local services, including autosave, file access, failed-write cleanup, signup policy and Mailpit email. |
 | `test-browser-contained` | `signup`, `signup-disabled` | Exercise registration with the selected policy in Chromium and WebKit. Enabled signup sets both the frontend build flag and the backend runtime flag. |
 | `test-browser-contained` | `performance` | Chromium editor loading benchmark and [Chromium/WebKit flicker measurements](#note-list-and-editor-continuity). Copies the report under `test-results/<project>/performance/`. |
@@ -86,6 +87,12 @@ Run `make test-browser-contained CONTAINED_PROFILE=recover`. The two R5 suites d
 In the release evidence bundle, `reports/r5-w5b-trash-ui-evidence/r5-views/` holds the full capture set and `reports/r5-w5b-trash-ui-evidence/main-flow.webm` shows the flow. Use `reports/r5-w5c-contrast-evidence/r5-views/` for the final Delete note button in both themes. [Measured results by commit](../../specs/002-notes-redesign/r5-recover/tasks.md#r5-gate-evidence)
 
 The default API gate exercises the retention boundary in the pinned PocketBase JS runtime, forces a folder transaction rollback and reads private RustFS objects before and after a real purge. Historical upgrade fixtures exclude the purge hook and verify its absence through the admin API. On the fresh default API and default/recover browser stacks, the runner writes `zz-manual-cron.pb.js` only inside the disposable preparation container. Its native `$app.onServe().bindFunc` callback verifies exactly one production `expired-notes` job at `17 3 * * *`, then re-registers that job’s native `run` under the same ID at the never-due `0 0 30 2 *` before continuing startup. The scheduler keeps running for backups and hourly cleanup. After health and authentication the fixture verifies both job registrations, invokes the real purge and requires a fresh successful zero-removal summary before seeding notes.
+
+### Pin
+
+Run `make test-browser-contained CONTAINED_PROFILE=pin`. The suite drives Chromium and WebKit at 390, 810 and 1440 CSS px with one worker and zero retries. It pins by keyboard, checks the folder order and marker, saves from a second browser that already had the note open, aborts a committed pin reply and retries it, and composes from Pinned. Independent record reads confirm that a pin leaves `revision` and `updated` unchanged. The runner saves `pin.json` and `r7-views/` under the printed project's `test-results/` directory: the folder list, the Pinned view and its empty state, in both themes.
+
+The default API gate runs `scripts/test-pins.ts` and the staged R7 migration up, down and up again in `scripts/test-r2-upgrade.sh`.
 
 ## Commands and coverage
 

@@ -10,7 +10,7 @@ fi
 
 profile=${CONTAINED_PROFILE:-default}
 case "$1/$profile" in
-  api/default|api/accounts|api/restore|api/load|browser/recover|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/plain|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
+  api/default|api/accounts|api/restore|api/load|browser/recover|browser/pin|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/plain|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
   *) echo "Unsupported contained profile: $1/$profile" >&2; exit 2 ;;
 esac
 
@@ -216,7 +216,7 @@ else
   if [[ $profile = plain ]]; then browser_env=(-u CONTAINED_TEST); fi
   tests=(env "${browser_env[@]}" node node_modules/playwright/cli.js test)
   case $profile in
-    default|plain|signup|signup-disabled|recover)
+    default|plain|signup|signup-disabled|recover|pin)
       report=$profile
       case $profile in
         default)
@@ -228,6 +228,10 @@ else
         recover)
           inside browser mkdir -p /tmp/r5-views
           tests+=(tests/e2e/note-actions.spec.cjs tests/e2e/recently-deleted.spec.cjs --workers=1 --retries=0)
+          ;;
+        pin)
+          inside browser mkdir -p /tmp/r7-views
+          tests+=(tests/e2e/pin.spec.cjs --workers=1 --retries=0)
           ;;
         signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
         signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;
@@ -250,9 +254,11 @@ else
   esac
   test_status=0
   inside browser "${tests[@]}" || test_status=$?
-  if [[ $profile = search || $profile = recover ]]; then
+  if [[ $profile = search || $profile = recover || $profile = pin ]]; then
     if [[ $profile = search ]]; then
       report=sc004.json views=r4-search-views states=(filled empty)
+    elif [[ $profile = pin ]]; then
+      report=pin.json views=r7-views states=(folder-pinned pinned-view pinned-empty)
     else
       report=recover.json views=r5-views states=(move-sheet delete-note folder-confirm trash-filled trash-empty)
     fi
@@ -263,7 +269,7 @@ else
       if [[ $profile = search ]]; then
         python3 scripts/check-sc004.py "$output/$report" || test_status=1
       else
-        python3 - "$output/$report" <<'PYREC' || test_status=1
+        python3 - "$output/$report" "$profile" <<'PYREC' || test_status=1
 import json, sys
 def cases(suite):
     for spec in suite.get("specs", []):
@@ -272,10 +278,10 @@ def cases(suite):
     for child in suite.get("suites", []):
         yield from cases(child)
 suites = json.load(open(sys.argv[1]))["suites"]
-expected = {"note-actions.spec.cjs", "recently-deleted.spec.cjs"}
-assert {s["file"].split("/")[-1] for s in suites if list(cases(s))} == expected, "Missing R5 suite"
+expected = {"pin.spec.cjs"} if sys.argv[2] == "pin" else {"note-actions.spec.cjs", "recently-deleted.spec.cjs"}
+assert {s["file"].split("/")[-1] for s in suites if list(cases(s))} == expected, "Missing suite"
 tests = list(cases({"suites": suites}))
-assert tests and all(t["status"] == "expected" and [r["status"] for r in t["results"]] == ["passed"] for t in tests), "Incomplete R5 browser cases"
+assert tests and all(t["status"] == "expected" and [r["status"] for r in t["results"]] == ["passed"] for t in tests), "Incomplete browser cases"
 PYREC
       fi
       for engine in chromium webkit; do
