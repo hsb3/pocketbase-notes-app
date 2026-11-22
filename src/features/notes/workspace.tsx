@@ -25,17 +25,29 @@ import { pb } from "@/services/pocketbase";
 import { cn } from "@/utils/classnames";
 import { ClientResponseError, getTokenPayload } from "pocketbase";
 import { heldDraft, forgetDraft, parkDraft } from "./suspended-draft";
-import { getNote, ownerSession, verifyOwner, NoteAccessError } from "./data";
+import {
+  getNote,
+  localDate,
+  ownerSession,
+  verifyOwner,
+  NoteAccessError,
+} from "./data";
 import {
   confirms,
   readCommand,
   responseStatus,
   sendCommand,
+  setJournalDate,
   setPin,
   type NoteCommand,
   type NoteState,
 } from "./actions";
-import { NoteActions, type ActionPanel, type PinState } from "./note-actions";
+import {
+  NoteActions,
+  type ActionPanel,
+  type DayState,
+  type PinState,
+} from "./note-actions";
 import { NoteDraft } from "./draft";
 import { LeaveDialog } from "./leave-dialog";
 import { type Notice, watchNotebook } from "./live";
@@ -197,6 +209,7 @@ function Library({
   const [panel, setPanel] = useState<ActionPanel>();
   // Held beside the draft, never in its save baseline: a pin is not an edit.
   const [pin, setPinState] = useState<PinState>();
+  const [day, setDayState] = useState<DayState>();
   const command = useRef<NoteCommand & { refused?: boolean }>(undefined);
   const checking = useRef(false);
   // The newest notice for the open note that arrived while it was busy.
@@ -214,9 +227,11 @@ function Library({
   const page = folderId ? (search.page ?? 1) : (origin?.page ?? 1);
   const q = (folderId ? search.q : origin?.q) ?? "";
   const sp = (folderId ? search.sp : origin?.sp) ?? 1;
+  const dayFilter =
+    folder === "journal" ? ((folderId ? search.day : origin?.day) ?? "") : "";
   const folderRecord = folders.find((item) => item.id === folder);
   const target =
-    folder === "all" || folder === "pinned"
+    folder === "all" || folder === "pinned" || folder === "journal"
       ? folders.find((item) => item.is_default)
       : folderRecord;
 
@@ -309,12 +324,14 @@ function Library({
       folder: string,
       note?: Awaited<ReturnType<typeof getNote>>,
       held?: ReturnType<typeof heldDraft>,
+      journalDate?: string,
     ) =>
       new NoteDraft(
         {
           user,
           folder,
           note,
+          journalDate,
           onChange: () => {
             if (active.current?.failure === "locked") {
               parkDraft(active.current);
@@ -349,6 +366,7 @@ function Library({
             if (!current || !session.current()) return;
             active.current = makeDraft(note.folder, note);
             setPinState({ id: note.id, pinned: !!note.pinned });
+            setDayState({ id: note.id, journal_date: note.journal_date });
             if (command.current?.id === note.id) active.current.pause();
             renderDraft();
           })
@@ -522,7 +540,8 @@ function Library({
       page = 1,
       q = "",
       sp = 1,
-    }: { page?: number; q?: string; sp?: number } = {},
+      day = "",
+    }: { page?: number; q?: string; sp?: number; day?: string } = {},
     replace = false,
     focusSearch = false,
     ignoreBlocker = false,
@@ -534,6 +553,7 @@ function Library({
         page: page > 1 ? page : undefined,
         q: q || undefined,
         sp: q && sp > 1 ? sp : undefined,
+        day: id === "journal" && day ? day : undefined,
       },
       state: focusSearch ? { focusSearch } : {},
       ignoreBlocker,
@@ -547,15 +567,17 @@ function Library({
         history.back({ ignoreBlocker: true });
       };
       void guard(false, leave);
-    } else void selectFolder(folder, { page, q, sp }, true);
+    } else void selectFolder(folder, { page, q, sp, day: dayFilter }, true);
   }
 
   function compose(from: ListPosition) {
     if (!target) return;
     const open = () => {
       active.current?.dispose();
-      const next = makeDraft(target.id);
+      const journalDate = folder === "journal" ? dayFilter || localDate() : "";
+      const next = makeDraft(target.id, undefined, undefined, journalDate);
       setPinState({ id: next.id, pinned: false });
+      setDayState({ id: next.id, journal_date: journalDate });
       // Focus the warmed editor during the tap for the mobile software keyboard.
       flushSync(() => {
         active.current = next;
@@ -629,7 +651,7 @@ function Library({
       } else
         void selectFolder(
           origin?.folder ?? cmd.originalFolder,
-          { page, q, sp },
+          { page, q, sp, day: dayFilter },
           true,
           true,
           true,
@@ -678,6 +700,7 @@ function Library({
         if (!stillHere() || command.current !== cmd) return;
         note.replaceSaved(latest);
         setPinState({ id: latest.id, pinned: !!latest.pinned });
+        setDayState({ id: latest.id, journal_date: latest.journal_date });
         endAction();
         focusInDocument(
           note.dirty ? "[data-recovery] button" : "#note-actions",
@@ -781,6 +804,37 @@ function Library({
     }
   }
 
+  async function changeDate(value: string) {
+    const note = active.current;
+    if (!note || day?.id !== note.id || day.busy) return;
+    const before = day.journal_date;
+    const here = () => note.current && active.current === note;
+    setDayState({ id: note.id, journal_date: before, busy: true });
+    try {
+      await setJournalDate(note.id, user, value, session);
+      if (!here()) return;
+      setDayState({ id: note.id, journal_date: value });
+      refreshList();
+      announce(value ? "Date set." : "Date removed.");
+      focusInDocument("#note-actions", note.id);
+    } catch (error) {
+      if (!here()) return;
+      const status = responseStatus(error);
+      if (status === 404) {
+        setDayState({ id: note.id, journal_date: before });
+        missing(note);
+      } else if (status === 400) {
+        try {
+          const latest = await getNote(note.id, session);
+          if (here())
+            setDayState({ id: note.id, journal_date: latest.journal_date });
+        } catch {
+          if (here()) missing(note);
+        }
+      } else setDayState({ id: note.id, journal_date: before, retry: value });
+    }
+  }
+
   async function followRemote(next?: Notice) {
     const note = active.current;
     const notice = next ?? kept.current;
@@ -789,12 +843,19 @@ function Library({
       return;
     }
     kept.current = undefined;
-    if (note.isEcho(notice, pin?.id === note.id ? pin.pinned : undefined))
+    if (
+      note.isEcho(
+        notice,
+        pin?.id === note.id ? pin.pinned : undefined,
+        day?.id === note.id ? day.journal_date : undefined,
+      )
+    )
       return;
     if (
       note.busy ||
       reading.current ||
       pin?.busy ||
+      day?.busy ||
       command.current ||
       pending.current ||
       note.failure === "conflict" ||
@@ -821,6 +882,11 @@ function Library({
         state?.id === note.id && state.busy
           ? state
           : { id: note.id, pinned: !!latest.pinned },
+      );
+      setDayState((state) =>
+        state?.id === note.id && state.busy
+          ? state
+          : { id: note.id, journal_date: latest.journal_date },
       );
       if (result === "replaced") {
         announce("Updated from another device.");
@@ -860,6 +926,8 @@ function Library({
       blocked={!!pending.current || !!command.current}
       pin={pin?.id === draft?.id ? pin : undefined}
       onPin={(pinned) => void togglePin(pinned)}
+      day={day?.id === draft?.id ? day : undefined}
+      onDate={(value) => void changeDate(value)}
     />
   );
   const pane = "min-h-0 min-w-0 flex-col md:flex";
@@ -938,8 +1006,12 @@ function Library({
                   ? "All Notes"
                   : folder === "pinned"
                     ? "Pinned"
-                    : (folderRecord?.name ?? "Folder")
+                    : folder === "journal"
+                      ? "Journal"
+                      : (folderRecord?.name ?? "Folder")
               }
+              day={dayFilter}
+              onDay={(next) => selectFolder("journal", { day: next }, true)}
               page={page}
               selected={selected}
               refresh={refresh}
@@ -963,11 +1035,13 @@ function Library({
               }
               position={returning.current}
               showingList={!selected && !!folderId}
-              onPage={(next) => selectFolder(folder, { page: next })}
+              onPage={(next) =>
+                selectFolder(folder, { page: next, day: dayFilter })
+              }
               onSearch={(term, next) =>
                 selectFolder(
                   folder,
-                  { page, q: term, sp: next },
+                  { page, q: term, sp: next, day: dayFilter },
                   !selected,
                   true,
                 )
@@ -984,7 +1058,12 @@ function Library({
                 } else
                   void selectFolder(
                     folder,
-                    { page: q ? page : next, q, sp: q ? next : sp },
+                    {
+                      page: q ? page : next,
+                      q,
+                      sp: q ? next : sp,
+                      day: dayFilter,
+                    },
                     true,
                     true,
                   );

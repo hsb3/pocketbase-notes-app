@@ -26,6 +26,8 @@ type Options = {
   note?: SavedNote;
   onChange?: () => void;
   onSaved?: (note: SavedNote) => void;
+  /** Sent with the create only: a note composed from Journal starts dated. */
+  journalDate?: string;
 };
 
 function hasContent(node: NodeJSON): boolean {
@@ -45,6 +47,7 @@ export class NoteDraft {
   readonly id: string;
   readonly user: string;
   private readonly initialFolder: string;
+  private readonly journalDate: string;
   body: NodeJSON;
   status: Status;
   error = "";
@@ -82,6 +85,7 @@ export class NoteDraft {
     )
       throw new Error("Note unavailable.");
     this.baseline = held?.baseline ?? note;
+    this.journalDate = held?.journalDate ?? options.journalDate ?? "";
     this.id =
       held?.id ??
       note?.id ??
@@ -119,6 +123,7 @@ export class NoteDraft {
       id: this.id,
       body: this.body,
       baseline: this.baseline,
+      journalDate: this.journalDate,
       generation: this.generation,
       acknowledged: this.acknowledged,
       submissions: this.submissions,
@@ -173,14 +178,16 @@ export class NoteDraft {
     return true;
   }
 
-  // Own saves and actions echo back with the revision, folder and pin this draft already holds.
-  isEcho(notice: Notice, pinned?: boolean) {
+  // Own saves and actions echo back with the revision, folder, pin and day this draft already holds.
+  isEcho(notice: Notice, pinned?: boolean, journalDate?: string) {
     return (
       notice.revision < this.revision ||
       (notice.revision === this.revision &&
         notice.folder === this.folder &&
         !notice.deleted &&
-        (notice.pinned === undefined || notice.pinned === pinned))
+        (notice.pinned === undefined || notice.pinned === pinned) &&
+        (notice.journal_date === undefined ||
+          notice.journal_date === journalDate))
     );
   }
 
@@ -542,6 +549,7 @@ export class NoteDraft {
         submission.body,
         this.revision,
         this.session,
+        this.journalDate,
       );
       if (!this.active()) return false;
       if (!matchesNote(note, submission)) throw new Error("Unconfirmed write");

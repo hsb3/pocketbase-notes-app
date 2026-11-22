@@ -122,6 +122,7 @@ export type NotesRecord<Tbody = unknown, Ttasks = unknown> = {
 	deleted?: IsoDateString
 	folder?: RecordIdString
 	id: string
+	journal_date?: string
 	open_tasks?: number
 	pinned?: boolean
 	revision: number

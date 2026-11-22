@@ -1,4 +1,5 @@
 import { pb } from "@/services/pocketbase";
+import { validDate } from "./data";
 
 // A hint that one of the writer's notes changed (specs/003-live-updates/contracts/notice.md).
 export type Notice = {
@@ -7,14 +8,13 @@ export type Notice = {
   deleted: boolean;
   revision: number;
   pinned?: boolean;
+  journal_date?: string;
 };
 
 function parse(data: unknown): Notice | undefined {
   if (!data || typeof data !== "object") return;
-  const { id, folder, deleted, revision, pinned } = data as Record<
-    string,
-    unknown
-  >;
+  const { id, folder, deleted, revision, pinned, journal_date } =
+    data as Record<string, unknown>;
   if (
     typeof id !== "string" ||
     !/^[a-z0-9]{15}$/.test(id) ||
@@ -22,7 +22,10 @@ function parse(data: unknown): Notice | undefined {
     typeof deleted !== "boolean" ||
     !Number.isSafeInteger(revision) ||
     (revision as number) < 1 ||
-    (pinned !== undefined && typeof pinned !== "boolean")
+    (pinned !== undefined && typeof pinned !== "boolean") ||
+    (journal_date !== undefined &&
+      (typeof journal_date !== "string" ||
+        (journal_date !== "" && !validDate(journal_date))))
   )
     return;
   return {
@@ -31,6 +34,7 @@ function parse(data: unknown): Notice | undefined {
     deleted,
     revision: revision as number,
     ...(pinned === undefined ? {} : { pinned }),
+    ...(journal_date === undefined ? {} : { journal_date }),
   };
 }
 

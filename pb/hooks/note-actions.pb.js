@@ -69,39 +69,54 @@ for (const verb of ["move", "delete", "restore"]) {
   }, $apis.requireAuth("users"));
 }
 
-// Pin is metadata-only (constitution III): no revision check, and raw SQL leaves `updated` alone.
-routerAdd("POST", "/api/notebook/notes/{id}/pin", (e) => {
-  const life = require(`${__hooks}/note-lifecycle.js`);
-  const id = e.request.pathValue("id");
-  const user = e.auth.id;
-  e.response.header().set("Cache-Control", "private, no-store");
-  if (!/^[a-z0-9]{15}$/.test(id)) throw new NotFoundError("Note unavailable.");
-  const raw = readerToString(e.request.body, Number.MAX_SAFE_INTEGER);
-  const mediaType = e.request.header.get("Content-Type").split(";")[0].trim().toLowerCase();
-  let result;
-  e.app.runInTransaction((tx) => {
-    const note = life.ownedNote(tx, id, user);
-    let body;
-    try {
-      body = JSON.parse(raw);
-    } catch {
-      throw new BadRequestError("Expected a JSON object.");
-    }
-    if (e.request.url.rawQuery || mediaType !== "application/json" ||
-        !body || typeof body !== "object" || Array.isArray(body) ||
-        Object.keys(body).length !== 1 || typeof body.pinned !== "boolean") {
-      throw new BadRequestError("Invalid note action.");
-    }
-    life.checkDeleted(tx, id, note.deleted);
-    if (note.deleted) throw new BadRequestError("This note is deleted.");
-    // Zero affected rows means the note already had this value.
-    tx.db().newQuery("UPDATE notes SET pinned={:pinned} WHERE id={:id} AND user={:user} AND deleted='' AND pinned<>{:pinned}")
-      .bind({ id, user, pinned: body.pinned }).execute();
-    result = { id, user, folder: note.folder, deleted: "", revision: note.revision, pinned: body.pinned };
-  });
-  require(`${__hooks}/note-notice.js`).send(e.app, result);
-  return e.json(200, result);
-}, $apis.requireAuth("users"));
+// Pin and journal date are metadata-only (constitution III): no revision check, and raw SQL leaves `updated` alone.
+for (const verb of ["pin", "date"]) {
+  routerAdd("POST", "/api/notebook/notes/{id}/" + verb, (e) => {
+    const life = require(`${__hooks}/note-lifecycle.js`);
+    const id = e.request.pathValue("id");
+    const user = e.auth.id;
+    // Goja compiles each callback alone, so the verb comes from the path, not the loop variable.
+    const key = e.request.url.path.split("/").pop() === "date" ? "journal_date" : "pinned";
+    e.response.header().set("Cache-Control", "private, no-store");
+    if (!/^[a-z0-9]{15}$/.test(id)) throw new NotFoundError("Note unavailable.");
+    const raw = readerToString(e.request.body, Number.MAX_SAFE_INTEGER);
+    const mediaType = e.request.header.get("Content-Type").split(";")[0].trim().toLowerCase();
+    let result;
+    e.app.runInTransaction((tx) => {
+      const note = life.ownedNote(tx, id, user);
+      let body;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        throw new BadRequestError("Expected a JSON object.");
+      }
+      if (e.request.url.rawQuery || mediaType !== "application/json" ||
+          !body || typeof body !== "object" || Array.isArray(body) ||
+          Object.keys(body).length !== 1 || !Object.prototype.hasOwnProperty.call(body, key)) {
+        throw new BadRequestError("Invalid note action.");
+      }
+      const value = body[key];
+      if (key === "pinned") {
+        if (typeof value !== "boolean") throw new BadRequestError("Invalid note action.");
+      } else {
+        try {
+          if (typeof value !== "string") throw new Error("Choose a valid journal date.");
+          require(`${__hooks}/entry-validation.js`).date(value);
+        } catch (error) {
+          throw new BadRequestError(String(error.message || error));
+        }
+      }
+      life.checkDeleted(tx, id, note.deleted);
+      if (note.deleted) throw new BadRequestError("This note is deleted.");
+      // Zero affected rows means the note already had this value. `key` is one of two fixed names.
+      tx.db().newQuery("UPDATE notes SET " + key + "={:value} WHERE id={:id} AND user={:user} AND deleted='' AND " +
+        key + "<>{:value}").bind({ id, user, value }).execute();
+      result = { id, user, folder: note.folder, deleted: "", revision: note.revision, [key]: value };
+    });
+    require(`${__hooks}/note-notice.js`).send(e.app, result);
+    return e.json(200, result);
+  }, $apis.requireAuth("users"));
+}
 
 routerAdd("GET", "/api/notebook/recently-deleted", (e) => {
   const life = require(`${__hooks}/note-lifecycle.js`);

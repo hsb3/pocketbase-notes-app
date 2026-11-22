@@ -19,7 +19,7 @@ const {
 } = require("./note-helpers.cjs");
 const gardenTitle = "Seed order";
 const gardenBody = "Buy calendula for the south wall";
-const fields = "id,folder,title,updated,excerpt,pinned";
+const fields = "id,folder,title,updated,excerpt,pinned,journal_date";
 
 for (const width of [390, 810, 1440]) {
   test(`Garden capture at ${width}px reopens in an independent desktop session`, async ({

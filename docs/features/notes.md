@@ -26,21 +26,31 @@ A pin is not an edit. It keeps the note's last-edit time, writing, folder and re
 
 At the API, `POST /api/notebook/notes/<id>/pin` takes exactly `{ "pinned": true }` or `{ "pinned": false }`. It returns `id`, `user`, `folder`, `deleted`, `revision` and `pinned`. Setting the value the note already has succeeds without a write. A deleted note returns HTTP 400. The ordinary records API cannot create a note with `pinned` or change it.
 
+## Give a note a journal date
+
+On a saved note, open **Note actions** and choose **Add date…**. Pick a day in the **Journal date** dialog, or choose **Today**, then **Save**. The note stays in its folder, shows its day beside the folder name, and also appears in [Journal](folders.md). To change or remove the day, choose **Change date…**, then pick another day or **Remove date**. **Cancel** and Escape change nothing. A note composed from Journal starts with a day: the filtered day, or today.
+
+A journal day is a calendar day with no time and no time zone. It reads the same on every device, wherever it is, and **Today** means the day on the device that chooses it. Any real day from 0001-01-01 to 9999-12-31 is allowed, past or future.
+
+A date is not an edit. Like a pin, it keeps the note's last-edit time, writing, folder and revision, so it never causes a save conflict on another device, and an open note on another device shows the new day without a reload. Two devices that change the day at nearly the same time end with the last change the server received. If the reply is lost, **Retry** sends the same day again. Moving, deleting and restoring a note keep its day. Search ignores days.
+
+At the API, `POST /api/notebook/notes/<id>/date` takes exactly `{ "journal_date": "YYYY-MM-DD" }`, or `{ "journal_date": "" }` to remove the day. It returns `id`, `user`, `folder`, `deleted`, `revision` and `journal_date`. Setting the day the note already has succeeds without a write. An impossible or malformed day, or a deleted note, returns HTTP 400. The ordinary records API may send a valid `journal_date` when it creates a note but can never change it afterwards. [Contract](../../specs/002-notes-redesign/r8-journal/contracts/journal.md)
+
 ## Live updates
 
-A note open on one device follows saves, moves, pins and deletes made on another device or tab signed in to the same account, usually within two seconds and without a reload.
+A note open on one device follows saves, moves, pins, journal dates and deletes made on another device or tab signed in to the same account, usually within two seconds and without a reload.
 
 - **No unsaved edits.** The newer words replace the editor's contents, the status shows **Saved**, and screen readers hear "Updated from another device." If the editor had focus it keeps it, with the caret at the start of the note. Typing then saves on top of the newer version without a conflict.
 - **Unsaved edits and different words saved elsewhere.** Autosave stops and the [save conflict](#recovering-an-uncertain-save-in-r3) dialog opens at once. Every local word stays in the editor and in **Copy draft**. Further saves elsewhere change nothing on screen until **Reload saved**, which loads the newest version.
 - **A move elsewhere.** The note keeps its address and shows its new folder. Unsaved edits are kept and save into the new folder, because the saved words they started from did not change. A save that was in flight when the move happened is sent again on the new revision.
-- **A pin elsewhere.** **Note actions** offers **Unpin** or **Pin** to match. Writing and saving are unaffected.
+- **A pin or journal date elsewhere.** **Note actions** offers **Unpin** or **Pin** to match, and the header shows the new day. Writing and saving are unaffected.
 - **A delete elsewhere.** With no unsaved edits the editor shows **Note unavailable**. With unsaved edits it offers **Copy draft**. A later restore elsewhere returns the note to the lists, while the open view stays unavailable until the note is opened again.
 
 While a save, a pin, a move or delete, a leave or sign-out choice, or the conflict dialog is in progress, a change from elsewhere waits until it ends and is then checked against the result. This device's own saves and actions are never treated as changes from elsewhere.
 
 Missed changes are never resent. Returning to the tab, coming back online and every reconnect read the open note, the visible list and the folders again. The server closes each live connection after at most 30 minutes, and the app reconnects. Saving never depends on the live connection: if it cannot connect, saving, conflicts and every recovery path work as before, and the app tries again when the tab is next shown or the network returns. Signing out or switching accounts stops live updates before the next account's notes appear.
 
-At the API, subscribe to the PocketBase realtime topic `notebook-changes` with the signed-in user's token (`pb.realtime.subscribe("notebook-changes", …)`, no options). Each event carries exactly `id`, `folder`, `deleted` (boolean), `revision` and, for creates, content saves and pins, `pinned`. It carries no title, writing or other content: read the note through the ordinary records API. Events are sent after every committed create, content save, move, delete, restore, pin and folder delete (one per affected note), only to clients bound to the note's owner. Refused writes, other accounts, guests and superusers receive nothing. Purge sends nothing. [Contract](../../specs/003-live-updates/contracts/notice.md)
+At the API, subscribe to the PocketBase realtime topic `notebook-changes` with the signed-in user's token (`pb.realtime.subscribe("notebook-changes", …)`, no options). Each event carries exactly `id`, `folder`, `deleted` (boolean), `revision`, `pinned` for creates, content saves and pins, and `journal_date` for creates, content saves and date changes. It carries no title, writing or other content: read the note through the ordinary records API. Events are sent after every committed create, content save, move, delete, restore, pin, date change and folder delete (one per affected note), only to clients bound to the note's owner. Refused writes, other accounts, guests and superusers receive nothing. Purge sends nothing. [Contract](../../specs/003-live-updates/contracts/notice.md)
 
 ## Move, delete and restore
 

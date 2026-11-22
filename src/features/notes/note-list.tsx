@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useReducer,
@@ -19,7 +20,14 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import type { listFolders } from "@/features/folders/data";
-import { listNotes, ownerSession, searchNotes, searchTerm } from "./data";
+import {
+  listNotes,
+  ownerSession,
+  searchNotes,
+  searchTerm,
+  validDate,
+} from "./data";
+import { formatDay } from "./journal-date";
 import { preloadEditor } from "./note-editor";
 
 export type ListPosition = {
@@ -27,6 +35,7 @@ export type ListPosition = {
   page: number;
   q?: string;
   sp?: number;
+  day?: string;
   scroll: number;
   focus: string;
   fromList: boolean;
@@ -56,6 +65,8 @@ export function NoteList({
   onPage,
   onSearch,
   clampPage,
+  day,
+  onDay,
 }: {
   user: string;
   folder: string;
@@ -80,7 +91,13 @@ export function NoteList({
   onPage: (page: number) => void;
   onSearch: (q: string, sp: number) => void;
   clampPage: (sp: number) => void;
+  day: string;
+  onDay: (day: string) => void;
 }) {
+  const journal = folder === "journal";
+  const dayInput = useRef<HTMLInputElement>(null);
+  const [dayField, setDayField] = useState(day);
+  useLayoutEffect(() => setDayField(day), [day]);
   const [field, setField] = useState(q);
   // biome-ignore lint/correctness/useExhaustiveDependencies: Navigation and the leave dialog end the local field edit.
   useLayoutEffect(() => setField(q), [q, entryKey, choosing]);
@@ -109,7 +126,7 @@ export function NoteList({
   useEffect(() => {
     let live = true;
     const session = ownerSession(user);
-    (q ? searchNotes(q, sp) : listNotes(folder, page)).then(
+    (q ? searchNotes(q, sp) : listNotes(folder, page, day)).then(
       (rows) => {
         if (live && session.current()) setReply({ refresh, retry, rows });
       },
@@ -121,7 +138,7 @@ export function NoteList({
     return () => {
       live = false;
     };
-  }, [user, folder, page, q, sp, refresh, retry]);
+  }, [user, folder, page, q, sp, day, refresh, retry]);
   // A change elsewhere re-reads in place: the rows shown stay until new ones arrive.
   const lastLive = useRef(live);
   useEffect(() => {
@@ -129,7 +146,7 @@ export function NoteList({
     lastLive.current = live;
     let current = true;
     const session = ownerSession(user);
-    (q ? searchNotes(q, sp) : listNotes(folder, page)).then(
+    (q ? searchNotes(q, sp) : listNotes(folder, page, day)).then(
       (rows) => {
         if (current && session.current())
           setReply((shown) =>
@@ -143,7 +160,7 @@ export function NoteList({
     return () => {
       current = false;
     };
-  }, [user, folder, page, q, sp, refresh, retry, live]);
+  }, [user, folder, page, q, sp, day, refresh, retry, live]);
   useEffect(() => {
     if (
       rows &&
@@ -165,6 +182,7 @@ export function NoteList({
       position.page === page &&
       (position.q ?? "") === q &&
       (position.sp ?? 1) === sp &&
+      (position.day ?? "") === day &&
       scroll.current
     ) {
       if (!rows) return;
@@ -174,10 +192,23 @@ export function NoteList({
           ? composeButton.current
           : document.getElementById("row-" + position.focus);
       (target ?? input.current)?.focus({ preventScroll: true });
+    } else if (document.activeElement === dayInput.current) {
+      // Choosing a day replaces the address; keep focus in the filter.
     } else if (focusSearch) input.current?.focus({ preventScroll: true });
     else if (folder !== "all") heading.current?.focus({ preventScroll: true });
     restored.current = entryKey;
-  }, [showingList, rows, position, entryKey, focusSearch, folder, page, q, sp]);
+  }, [
+    showingList,
+    rows,
+    position,
+    entryKey,
+    focusSearch,
+    folder,
+    page,
+    q,
+    sp,
+    day,
+  ]);
   function listPosition(focus: string): ListPosition {
     return {
       fromList: showingList || (focus !== "compose" && fromList),
@@ -185,6 +216,7 @@ export function NoteList({
       page,
       q: q || undefined,
       sp,
+      day: day || undefined,
       scroll: scroll.current?.scrollTop ?? 0,
       focus,
     };
@@ -210,7 +242,7 @@ export function NoteList({
           Folders
         </Link>
       </Button>
-      <header className="col-start-1 row-start-2 flex min-w-0 items-center gap-1 px-3 py-2 max-md:col-span-2 md:row-start-1">
+      <header className="col-start-1 row-start-2 flex min-w-0 flex-wrap items-center gap-1 px-3 py-2 max-md:col-span-2 md:row-start-1">
         <h2
           ref={heading}
           tabIndex={-1}
@@ -229,6 +261,37 @@ export function NoteList({
           >
             <Trash2 />
           </Button>
+        )}
+        {journal && (
+          <span className="flex min-w-0 items-center gap-1">
+            <Input
+              ref={dayInput}
+              type="date"
+              aria-label="Filter by day"
+              min="0001-01-01"
+              max="9999-12-31"
+              className="h-8 w-auto min-w-0"
+              value={dayField}
+              onChange={(event) => {
+                const value = event.target.value;
+                setDayField(value);
+                if (validDate(value) && value !== day) onDay(value);
+              }}
+            />
+            {day && (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Clear day filter"
+                onClick={() => {
+                  onDay("");
+                  dayInput.current?.focus();
+                }}
+              >
+                Clear
+              </Button>
+            )}
+          </span>
         )}
       </header>
       <form
@@ -312,65 +375,98 @@ export function NoteList({
                 ? "No matching notes"
                 : folder === "pinned"
                   ? "No pinned notes"
-                  : "No notes yet"}
+                  : journal && day
+                    ? "No notes on " + formatDay(day)
+                    : journal
+                      ? "No journal notes"
+                      : "No notes yet"}
             </EmptyTitle>
             {!q && folder === "pinned" && (
               <EmptyDescription>
                 Pin a note from its actions menu.
               </EmptyDescription>
             )}
+            {!q && journal && !day && (
+              <EmptyDescription>
+                Add a date from a note's actions menu.
+              </EmptyDescription>
+            )}
+            {!q && journal && day && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onDay("");
+                  dayInput.current?.focus();
+                }}
+              >
+                Clear day
+              </Button>
+            )}
           </Empty>
         ) : (
           <nav aria-label="Notes">
-            {rows.items.map((note) => (
-              <Link
-                key={note.id}
-                id={"row-" + note.id}
-                to="/notes/$noteId"
-                params={{ noteId: note.id }}
-                replace={!!selected && !!q}
-                state={() => ({ origin: listPosition(note.id) })}
-                aria-current={selected === note.id ? "page" : undefined}
-                className="flex min-h-16 flex-col justify-center gap-1 rounded-lg border-b px-3 py-2 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 aria-[current=page]:bg-accent"
-              >
-                <span className="flex min-w-0 items-center gap-1">
-                  <strong className="truncate text-sm">{note.title}</strong>
-                  {"pinned" in note && note.pinned && (
-                    <Pin
-                      role="img"
-                      aria-label="Pinned"
-                      className="size-3.5 shrink-0 text-muted-foreground"
-                    />
+            {rows.items.map((note, i) => (
+              <Fragment key={note.id}>
+                {journal &&
+                  !q &&
+                  "journal_date" in note &&
+                  note.journal_date &&
+                  (i === 0 ||
+                    (rows.items[i - 1] as typeof note).journal_date !==
+                      note.journal_date) && (
+                    <h3 className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground">
+                      {formatDay(note.journal_date)}
+                    </h3>
                   )}
-                </span>
-                {folder === "pinned" && !q && (
-                  <span className="text-xs wrap-anywhere text-muted-foreground">
-                    {folders.find((f) => f.id === note.folder)?.name}
+                <Link
+                  id={"row-" + note.id}
+                  to="/notes/$noteId"
+                  params={{ noteId: note.id }}
+                  replace={!!selected && !!q}
+                  state={() => ({ origin: listPosition(note.id) })}
+                  aria-current={selected === note.id ? "page" : undefined}
+                  className="flex min-h-16 flex-col justify-center gap-1 rounded-lg border-b px-3 py-2 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 aria-[current=page]:bg-accent"
+                >
+                  <span className="flex min-w-0 items-center gap-1">
+                    <strong className="truncate text-sm">{note.title}</strong>
+                    {"pinned" in note && note.pinned && (
+                      <Pin
+                        role="img"
+                        aria-label="Pinned"
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                      />
+                    )}
                   </span>
-                )}
-                {"snippet" in note ? (
-                  <>
+                  {(folder === "pinned" || journal) && !q && (
                     <span className="text-xs wrap-anywhere text-muted-foreground">
                       {folders.find((f) => f.id === note.folder)?.name}
                     </span>
-                    <span className="text-sm wrap-anywhere">
-                      {note.snippet.before}
-                      {note.snippet.match && (
-                        <mark className="bg-accent font-semibold text-accent-foreground">
-                          {note.snippet.match}
-                        </mark>
-                      )}
-                      {note.snippet.after}
-                    </span>
-                  </>
-                ) : (
-                  note.excerpt && (
-                    <span className="truncate text-xs text-muted-foreground">
-                      {note.excerpt}
-                    </span>
-                  )
-                )}
-              </Link>
+                  )}
+                  {"snippet" in note ? (
+                    <>
+                      <span className="text-xs wrap-anywhere text-muted-foreground">
+                        {folders.find((f) => f.id === note.folder)?.name}
+                      </span>
+                      <span className="text-sm wrap-anywhere">
+                        {note.snippet.before}
+                        {note.snippet.match && (
+                          <mark className="bg-accent font-semibold text-accent-foreground">
+                            {note.snippet.match}
+                          </mark>
+                        )}
+                        {note.snippet.after}
+                      </span>
+                    </>
+                  ) : (
+                    note.excerpt && (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {note.excerpt}
+                      </span>
+                    )
+                  )}
+                </Link>
+              </Fragment>
             ))}
           </nav>
         )}

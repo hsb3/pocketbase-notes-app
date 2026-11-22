@@ -14,26 +14,54 @@ type Detail = Pick<
   | "updated"
   | "deleted"
   | "pinned"
+  | "journal_date"
 > & { body: NodeJSON };
 // shortcut: excerpt is response-only. Recheck this local projection after wave 5 codegen.
-type Summary = Pick<Note, "id" | "folder" | "title" | "updated" | "pinned"> & {
+type Summary = Pick<
+  Note,
+  "id" | "folder" | "title" | "updated" | "pinned" | "journal_date"
+> & {
   excerpt: string;
 };
 const detailFields =
-  "id,user,folder,title,body,attachments,revision,updated,deleted,pinned";
+  "id,user,folder,title,body,attachments,revision,updated,deleted,pinned,journal_date";
 
 const active = 'deleted = ""';
 
-export function listNotes(folder: string, page: number) {
+// A journal day is a calendar day with no time zone: "today" is the device's local day.
+export function localDate(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+export function validDate(value: string) {
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    value >= "0001-01-01" &&
+    Number.isFinite(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value
+  );
+}
+
+export function listNotes(folder: string, page: number, day?: string) {
+  const journal = folder === "journal";
   return pb.collection("notes").getList<Summary>(page, 20, {
-    fields: "id,folder,title,updated,excerpt,pinned",
+    fields: "id,folder,title,updated,excerpt,pinned,journal_date",
     filter:
       folder === "all"
         ? active
         : folder === "pinned"
           ? active + " && pinned = true"
-          : active + " && " + pb.filter("folder = {:folder}", { folder }),
-    sort: folder === "pinned" ? "-updated,-id" : "-pinned,-updated,-id",
+          : journal
+            ? active +
+              (day
+                ? " && " + pb.filter("journal_date = {:day}", { day })
+                : ' && journal_date != ""')
+            : active + " && " + pb.filter("folder = {:folder}", { folder }),
+    sort:
+      folder === "pinned" || (journal && day)
+        ? "-updated,-id"
+        : journal
+          ? "-journal_date,-updated,-id"
+          : "-pinned,-updated,-id",
     requestKey: null,
   });
 }
@@ -139,7 +167,9 @@ export async function getNote(
     !note.body ||
     !Array.isArray(note.attachments) ||
     !Number.isSafeInteger(note.revision) ||
-    note.revision < 1
+    note.revision < 1 ||
+    typeof note.journal_date !== "string" ||
+    (note.journal_date !== "" && !validDate(note.journal_date))
   )
     throw new NoteAccessError("unavailable");
   return note;
@@ -190,6 +220,7 @@ export async function saveNote(
   body: NodeJSON,
   revision: number,
   session = ownerSession(user),
+  journalDate = "",
 ) {
   checkSession(session);
   const options = { fields: detailFields, requestKey: null };
@@ -197,7 +228,14 @@ export async function saveNote(
   const note =
     revision === 0
       ? await notes.create<Detail>(
-          { id, user, folder, body, attachments: [] },
+          {
+            id,
+            user,
+            folder,
+            body,
+            attachments: [],
+            ...(journalDate ? { journal_date: journalDate } : {}),
+          },
           options,
         )
       : await notes.update<Detail>(id, { revision, body }, options);
@@ -206,7 +244,8 @@ export async function saveNote(
     note.user !== user ||
     note.id !== id ||
     note.folder !== folder ||
-    note.revision !== revision + 1
+    note.revision !== revision + 1 ||
+    (revision === 0 && (note.journal_date ?? "") !== journalDate)
   )
     throw new Error("The note save could not be confirmed.");
   return note;
