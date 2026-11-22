@@ -118,11 +118,11 @@
 
 ## Phase 6: Polish (W5 docs and gate)
 
-- [ ] T031 [P] Modify `docs/features/notes.md` to describe the date action, that a date is a calendar day with no time zone, that it is not an edit and never conflicts with a save, and that it follows to other devices
-- [ ] T032 [P] Modify `docs/features/folders.md` to describe the Journal smart folder, its order and headings, the day filter and its address, the empty states and compose-from-Journal filing and dating
-- [ ] T033 [P] Modify `docs/testing/verification.md` to add the `journal` profile row and a "Journal" section (shape of "Pin"), and add an Unreleased entry for Journal to `CHANGELOG.md`
-- [ ] T034 If the Needs-owner decision on the calendar grid ([plan](plan.md#needs-owner)) has been made, record it in `research.md` §8; otherwise leave the provisional default and list it in the pull request as open
-- [ ] T035 Run `python3 scripts/ai-context.py check`, `bun run docs:build` and `bun x tsc -p scripts/tsconfig.json`; fix any failure ([W5 exit](quickstart.md#w5-exit))
+- [X] T031 [P] Modify `docs/features/notes.md` to describe the date action, that a date is a calendar day with no time zone, that it is not an edit and never conflicts with a save, and that it follows to other devices
+- [X] T032 [P] Modify `docs/features/folders.md` to describe the Journal smart folder, its order and headings, the day filter and its address, the empty states and compose-from-Journal filing and dating
+- [X] T033 [P] Modify `docs/testing/verification.md` to add the `journal` profile row and a "Journal" section (shape of "Pin"), and add an Unreleased entry for Journal to `CHANGELOG.md`
+- [X] T034 If the Needs-owner decision on the calendar grid ([plan](plan.md#needs-owner)) has been made, record it in `research.md` §8; otherwise leave the provisional default and list it in the pull request as open
+- [X] T035 Run `python3 scripts/ai-context.py check`, `bun run docs:build` and `bun x tsc -p scripts/tsconfig.json`; fix any failure ([W5 exit](quickstart.md#w5-exit))
 - [ ] T036 Run the full gate `.specify/extensions/functionform-gate/scripts/gate.sh full`. Append an "R8 gate evidence" section to `specs/002-notes-redesign/r8-journal/tasks.md` (shape of the R7 and LU ledgers): tested commits, red and green commands with exits, the EXPLAIN plans and which Journal filter shipped, the time-zone and two-device timings, capture paths, deviations from the task text, and `docker ps -a` showing no leftover containers. Mark only demonstrated tasks
 - [ ] T037 Modify `specs/002-notes-redesign/versions.md` last: set the R8 row to `done` once T036 is green
 

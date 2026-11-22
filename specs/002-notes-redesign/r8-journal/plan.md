@@ -114,7 +114,7 @@ Gaps: no physical-device check. R8 adds no keyboard or viewport behaviour beyond
 
 ## Needs owner
 
-- **Calendar grid.** The roadmap's reuse of `src/features/entries/date-picker.tsx` needs `react-day-picker` back (R2 removed it with `calendar.tsx` and `popover.tsx`). That is a new dependency, so it is not decided here. Provisional default: the platform date input in the existing `Dialog`, keeping the old picker's Today and Clear date behaviour ([research §8](research.md#8-date-control-without-a-new-dependency)). Switching later changes only `journal-date.tsx`.
+- **Calendar grid.** Ruled during implementation: the native date input ships (no new dependency); the grid stays a follow-up option for the owner. The roadmap's reuse of `src/features/entries/date-picker.tsx` needs `react-day-picker` back (R2 removed it with `calendar.tsx` and `popover.tsx`). That is a new dependency, so it is not decided here. Provisional default: the platform date input in the existing `Dialog`, keeping the old picker's Today and Clear date behaviour ([research §8](research.md#8-date-control-without-a-new-dependency)). Switching later changes only `journal-date.tsx`.
 
 ## New Dependencies *(mandatory)*
 

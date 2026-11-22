@@ -33,6 +33,7 @@ Choose one profile per invocation, for example `make test-api-contained CONTAINE
 | `test-browser-contained` | `plain` | Exercise the hosted default selection against the production bundle. Exclude the 12 ageing fixture cases at discovery. Retain `plain.list.json` and `plain.json`. |
 | `test-browser-contained` | `recover` | Exercise note moves, note and folder deletion, restore, interrupted replies and keyboard focus. Runs both complete recovery suites, including the 12 ageing cases, and retains the [recovery report and screenshots](#move-delete-and-restore). |
 | `test-browser-contained` | `pin` | Exercise Pin, the Pinned view and a lost pin reply. Runs `tests/e2e/pin.spec.cjs` and retains the [pin report and screenshots](#pin). |
+| `test-browser-contained` | `journal` | Exercise journal dates, the Journal view and its day filter, time zones, a second device and a lost date reply. Runs `tests/e2e/journal.spec.cjs` and retains the [journal report and screenshots](#journal). |
 | `test-browser-contained` | `live` | Exercise [live updates](#live-updates) between two devices of one account. Runs `tests/e2e/live-updates.spec.cjs` and retains `live.json` with the SC-001 timings. |
 | `test-browser-contained` | `operator` | Run the operator commands against local services, including autosave, file access, failed-write cleanup, signup policy and Mailpit email. |
 | `test-browser-contained` | `signup`, `signup-disabled` | Exercise registration with the selected policy in Chromium and WebKit. Enabled signup sets both the frontend build flag and the backend runtime flag. |
@@ -94,6 +95,12 @@ The default API gate exercises the retention boundary in the pinned PocketBase J
 Run `make test-browser-contained CONTAINED_PROFILE=pin`. The suite drives Chromium and WebKit at 390, 810 and 1440 CSS px with one worker and zero retries. It pins by keyboard, checks the folder order and marker, saves from a second browser that already had the note open, aborts a committed pin reply and retries it, and composes from Pinned. Independent record reads confirm that a pin leaves `revision` and `updated` unchanged. The runner saves `pin.json` and `r7-views/` under the printed project's `test-results/` directory: the folder list, the Pinned view and its empty state, in both themes.
 
 The default API gate runs `scripts/test-pins.ts` and the staged R7 migration up, down and up again in `scripts/test-r2-upgrade.sh`.
+
+### Journal
+
+Run `make test-browser-contained CONTAINED_PROFILE=journal`. The suite drives Chromium and WebKit at 390, 810 and 1440 CSS px with one worker and zero retries. It dates a note by keyboard, checks the Journal headings, order and folder names, filters by day through the address, composes from Journal, compares devices in `Pacific/Kiritimati` and `Pacific/Pago_Pago` with a fixed clock, follows a day changed on a second device, aborts a committed date reply, and keeps a dated note through move, delete and restore. Independent record reads confirm that a date leaves `revision` and `updated` unchanged. The runner saves `journal.json` and `r8-views/` under the printed project's `test-results/` directory: Journal with days, an empty day, the empty Journal and the date dialog, in both themes.
+
+The default API gate runs `scripts/test-journal.ts` and the staged R8 migration up, down and up again in `scripts/test-r2-upgrade.sh`, with the query plans of the real Journal list SQL.
 
 ### Live updates
 

@@ -1,6 +1,6 @@
 # Folders
 
-**All Notes** shows active notes from every folder in the signed-in account. **Notes** is the permanent folder where Compose files a note started from All Notes. **Pinned** shows every pinned note, most recently edited first, with the folder each one lives in. Compose from All Notes or Pinned files the new note, unpinned, in Notes. To file new writing elsewhere, open that folder before choosing **Compose**. [Writing and searching notes](notes.md)
+**All Notes** shows active notes from every folder in the signed-in account. **Notes** is the permanent folder where Compose files a note started from All Notes. **Pinned** shows every pinned note, most recently edited first, with the folder each one lives in. Compose from All Notes or Pinned files the new note, unpinned, in Notes. **Journal** shows every note that has a [journal date](notes.md#give-a-note-a-journal-date), grouped under its day: days newest first, and within a day the most recently edited note first, each with its folder. Pins do not change Journal's order. **Filter by day** narrows Journal to one day and keeps it in the address (`/folders/journal?day=2026-11-21`), so Back and reload keep it; **Clear** returns to every day. An empty Journal explains how to date a note, and an empty day offers **Clear day**. A day that does not exist in the address shows all of Journal. Compose from Journal files the new note in Notes, dated with the filtered day or, with no filter, today. Opening or filtering Journal never creates a note; searching from Journal searches every folder. To file new writing elsewhere, open that folder before choosing **Compose**. [Writing and searching notes](notes.md)
 
 ## Create a folder
 
@@ -24,7 +24,7 @@ To remove a custom folder, open its list and choose **Delete folder**. Check the
 
 ### Changes from another device
 
-Folder lists, **All Notes**, **Pinned**, search results and **Recently Deleted** follow notes created, edited, pinned, moved, deleted or restored on another device or tab. The rows shown stay on screen until the new ones arrive, and the page, scroll position, keyboard focus and any search text being typed stay where they were. A burst of changes, such as a folder delete, settles in a few reads. The folder column itself refreshes when the tab is shown again or the connection returns. [Live updates](notes.md#live-updates)
+Folder lists, **All Notes**, **Pinned**, **Journal**, search results and **Recently Deleted** follow notes created, edited, pinned, dated, moved, deleted or restored on another device or tab. The rows shown stay on screen until the new ones arrive, and the page, scroll position, keyboard focus and any search text being typed stay where they were. A burst of changes, such as a folder delete, settles in a few reads. The folder column itself refreshes when the tab is shown again or the connection returns. [Live updates](notes.md#live-updates)
 
 ### Check an interrupted action
 

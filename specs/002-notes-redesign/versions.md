@@ -135,7 +135,7 @@ One row per increment. The ID never changes once a sub-spec uses it. Update Stat
 - **Goal.** Any note can carry a calendar date and appear in Journal.
 - **Covers.** Story 4; FR-007 journal; date parts of Story 3.
 - **Backend.** Add `journal_date` text (date-only), validated by `date()` in `pb/hooks/entry-validation.js`. The [R8 plan](r8-journal/plan.md) supersedes the inferred index with `(user, journal_date, updated, id)` and writes the day through a metadata-only `date` verb.
-- **Reuses.** `localDate()`/`validDate()` (git history). The R8 plan replaces `src/features/entries/date-picker.tsx`, whose calendar dependency R2 removed, with the platform date input until the owner decides.
+- **Reuses.** `localDate()`/`validDate()` (git history). The R8 plan replaces `src/features/entries/date-picker.tsx`, whose calendar dependency R2 removed, with the platform date input; a calendar grid would need `react-day-picker` back and remains a follow-up for the owner.
 - **Exit.** Two notes in different folders share a day; day filter; date unchanged under a different browser time zone; opening Journal creates no record.
 
 ### R9: Rich text, checklists and the phone formatting bar
