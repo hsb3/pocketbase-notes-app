@@ -22,6 +22,10 @@ Choose **Delete note…** to review the title and confirm. The note disappears f
 
 To remove a custom folder, open its list and choose **Delete folder**. Check the folder name and active note count. **Cancel** keeps the folder and its contents. Confirming removes the folder permanently and sends its active notes to Recently Deleted together. Notes already there keep their original deadlines. If any member changed since the preview, review the fresh preview and confirm again, even if the count looks the same.
 
+### Changes from another device
+
+Folder lists, **All Notes**, **Pinned**, search results and **Recently Deleted** follow notes created, edited, pinned, moved, deleted or restored on another device or tab. The rows shown stay on screen until the new ones arrive, and the page, scroll position, keyboard focus and any search text being typed stay where they were. A burst of changes, such as a folder delete, settles in a few reads. The folder column itself refreshes when the tab is shown again or the connection returns. [Live updates](notes.md#live-updates)
+
 ### Check an interrupted action
 
 If a reply is lost during a move, deletion or restore, choose **Check again**. It reads the current state before another action can be submitted. **Close** dismisses the prompt and leaves the check available, even if the row or folder has disappeared. If the read fails, **Retry** checks again. Keep the tab open if there are unsaved words. When another change makes the note unavailable, **Copy draft** preserves the latest local text. If clipboard access fails, select and copy the words in the editor.

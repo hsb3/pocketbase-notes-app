@@ -43,6 +43,8 @@ function folderAction(e) {
   const user = request.auth.id;
   request.response.header().set("Cache-Control", "private, no-store");
   let result;
+  let removed = [];
+  const app = e.app;
   e.app.runInTransaction((tx) => {
     const [folder] = tx.findRecordsByFilter("folders", "id={:id} && user={:user}", "", 1, 0, { id, user });
     if (!folder) throw new NotFoundError("Folder unavailable.");
@@ -77,8 +79,11 @@ function folderAction(e) {
     e.app = tx;
     e.record = folder;
     e.next();
+    removed = rows.map((row) => ({ id: row.id, user, folder: "", deleted: row.deleted || now, revision: row.revision + 1 }));
   });
   if (preview) return e.json(200, result);
+  const notice = require(`${__hooks}/note-notice.js`);
+  for (const note of removed) notice.send(app, note);
 }
 routerAdd("GET", "/api/notebook/folders/{id}/delete-preview", folderAction, $apis.requireAuth("users"));
 onRecordDeleteRequest(folderAction, "folders");

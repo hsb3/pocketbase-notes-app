@@ -42,6 +42,7 @@ export function NoteList({
   sp,
   selected,
   refresh,
+  live,
   compose,
   canCompose,
   deleteFolder,
@@ -65,6 +66,7 @@ export function NoteList({
   sp: number;
   selected?: string;
   refresh: number;
+  live: number;
   compose: (position: ListPosition) => void;
   canCompose: boolean;
   deleteFolder?: () => void;
@@ -120,6 +122,28 @@ export function NoteList({
       live = false;
     };
   }, [user, folder, page, q, sp, refresh, retry]);
+  // A change elsewhere re-reads in place: the rows shown stay until new ones arrive.
+  const lastLive = useRef(live);
+  useEffect(() => {
+    if (lastLive.current === live) return;
+    lastLive.current = live;
+    let current = true;
+    const session = ownerSession(user);
+    (q ? searchNotes(q, sp) : listNotes(folder, page)).then(
+      (rows) => {
+        if (current && session.current())
+          setReply((shown) =>
+            shown?.rows && shown.refresh === refresh && shown.retry === retry
+              ? { refresh, retry, rows }
+              : shown,
+          );
+      },
+      () => undefined,
+    );
+    return () => {
+      current = false;
+    };
+  }, [user, folder, page, q, sp, refresh, retry, live]);
   useEffect(() => {
     if (
       rows &&

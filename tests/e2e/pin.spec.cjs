@@ -1,6 +1,7 @@
 const fs = require("node:fs/promises");
 const { test, expect, api } = require("./fixtures.cjs");
 const {
+  blockRealtime,
   button,
   editor,
   doc,
@@ -282,6 +283,8 @@ for (const [width, height] of [
       session,
     }) => {
       const { owner, c } = await seedThree(session);
+      // Otherwise the pin's own notice settles the lost reply before Retry is needed.
+      await blockRealtime(page);
       await login(page, session);
       await open(page, c);
       const writes = [];

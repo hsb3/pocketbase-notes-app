@@ -38,6 +38,7 @@ import {
 import { NoteActions, type ActionPanel, type PinState } from "./note-actions";
 import { NoteDraft } from "./draft";
 import { LeaveDialog } from "./leave-dialog";
+import { type Notice, watchNotebook } from "./live";
 import { NoteEditor } from "./note-editor";
 import { NoteList, type ListPosition } from "./note-list";
 
@@ -180,6 +181,9 @@ function Library({
   >([]);
   const [folderError, setFolderError] = useState("");
   const [refresh, refreshList] = useReducer((value) => value + 1, 0);
+  const [live, bumpLive] = useReducer((value) => value + 1, 0);
+  const [folderRead, rereadFolders] = useReducer((value) => value + 1, 0);
+  const liveWindow = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [, renderDraft] = useReducer((value) => value + 1, 0);
   const returning = useRef<ListPosition>(undefined);
   const pending = useRef<{
@@ -195,6 +199,10 @@ function Library({
   const [pin, setPinState] = useState<PinState>();
   const command = useRef<NoteCommand & { refused?: boolean }>(undefined);
   const checking = useRef(false);
+  // The newest notice for the open note that arrived while it was busy.
+  const kept = useRef<Notice>(undefined);
+  const reading = useRef(false);
+  const follow = useRef<(notice?: Notice) => void>(undefined);
   const [readAttempt, retryDetail] = useReducer((n) => n + 1, 0);
   const [readError, setReadError] = useState(false);
   const documentPane = useRef<HTMLElement>(null);
@@ -222,6 +230,7 @@ function Library({
         ?.focus();
   }, [folderId, selected, locationState.focusTrash]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Catch-up repeats the folder read.
   useEffect(() => {
     let current = true;
     listFolders()
@@ -249,7 +258,51 @@ function Library({
     return () => {
       current = false;
     };
-  }, [user, folderId, navigate, session]);
+  }, [user, folderId, navigate, session, folderRead]);
+
+  useEffect(() => {
+    // One list re-read per 250 ms window: a steady stream cannot postpone it.
+    function relist() {
+      liveWindow.current ??= setTimeout(() => {
+        liveWindow.current = undefined;
+        if (session.current()) bumpLive();
+      }, 250);
+    }
+    function onNotice(notice: Notice) {
+      if (!session.current()) return;
+      relist();
+      follow.current?.(notice);
+    }
+    // Notices are never replayed, so focus and every reconnect re-read what is shown.
+    function catchUp() {
+      if (!session.current()) return;
+      relist();
+      rereadFolders();
+      const note = active.current;
+      if (note)
+        follow.current?.({
+          id: note.id,
+          folder: note.folder,
+          deleted: false,
+          revision: Number.MAX_SAFE_INTEGER,
+        });
+    }
+    let watch = watchNotebook(onNotice, catchUp);
+    function wake() {
+      if (document.visibilityState !== "visible") return;
+      if (watch.failed) watch = watchNotebook(onNotice, catchUp);
+      catchUp();
+    }
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
+    return () => {
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
+      watch.stop();
+      clearTimeout(liveWindow.current);
+      liveWindow.current = undefined;
+    };
+  }, [session, active]);
 
   const makeDraft = useCallback(
     (
@@ -728,6 +781,73 @@ function Library({
     }
   }
 
+  async function followRemote(next?: Notice) {
+    const note = active.current;
+    const notice = next ?? kept.current;
+    if (!notice || !note?.current || notice.id !== note.id) {
+      if (!next) kept.current = undefined;
+      return;
+    }
+    kept.current = undefined;
+    if (note.isEcho(notice, pin?.id === note.id ? pin.pinned : undefined))
+      return;
+    if (
+      note.busy ||
+      reading.current ||
+      pin?.busy ||
+      command.current ||
+      pending.current ||
+      note.failure === "conflict" ||
+      note.failure === "unavailable"
+    ) {
+      kept.current = notice;
+      return;
+    }
+    reading.current = true;
+    const hadFocus = !!documentPane.current
+      ?.querySelector('[role="textbox"]')
+      ?.contains(document.activeElement);
+    // Without the pause an autosave could send the old revision mid-read.
+    note.pause();
+    try {
+      const latest = await getNote(note.id, session);
+      if (active.current !== note || !note.current) return;
+      if (command.current || pending.current) {
+        kept.current ??= notice;
+        return;
+      }
+      const result = note.remote(latest);
+      setPinState((state) =>
+        state?.id === note.id && state.busy
+          ? state
+          : { id: note.id, pinned: !!latest.pinned },
+      );
+      if (result === "replaced") {
+        announce("Updated from another device.");
+        if (hadFocus) focusInDocument('[role="textbox"]', note.id);
+      }
+    } catch (error) {
+      if (active.current !== note || !note.current) return;
+      if (
+        (error instanceof NoteAccessError && error.reason === "unavailable") ||
+        responseStatus(error) === 404
+      )
+        missing(note);
+    } finally {
+      reading.current = false;
+      if (active.current === note && !command.current && !pending.current)
+        note.resume();
+      renderDraft();
+    }
+  }
+  useLayoutEffect(() => {
+    follow.current = followRemote;
+  });
+  // Re-check a kept notice once the save, action, pin or choice that held it ends.
+  useEffect(() => {
+    if (kept.current) void followRemote();
+  });
+
   const controls = (
     <NoteActions
       draft={draft}
@@ -798,6 +918,7 @@ function Library({
             user={user}
             folders={folders}
             refresh={trashRefresh}
+            live={live}
             onRestored={refreshList}
           />
           {!isTrash && (
@@ -822,6 +943,7 @@ function Library({
               page={page}
               selected={selected}
               refresh={refresh}
+              live={live}
               compose={compose}
               canCompose={!!target}
               deletingFolder={deletions.some((item) => item.id === folderId)}

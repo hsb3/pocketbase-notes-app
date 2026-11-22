@@ -1,6 +1,7 @@
 const fs = require("node:fs/promises");
 const { test, expect, api } = require("./fixtures.cjs");
 const {
+  blockRealtime,
   button,
   editor,
   back,
@@ -612,6 +613,8 @@ function journeys(width, height) {
     page: p,
     session,
   }) => {
+    // The stale command path needs a device that has not heard of the other writer.
+    await blockRealtime(p);
     const { owner, dest, note } = await setup(p, session);
     await open(p, note);
     await api(notePath + "/" + note.id, owner.token, "PATCH", {

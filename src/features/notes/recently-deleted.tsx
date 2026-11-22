@@ -139,6 +139,7 @@ export function RecentlyDeleted({
   user,
   folders,
   refresh,
+  live,
   onRestored,
 }: {
   visible: boolean;
@@ -146,6 +147,7 @@ export function RecentlyDeleted({
   user: string;
   folders: Awaited<ReturnType<typeof listFolders>>;
   refresh: number;
+  live: number;
   onRestored: () => void;
 }) {
   const navigate = useNavigate();
@@ -238,6 +240,16 @@ export function RecentlyDeleted({
     return () =>
       document.removeEventListener("visibilitychange", refreshVisible);
   }, [page]);
+  const lastLive = useRef(live);
+  // A restore in flight re-reads the trash itself; a second read would void its focus hand-off.
+  const quiet = useEffectEvent(() => {
+    if (!actions.size) void load();
+  });
+  useEffect(() => {
+    if (lastLive.current === live) return;
+    lastLive.current = live;
+    quiet();
+  }, [live]);
   const expired = useEffectEvent(() => {
     void load();
   });

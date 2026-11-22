@@ -10,7 +10,7 @@ fi
 
 profile=${CONTAINED_PROFILE:-default}
 case "$1/$profile" in
-  api/default|api/accounts|api/restore|api/load|browser/recover|browser/pin|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/plain|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
+  api/default|api/accounts|api/restore|api/load|browser/recover|browser/pin|browser/live|browser/search|browser/screenshots|browser/performance|browser/resilience|browser/default|browser/plain|browser/operator|browser/signup|browser/signup-disabled|codegen/default) ;;
   *) echo "Unsupported contained profile: $1/$profile" >&2; exit 2 ;;
 esac
 
@@ -216,7 +216,7 @@ else
   if [[ $profile = plain ]]; then browser_env=(-u CONTAINED_TEST); fi
   tests=(env "${browser_env[@]}" node node_modules/playwright/cli.js test)
   case $profile in
-    default|plain|signup|signup-disabled|recover|pin)
+    default|plain|signup|signup-disabled|recover|pin|live)
       report=$profile
       case $profile in
         default)
@@ -233,6 +233,7 @@ else
           inside browser mkdir -p /tmp/r7-views
           tests+=(tests/e2e/pin.spec.cjs --workers=1 --retries=0)
           ;;
+        live) tests+=(tests/e2e/live-updates.spec.cjs --workers=1 --retries=0) ;;
         signup) tests+=(tests/e2e/registration-enabled.spec.cjs) ;;
         signup-disabled) tests+=(tests/e2e/registration.spec.cjs) ;;
       esac
@@ -254,17 +255,20 @@ else
   esac
   test_status=0
   inside browser "${tests[@]}" || test_status=$?
-  if [[ $profile = search || $profile = recover || $profile = pin ]]; then
+  if [[ $profile = search || $profile = recover || $profile = pin || $profile = live ]]; then
     if [[ $profile = search ]]; then
       report=sc004.json views=r4-search-views states=(filled empty)
     elif [[ $profile = pin ]]; then
       report=pin.json views=r7-views states=(folder-pinned pinned-view pinned-empty)
+    elif [[ $profile = live ]]; then
+      # Live updates add no UI, so the report is the only artifact.
+      report=live.json views=
     else
       report=recover.json views=r5-views states=(move-sheet delete-note folder-confirm trash-filled trash-empty)
     fi
     mkdir -p "$output"
     docker cp "$project-browser:/tmp/$report" "$output/$report" || test_status=1
-    docker cp "$project-browser:/tmp/$views" "$output/" || test_status=1
+    [[ -z $views ]] || docker cp "$project-browser:/tmp/$views" "$output/" || test_status=1
     if (( test_status == 0 )); then
       if [[ $profile = search ]]; then
         python3 scripts/check-sc004.py "$output/$report" || test_status=1
@@ -278,13 +282,15 @@ def cases(suite):
     for child in suite.get("suites", []):
         yield from cases(child)
 suites = json.load(open(sys.argv[1]))["suites"]
-expected = {"pin.spec.cjs"} if sys.argv[2] == "pin" else {"note-actions.spec.cjs", "recently-deleted.spec.cjs"}
+expected = {"pin": {"pin.spec.cjs"}, "live": {"live-updates.spec.cjs"}}.get(
+    sys.argv[2], {"note-actions.spec.cjs", "recently-deleted.spec.cjs"})
 assert {s["file"].split("/")[-1] for s in suites if list(cases(s))} == expected, "Missing suite"
 tests = list(cases({"suites": suites}))
 assert tests and all(t["status"] == "expected" and [r["status"] for r in t["results"]] == ["passed"] for t in tests), "Incomplete browser cases"
 PYREC
       fi
       for engine in chromium webkit; do
+        [[ -n $views ]] || break
         for width in 390 810 1440; do
           for theme in light dark; do
             for state in "${states[@]}"; do

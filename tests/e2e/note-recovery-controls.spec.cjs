@@ -2,6 +2,7 @@ const { api, expect, test } = require("./fixtures.cjs");
 const { setTimeout: sleep } = require("node:timers/promises");
 const {
   back,
+  blockRealtime,
   button,
   compose,
   credentials,
@@ -148,6 +149,8 @@ for (const action of ["denied clipboard", "failed reload"]) {
   test(
     "Conflict preserves both versions after " + action,
     async ({ page, session }) => {
+      // A real stale write needs a device that has not heard of the newer save.
+      await blockRealtime(page);
       const { owner, note } = await openSeed(page, session);
       await api(notePath + "/" + note.id, owner.token, "PATCH", {
         revision: 1,
