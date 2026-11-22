@@ -74,9 +74,13 @@ async function press(el) {
 async function menu(p, verb) {
   await expect(trigger(p)).toBeVisible();
   await press(trigger(p));
-  // Pin is the first item since R7.
+  // Pin is the first item since R7, then the journal date since R8.
   await expect(
     p.getByRole("menuitem", { name: "Pin", exact: true }),
+  ).toBeFocused();
+  await p.keyboard.press("ArrowDown");
+  await expect(
+    p.getByRole("menuitem", { name: "Add date…", exact: true }),
   ).toBeFocused();
   await p.keyboard.press("ArrowDown");
   const move = p.getByRole("menuitem", { name: /Move/ });
