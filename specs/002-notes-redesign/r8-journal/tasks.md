@@ -123,8 +123,8 @@
 - [X] T033 [P] Modify `docs/testing/verification.md` to add the `journal` profile row and a "Journal" section (shape of "Pin"), and add an Unreleased entry for Journal to `CHANGELOG.md`
 - [X] T034 If the Needs-owner decision on the calendar grid ([plan](plan.md#needs-owner)) has been made, record it in `research.md` §8; otherwise leave the provisional default and list it in the pull request as open
 - [X] T035 Run `python3 scripts/ai-context.py check`, `bun run docs:build` and `bun x tsc -p scripts/tsconfig.json`; fix any failure ([W5 exit](quickstart.md#w5-exit))
-- [ ] T036 Run the full gate `.specify/extensions/functionform-gate/scripts/gate.sh full`. Append an "R8 gate evidence" section to `specs/002-notes-redesign/r8-journal/tasks.md` (shape of the R7 and LU ledgers): tested commits, red and green commands with exits, the EXPLAIN plans and which Journal filter shipped, the time-zone and two-device timings, capture paths, deviations from the task text, and `docker ps -a` showing no leftover containers. Mark only demonstrated tasks
-- [ ] T037 Modify `specs/002-notes-redesign/versions.md` last: set the R8 row to `done` once T036 is green
+- [X] T036 Run the full gate `.specify/extensions/functionform-gate/scripts/gate.sh full`. Append an "R8 gate evidence" section to `specs/002-notes-redesign/r8-journal/tasks.md` (shape of the R7 and LU ledgers): tested commits, red and green commands with exits, the EXPLAIN plans and which Journal filter shipped, the time-zone and two-device timings, capture paths, deviations from the task text, and `docker ps -a` showing no leftover containers. Mark only demonstrated tasks
+- [X] T037 Modify `specs/002-notes-redesign/versions.md` last: set the R8 row to `done` once T036 is green
 
 ---
 
@@ -154,3 +154,45 @@ T015 src/features/notes/data.ts ║ T016 src/features/notes/actions.ts ║ T017 
 2. **Add US2:** day filter and compose from Journal.
 3. **Add US3:** time zones, live follow and survival; expect little code beyond `live.ts` and `isEcho`.
 4. **Polish:** docs, gate, evidence, `versions.md`. One PR to `main` for the increment, linking [issue 43](https://github.com/hsb3/pocketbase-notes-app/issues/43).
+
+## R8 gate evidence
+
+| Gate | Command |
+| --- | --- |
+| Full gate | `.specify/extensions/functionform-gate/scripts/gate.sh full` (lint, knip, build, `make test-api-contained`, `make test-browser-contained`) |
+| Journal browser suite | `make test-browser-contained CONTAINED_PROFILE=journal` |
+| Shipped R5, R7 and LU suites | `CONTAINED_PROFILE=recover`, `pin`, `live` |
+| Codegen | `CONTAINED_PROFILE=default bash scripts/run-contained.sh codegen` |
+| Host checks | `bun test tests/unit`, `bun x tsc -p scripts/tsconfig.json`, `python3 scripts/ai-context.py check`, `bun run docs:build` |
+
+| Tasks and commit | Failing observation | Passing result |
+| --- | --- | --- |
+| T001 baseline · `92f1481` | — | `bun run lint`, `bun run knip`, `bun run build` exited 0; `bun test tests/unit` 22 passed. |
+| W1 T002–T006 · `af1c732` | With the R8 stage and no migration, the API suite exited 2 after `PASS R7 forged pins refused…`: `FileNotFoundError: … /pb/pb_migrations/1795000600_note_journal_dates.js`. | API exited 0: `PASS R8 up/down/up` (rows byte-equal apart from `journal_date=''`, unexpected-index refusal exit 1) and `PASS R8 invalid day refused, forged PATCH refused, dated create stored, journal plans recorded`. Codegen added `journal_date?: string`; its two internal runs were byte-identical (sha256 `d208f4d7…`). |
+| W2 T007–T011 · `a6c563f` | API suite on the W1 code exited 2: `FAIL journal dates [ 404, "The requested resource wasn't found." ]` (no `/date` route) and `FAIL live updates` (create notice lacked `journal_date: ''`). | API exited 0: `PASS note pins`, `PASS journal dates`, `PASS live updates`. `bun test tests/unit` 22 passed. |
+| W3–W4 T012–T030 · `187c143` | `CONTAINED_PROFILE=journal` on the W2 code: 36 of 36 failed (no "Add date…" item, no Journal link, no Journal empty state). | Journal profile exited 0: 36 passed in 2.1 min, report check passed, 48 captures. API exited 0 with the list, day and survival rows. `pin` 30 passed, `live` 86 passed. `bun test tests/unit` 26 passed. |
+| W5 T031–T035 · `32fdd77` | — | `python3 scripts/ai-context.py check`, `bun run docs:build` and `bun x tsc -p scripts/tsconfig.json` exited 0. |
+| Gate attempt 1 · `32fdd77` | Lint, knip, build and API passed. Browser: all 58 `note-actions.spec.cjs` cases failed because its keyboard helper expected **Move…** right after **Pin**, and the run hit the runner's 29-minute cap (`Error 124`) after 457 cases. | Fixed in `b2166ea`; `CONTAINED_PROFILE=recover` then passed 122 of 122. |
+| Gate · `b2166ea` | — | Full gate PASS: lint, knip and build exited 0; API exited 0 (`PASS note pins`, `PASS journal dates`, `PASS live updates`); browser exited 0 with 488 passed in 21.3 min (the runner caps a run at 29 min). |
+
+**Query plans** (SQLite in the pinned PocketBase, SQL taken from the dev query log of real SDK list calls, `scripts/test-r2-upgrade.sh` R8 stage):
+
+- Journal (`journal_date != ""`, `-journal_date,-updated,-id`): PocketBase compiles the filter NULL-safely to `journal_date IS NOT '' AND journal_date IS NOT NULL`. Plan: `SEARCH notes USING INDEX idx_notes_user_journal_date_updated_id (user=?)`, no temporary sort.
+- The fallback `journal_date > ""` was also recorded: `SEARCH … (user=? AND journal_date>?)`, no temporary sort. It was not needed, so `!=` shipped as designed (data model updated).
+- One day (`journal_date = "2026-11-21"`, `-updated,-id`): `SEARCH notes USING INDEX idx_notes_user_journal_date_updated_id (user=? AND journal_date=?)`.
+- Folder and All Notes: `SEARCH notes USING INDEX idx_notes_user_pinned_updated_id (user=?)`; Pinned: `(user=? AND pinned=?)`, unchanged from R7.
+
+**Time zones and devices.** Contexts in `Pacific/Kiritimati` and `Pacific/Pago_Pago` with the clock fixed at `2026-11-21T11:30:00Z` stored `2026-11-22` and `2026-11-21` when composing from Journal. A note dated 21 November in Kiritimati read "Sat, Nov 21, 2026" in Pago Pago's header and Journal heading, and `?day=2026-11-21` listed it in both. The header showed a new day within the 1 s assertion on the same device. A second device's header and Journal list showed it within the 2 s assertion. Every case passed on its first attempt; no per-trial timings were collected.
+
+**Deviations from the task text.**
+
+- T012, T021, T027: the API list, day and survival rows went in with W3–W4. They passed on first run because the server side shipped in W1–W2; their red state is the W1 run, which had no field.
+- T013–T026, T028: one red run of the whole journal spec on the W2 commit recorded every browser row failing at once, instead of a red run per phase. The echo rule that T026 expected to fail is also covered by a unit test (`a notice is an echo only when its day is absent or equal to the held day`).
+- T020: `tests/e2e/note-actions.spec.cjs` now steps past **Add date…** in its keyboard path to **Move…** and asserts that item has focus. No assertion was removed; R7 made the same change for **Pin**.
+- T023: the Journal list does not remount when the day changes, so the filter keeps keyboard focus while the day is typed; `day` is in the list's read dependencies instead of its key.
+- T028: the survival rows run with Journal open and assert the list follows each API action live, without a reload.
+- Day labels are `toLocaleDateString` with a short weekday, month and day at local noon.
+
+Screenshots (`journal-days`, `journal-day-empty`, `journal-empty`, `date-dialog` × 2 engines × 3 widths × 2 themes) were written to the contained run's `test-results/<project>/r8-views/`. That folder is not committed. One WebKit 390 px dark capture of the date dialog caught the outline buttons mid-way through the theme transition; the 1440 px WebKit and every Chromium capture show them correctly.
+
+`docker ps -a`, `docker network ls` and `docker volume ls` after the runs: no `notes-test-*` containers, networks or volumes remain (every runner printed `cleanup … empty`). The owner's `pocketbase-notes` stack was not touched.
