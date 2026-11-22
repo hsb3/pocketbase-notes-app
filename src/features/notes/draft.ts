@@ -186,15 +186,23 @@ export class NoteDraft {
 
   // Applies a fresh read after a change notice; never writes.
   remote(note: SavedNote) {
-    const base = this.baseline;
     if (
-      !base ||
       !this.current ||
       note.id !== this.id ||
       note.user !== this.user ||
       note.deleted
     )
       return;
+    // A write whose reply was lost echoes back as a change: settle it as reconcile() would.
+    const match = [...this.submissions]
+      .reverse()
+      .find((submission) => matchesNote(note, submission));
+    if (match) {
+      this.acknowledge(note, match.generation);
+      return "acknowledged";
+    }
+    const base = this.baseline;
+    if (!base) return;
     if (note.revision <= base.revision) return "same";
     if (this.adoptMetadata(note)) {
       this.resume();

@@ -181,6 +181,8 @@ function Library({
   >([]);
   const [folderError, setFolderError] = useState("");
   const [refresh, refreshList] = useReducer((value) => value + 1, 0);
+  const [live, bumpLive] = useReducer((value) => value + 1, 0);
+  const liveWindow = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [, renderDraft] = useReducer((value) => value + 1, 0);
   const returning = useRef<ListPosition>(undefined);
   const pending = useRef<{
@@ -257,13 +259,26 @@ function Library({
   }, [user, folderId, navigate, session]);
 
   useEffect(() => {
+    // One list re-read per 250 ms window: a steady stream cannot postpone it.
+    function relist() {
+      liveWindow.current ??= setTimeout(() => {
+        liveWindow.current = undefined;
+        if (session.current()) bumpLive();
+      }, 250);
+    }
     const watch = watchNotebook(
       (notice) => {
-        if (session.current()) follow.current?.(notice);
+        if (!session.current()) return;
+        relist();
+        follow.current?.(notice);
       },
       () => undefined,
     );
-    return watch.stop;
+    return () => {
+      watch.stop();
+      clearTimeout(liveWindow.current);
+      liveWindow.current = undefined;
+    };
   }, [session]);
 
   const makeDraft = useCallback(
@@ -880,6 +895,7 @@ function Library({
             user={user}
             folders={folders}
             refresh={trashRefresh}
+            live={live}
             onRestored={refreshList}
           />
           {!isTrash && (
@@ -904,6 +920,7 @@ function Library({
               page={page}
               selected={selected}
               refresh={refresh}
+              live={live}
               compose={compose}
               canCompose={!!target}
               deletingFolder={deletions.some((item) => item.id === folderId)}

@@ -296,3 +296,289 @@ for (const [width, height] of [
     });
   });
 }
+
+const listRows = (p) =>
+  p.getByRole("navigation", { name: "Notes" }).getByRole("link");
+const shown = (p) =>
+  listRows(p).evaluateAll((els) => els.map((el) => el.getAttribute("href")));
+const searchbox = (p) => p.getByRole("searchbox", { name: "Search" });
+async function fresh(owner, view) {
+  const filter =
+    'deleted = ""' +
+    (view === "all"
+      ? ""
+      : view === "pinned"
+        ? " && pinned = true"
+        : ' && folder = "' + view + '"');
+  const sort = view === "pinned" ? "-updated,-id" : "-pinned,-updated,-id";
+  const { items } = await api(
+    notePath +
+      "?perPage=20&fields=id&filter=" +
+      encodeURIComponent(filter) +
+      "&sort=" +
+      encodeURIComponent(sort),
+    owner.token,
+  );
+  return items.map((n) => "/notes/" + n.id);
+}
+async function deleteFolder(owner, folder) {
+  const { snapshot } = await api(
+    "notebook/folders/" + folder.id + "/delete-preview",
+    owner.token,
+  );
+  await api(
+    "collections/folders/records/" + folder.id + "?snapshot=" + snapshot,
+    owner.token,
+    "DELETE",
+  );
+}
+function countLists(p) {
+  const reads = [];
+  p.on("request", (r) => {
+    const url = new URL(r.url());
+    if (r.method() === "GET" && url.pathname === "/api/" + notePath)
+      reads.push(url.search);
+  });
+  return reads;
+}
+// Rows, scroll, focus and typed search text survive the update untouched.
+const snapshot = (p) =>
+  p.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Notes"]');
+    const active = document.activeElement;
+    window.liveNav ??= nav;
+    return {
+      nav: !!nav && nav === window.liveNav,
+      scroll: nav?.parentElement?.scrollTop ?? 0,
+      top: Math.round(active?.getBoundingClientRect().top ?? 0),
+      focus: active?.id || active?.tagName,
+      value: active?.value,
+      caret: active?.selectionStart,
+    };
+  });
+async function steady(p, change, settled) {
+  await p.evaluate(() => {
+    window.liveNav = undefined;
+  });
+  const before = await snapshot(p);
+  await change();
+  await settled();
+  const after = await snapshot(p);
+  const { scroll, top, ...rest } = after;
+  expect(rest).toEqual({
+    nav: before.nav,
+    focus: before.focus,
+    value: before.value,
+    caret: before.caret,
+  });
+  // Either the offset is unchanged, or the browser's scroll anchoring kept the focused row in place.
+  expect(scroll === before.scroll || Math.abs(top - before.top) <= 1).toBe(
+    true,
+  );
+}
+
+for (const [width, height] of [
+  [390, 844],
+  [810, 1080],
+  [1440, 1000],
+]) {
+  test.describe("Live lists at " + width + "px", () => {
+    test.use({ viewport: { width, height: Math.min(height, 700) } });
+
+    test("folder, All Notes, Pinned and search rows follow other devices", async ({
+      page,
+      session,
+    }) => {
+      const owner = await ownerData(session);
+      const garden = await api(
+        "collections/folders/records",
+        owner.token,
+        "POST",
+        { user: owner.user, name: "Garden" },
+      );
+      const later = () => new Promise((r) => setTimeout(r, 5));
+      const filler = [];
+      for (let i = 0; i < 18; i++) {
+        filler.push(await seedNote(owner, doc("Filler " + i)));
+        await later();
+      }
+      await login(page, session);
+      await page.goto("/folders/" + owner.folder);
+      await expect(listRows(page)).toHaveCount(18);
+      const middle = filler[9];
+      await page.locator("#row-" + middle.id).focus();
+      await page.evaluate(() => {
+        const box = document.querySelector(
+          'nav[aria-label="Notes"]',
+        ).parentElement;
+        box.scrollTop = Math.floor(box.scrollHeight / 3);
+      });
+      const matches = (view) => async () =>
+        expect.poll(() => shown(page), live).toEqual(await fresh(owner, view));
+
+      let note;
+      await steady(
+        page,
+        async () => {
+          note = await seedNote(owner, doc("Live arrival"));
+        },
+        matches(owner.folder),
+      );
+      await steady(
+        page,
+        () => save(owner, note, "Live edited\nFresh excerpt"),
+        async () => {
+          await expect(page.locator("#row-" + note.id)).toContainText(
+            "Live edited",
+            live,
+          );
+          await expect(page.locator("#row-" + note.id)).toContainText(
+            "Fresh excerpt",
+          );
+        },
+      );
+      await steady(
+        page,
+        () => act(owner, note, "pin", { pinned: true }),
+        async () => {
+          await matches(owner.folder)();
+          await expect(
+            page
+              .locator("#row-" + note.id)
+              .getByRole("img", { name: "Pinned" }),
+          ).toBeVisible();
+        },
+      );
+      const moved = filler[0];
+      await steady(
+        page,
+        () => act(owner, moved, "move", { revision: 1, folder: garden.id }),
+        matches(owner.folder),
+      );
+      const removed = filler[1];
+      await steady(
+        page,
+        () => act(owner, removed, "delete", { revision: 1 }),
+        matches(owner.folder),
+      );
+      await steady(
+        page,
+        () => act(owner, removed, "restore", { revision: 2 }),
+        matches(owner.folder),
+      );
+
+      for (const view of ["all", "pinned"]) {
+        await page.goto("/folders/" + view);
+        await expect.poll(() => shown(page)).toEqual(await fresh(owner, view));
+        await steady(
+          page,
+          () => act(owner, filler[5], "pin", { pinned: view === "all" }),
+          matches(view),
+        );
+      }
+
+      await page.goto("/folders/all?q=Lantern");
+      await expect(
+        page.getByText("No matching notes", { exact: true }),
+      ).toBeVisible();
+      await seedNote(owner, doc("Lantern one"));
+      await expect(listRows(page)).toHaveCount(1, live);
+      // Text being typed in Search keeps its value and caret through an update.
+      await searchbox(page).focus();
+      await page.keyboard.press("End");
+      await page.keyboard.insertText(" half");
+      await page.keyboard.press("ArrowLeft");
+      await steady(
+        page,
+        () => seedNote(owner, doc("Lantern two")),
+        () => expect(listRows(page)).toHaveCount(2, live),
+      );
+      await expect(searchbox(page)).toHaveValue("Lantern half");
+    });
+
+    test("Recently Deleted follows deletes, restores and a folder delete without taking focus", async ({
+      page,
+      session,
+    }) => {
+      const owner = await ownerData(session);
+      const doomed = await api(
+        "collections/folders/records",
+        owner.token,
+        "POST",
+        { user: owner.user, name: "Doomed" },
+      );
+      const note = await seedNote(owner, doc("Trash me"));
+      const members = [];
+      for (const text of ["Member one", "Member two"])
+        members.push(
+          await seedNote({ ...owner, folder: doomed.id }, doc(text)),
+        );
+      await login(page, session);
+      await page.goto("/folders/recently-deleted");
+      await expect(
+        page.getByText("No recently deleted notes", { exact: true }),
+      ).toBeVisible();
+      const restoreOf = (title) =>
+        page.getByRole("button", { name: "Restore " + title, exact: true });
+      const focusBack = () =>
+        page.getByRole("link", { name: "Folders" }).first();
+      if (width < 768) await focusBack().focus();
+      else
+        await page
+          .getByRole("link", { name: "All Notes", exact: true })
+          .focus();
+      const focused = () =>
+        page.evaluate(() => document.activeElement?.textContent);
+      const start = await focused();
+      await act(owner, note, "delete", { revision: 1 });
+      await expect(restoreOf("Trash me")).toBeVisible(live);
+      await act(owner, note, "restore", { revision: 2 });
+      await expect(restoreOf("Trash me")).toHaveCount(0, live);
+      await deleteFolder(owner, doomed);
+      for (const m of members)
+        await expect(restoreOf(m.title)).toBeVisible(live);
+      expect(await focused()).toBe(start);
+    });
+
+    test("a 30-note folder delete settles in at most three list reads", async ({
+      page,
+      session,
+    }) => {
+      const owner = await ownerData(session);
+      const bulk = await api(
+        "collections/folders/records",
+        owner.token,
+        "POST",
+        { user: owner.user, name: "Bulk" },
+      );
+      for (let i = 0; i < 30; i++)
+        await seedNote({ ...owner, folder: bulk.id }, doc("Bulk " + i));
+      const keep = await seedNote(owner, doc("Keeper"));
+      await login(page, session);
+      await expect(listRows(page)).toHaveCount(20);
+      const reads = countLists(page);
+      await deleteFolder(owner, bulk);
+      await expect.poll(() => shown(page), live).toEqual(["/notes/" + keep.id]);
+      await page.waitForTimeout(1000);
+      expect(reads.length).toBeLessThanOrEqual(3);
+      expect(reads.length).toBeGreaterThan(0);
+    });
+
+    test("a note deleted and restored elsewhere stays unavailable while the list shows it", async ({
+      page,
+      session,
+    }) => {
+      const { owner, note } = await setup(page, session);
+      await act(owner, note, "delete", { revision: 1 });
+      await expect(
+        page.getByText("Note unavailable", { exact: true }),
+      ).toBeVisible(live);
+      await act(owner, note, "restore", { revision: 2 });
+      if (width >= 768)
+        await expect(page.locator("#row-" + note.id)).toBeVisible(live);
+      await expect(
+        page.getByText("Note unavailable", { exact: true }),
+      ).toBeVisible();
+    });
+  });
+}
