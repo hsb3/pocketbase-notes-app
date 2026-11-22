@@ -31,7 +31,7 @@ A date change leaves `revision`, `created`, `updated`, `body`, `title`, `text`, 
 
 | View | Filter | Sort |
 |---|---|---|
-| Journal | owner, `deleted = ""`, `journal_date != ""` (fallback `journal_date > ""`, chosen in W1 from the plan) | `-journal_date,-updated,-id` |
+| Journal | owner, `deleted = ""`, `journal_date != ""` (W1 shipped this filter: PocketBase compiles it to `journal_date IS NOT '' AND journal_date IS NOT NULL`, and the plan still reads `idx_notes_user_journal_date_updated_id (user=?)` with no temporary sort, so the `journal_date > ""` fallback was not needed) | `-journal_date,-updated,-id` |
 | Journal, one day | owner, `deleted = ""`, `journal_date = {:day}` | `-updated,-id` |
 | Folder, All Notes, Pinned | unchanged (R7) | unchanged |
 | Search | unchanged (R4) | unchanged |

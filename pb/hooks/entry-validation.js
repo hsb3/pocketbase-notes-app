@@ -65,10 +65,9 @@ function body(doc, hasAttachments) {
   if (JSON.stringify(doc).length > 102400) throw new Error("Entry is too long.");
   return images;
 }
-function date(kind, value) {
-  if (kind === "note") {
-    if (value !== "") throw new Error("Notes cannot have a journal date.");
-  } else if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < "0001-01-01" || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value) throw new Error("Choose a valid journal date.");
+// A journal day is a calendar day with no time zone; "" means none.
+function date(value) {
+  if (value !== "" && (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value < "0001-01-01" || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value)) throw new Error("Choose a valid journal date.");
 }
 // Unchecked task-list items: the count is exact, the list is capped for the Open tasks view.
 function tasks(doc) {

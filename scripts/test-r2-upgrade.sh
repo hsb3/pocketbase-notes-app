@@ -753,4 +753,98 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
             print("R7", label, "SQL:", sql, "\nplan:", plan, flush=True)
             assert any(pins in p for p in plan) and not any("TEMP B-TREE" in p for p in plan), plan
     print("PASS R7 forged pins refused, pin verb wrote only pinned, list plans recorded", flush=True)
+
+    r8 = "1795000600_note_journal_dates.js"
+    days = "idx_notes_user_journal_date_updated_id"
+    r7_create = r5_create + ' && @request.body.pinned:isset = false'
+    r7_update = r5_update + ' && @request.body.pinned:changed = false'
+    pre_rows, pre_schema, pre_history = snapshot()
+    pre_fields, pre_rules, pre_indexes, pre_physical = pre_schema[0]
+    assert pre_rules[2:4] == [r7_create, r7_update] and days not in pre_physical, pre_rules
+    shutil.copy(source / r8, migrations)
+    up()
+    day_rows, day_schema, day_history = snapshot()
+    fields, rules, indexes, physical = day_schema[0]
+    assert day_history == pre_history + [r8] and day_schema[1:] == pre_schema[1:]
+    assert {i: {k: v for k, v in r.items() if k != "journal_date"} for i, r in day_rows[0].items()} == pre_rows[0]
+    assert {r["journal_date"] for r in day_rows[0].values()} == {""} and day_rows[1] == pre_rows[1]
+    assert [(f["type"], f["required"], f["max"], f["pattern"]) for f in json.loads(fields)
+            if f["name"] == "journal_date"] == [("text", False, 10, r"^\d{4}-\d{2}-\d{2}$")], fields
+    assert [f for f in json.loads(fields) if f["name"] != "journal_date"] == json.loads(pre_fields)
+    assert rules == [*pre_rules[:3], r7_update + ' && @request.body.journal_date:changed = false', pre_rules[4]], rules
+    assert indexes == pre_indexes + ["CREATE INDEX `" + days + "` ON `notes` (user, journal_date, updated, id)"]
+    assert {n: s for n, s in physical.items() if n != days} == pre_physical
+    assert " WHERE " not in physical[days], physical[days]
+    with closing(sqlite3.connect(dbfile)) as db:
+        assert [r[2] for r in db.execute(f"PRAGMA index_xinfo({days})") if r[5]] == ["user", "journal_date", "updated", "id"]
+
+    down(r8)
+    assert snapshot() == (pre_rows, pre_schema, pre_history)
+    wrong = "CREATE INDEX `" + days + "` ON `notes` (user, updated)"
+    with closing(sqlite3.connect(dbfile)) as db:
+        db.execute("UPDATE _collections SET indexes=? WHERE name='notes'", (json.dumps(pre_indexes + [wrong]),))
+        db.execute(wrong)
+        db.commit()
+    unexpected = snapshot()
+    failed = subprocess.run([*offline, "migrate", "up"], capture_output=True, text=True)
+    assert failed.returncode != 0 and days in failed.stdout + failed.stderr, (failed.returncode, failed.stdout, failed.stderr)
+    assert snapshot() == unexpected
+    with closing(sqlite3.connect(dbfile)) as db:
+        db.execute(f"DROP INDEX {days}")
+        db.execute("UPDATE _collections SET indexes=? WHERE name='notes'", (json.dumps(pre_indexes),))
+        db.commit()
+    assert snapshot() == (pre_rows, pre_schema, pre_history)
+    up()
+    assert snapshot() == (day_rows, day_schema, day_history)
+    print("PASS R8 up/down/up: rows byte-equal apart from journal_date='', R7 rules restored, unexpected index refusal exit",
+          failed.returncode, flush=True)
+
+    with server():
+        token = login("users", "r1@example.test")
+        def count():
+            with closing(sqlite3.connect(dbfile)) as db:
+                return db.execute("SELECT count(*) FROM notes").fetchone()[0]
+        before = count()
+        status, _ = request("collections/notes/records", {"user": current, "folder": folder["id"],
+                            "body": body("Impossible day"), "journal_date": "2026-02-31"}, "POST")
+        assert status == 400 and count() == before, status
+        status, dated = request("collections/notes/records", {"user": current, "folder": folder["id"],
+                                "body": body("Dated create"), "journal_date": "2026-11-21"}, "POST")
+        assert status == 200 and dated["journal_date"] == "2026-11-21" and stored(dated["id"])["journal_date"] == "2026-11-21"
+        status, plain = request("collections/notes/records", {"user": current, "folder": folder["id"],
+                                "body": body("Undated create")}, "POST")
+        assert status == 200 and stored(plain["id"])["journal_date"] == "", plain
+        status, _ = request("collections/notes/records/" + plain["id"],
+                            {"revision": plain["revision"], "journal_date": "2026-11-20"}, "PATCH")
+        assert status == 404 and stored(plain["id"])["journal_date"] == "", status
+        offset = trace.stat().st_size
+        shapes = {
+            "folder": ("deleted = \"\" && folder = '" + folder["id"] + "'", "-pinned,-updated,-id", None),
+            "all": ("deleted = \"\"", "-pinned,-updated,-id", None),
+            "pinned": ("deleted = \"\" && pinned = true", "-updated,-id", None),
+            "journal": ("deleted = \"\" && journal_date != \"\"", "-journal_date,-updated,-id", [dated["id"]]),
+            "journal fallback": ("deleted = \"\" && journal_date > \"\"", "-journal_date,-updated,-id", [dated["id"]]),
+            "day": ("deleted = \"\" && journal_date = \"2026-11-21\"", "-updated,-id", [dated["id"]]),
+        }
+        for label, (where, order, expected) in shapes.items():
+            page = api("collections/notes/records?" + urlencode({"filter": where, "sort": order, "perPage": 20,
+                       "fields": "id,journal_date"}), token=token)
+            if expected is not None:
+                assert [r["id"] for r in page["items"]] == expected, (label, page)
+        with trace.open("rb") as log:
+            log.seek(offset)
+            segment = re.sub(r"\x1b\[[0-9;]*m", "", log.read().decode())
+        pages = [sql for sql in re.findall(r"^\[\d+\.\d+ms\] (.+)$", segment, re.MULTILINE)
+                 if sql.startswith("SELECT `notes`.*") and "LIMIT 20" in sql]
+        assert len(pages) == len(shapes), pages
+        plans = {}
+        for label, sql in zip(shapes, pages):
+            plans[label] = [r[-1] for r in api("sql", {"query": "EXPLAIN QUERY PLAN " + sql}, admin)["rows"]]
+            print("R8", label, "SQL:", sql, "\nplan:", plans[label], flush=True)
+        for label in ["folder", "all", "pinned"]:
+            assert any(pins in p for p in plans[label]) and not any("TEMP B-TREE" in p for p in plans[label]), plans[label]
+        for label in ["journal", "day"]:
+            assert any(days in p for p in plans[label]) and not any("TEMP B-TREE" in p for p in plans[label]), plans[label]
+        assert any("journal_date=?" in p for p in plans["day"]), plans["day"]
+    print("PASS R8 invalid day refused, forged PATCH refused, dated create stored, journal plans recorded", flush=True)
 PY

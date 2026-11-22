@@ -23,6 +23,7 @@ onRecordValidate((e) => {
   }
   let doc;
   try {
+    validate.date(note.getString("journal_date"));
     doc = JSON.parse(note.getString("body"));
     const images = validate.body(doc, attachments.length > 0);
     if (images.some((id) => !attachments.includes(id))) throw new Error("An embedded image is missing its attachment.");
