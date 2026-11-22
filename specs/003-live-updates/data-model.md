@@ -15,7 +15,7 @@ One realtime message on the topic `notebook-changes`. Full wire format: [contrac
 | `deleted` | boolean | `true` when the note is soft-deleted after the write |
 | `revision` | integer ≥ 1 | Revision after the write (unchanged by pin) |
 | `pinned` | boolean, optional | Pin after the write. Absent from move, delete and restore notices, which keep R7's reply shape |
-| `journal_date` | string, optional | Journal day after the write (`""` for none). Added by R8 for create, save and the date verb ([R8 notice addition](../../002-notes-redesign/r8-journal/contracts/journal.md#change-notice)) |
+| `journal_date` | string, optional | Journal day after the write (`""` for none). Added by R8 for create, save and the date verb ([R8 notice addition](../002-notes-redesign/r8-journal/contracts/journal.md#change-notice)) |
 
 Recipient: every realtime client subscribed to exactly `notebook-changes` whose bound auth is the `users` record that owns the note. No one else.
 
