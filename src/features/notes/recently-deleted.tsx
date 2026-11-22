@@ -241,7 +241,10 @@ export function RecentlyDeleted({
       document.removeEventListener("visibilitychange", refreshVisible);
   }, [page]);
   const lastLive = useRef(live);
-  const quiet = useEffectEvent(() => void load());
+  // A restore in flight re-reads the trash itself; a second read would void its focus hand-off.
+  const quiet = useEffectEvent(() => {
+    if (!actions.size) void load();
+  });
   useEffect(() => {
     if (lastLive.current === live) return;
     lastLive.current = live;
