@@ -1,6 +1,7 @@
 import { ClientResponseError } from "pocketbase";
 import type { NodeJSON } from "prosekit/core";
 import {
+  equalJSON,
   getNote,
   matchesNote,
   NoteAccessError,
@@ -10,6 +11,7 @@ import {
 } from "./data";
 
 import type { NoteState } from "./actions";
+import type { Notice } from "./live";
 
 type SavedNote = Awaited<ReturnType<typeof saveNote>>;
 type Submission = Pick<
@@ -168,6 +170,61 @@ export class NoteDraft {
     };
     this.resume();
     this.options.onChange?.();
+    return true;
+  }
+
+  // Own saves and actions echo back with the revision, folder and pin this draft already holds.
+  isEcho(notice: Notice, pinned?: boolean) {
+    return (
+      notice.revision < this.revision ||
+      (notice.revision === this.revision &&
+        notice.folder === this.folder &&
+        !notice.deleted &&
+        (notice.pinned === undefined || notice.pinned === pinned))
+    );
+  }
+
+  // Applies a fresh read after a change notice; never writes.
+  remote(note: SavedNote) {
+    const base = this.baseline;
+    if (
+      !base ||
+      !this.current ||
+      note.id !== this.id ||
+      note.user !== this.user ||
+      note.deleted
+    )
+      return;
+    if (note.revision <= base.revision) return "same";
+    if (this.adoptMetadata(note)) {
+      this.resume();
+      this.options.onChange?.();
+      return "adopted";
+    }
+    if (this.dirty) {
+      this.changedElsewhere();
+      return "conflict";
+    }
+    this.replaceSaved(note);
+    return "replaced";
+  }
+
+  // A move elsewhere keeps the words this draft started from, so unsaved edits stay valid.
+  private adoptMetadata(note: SavedNote) {
+    const base = this.baseline;
+    if (
+      !base ||
+      (note.folder === base.folder && note.revision === base.revision) ||
+      !equalJSON(note.body, base.body) ||
+      !equalJSON(note.attachments, base.attachments)
+    )
+      return false;
+    this.baseline = {
+      ...base,
+      folder: note.folder,
+      revision: note.revision,
+      updated: note.updated,
+    };
     return true;
   }
 
@@ -365,7 +422,9 @@ export class NoteDraft {
   }
 
   // "replay" permits exactly one more write at the original precondition.
-  private async reconcile(): Promise<"acknowledged" | "replay" | false> {
+  private async reconcile(): Promise<
+    "acknowledged" | "replay" | "adopted" | false
+  > {
     if (!this.active()) return false;
     const maskedCreate = this.rejection === "bad-create";
     if (maskedCreate || this.rejection === "denied") {
@@ -410,6 +469,15 @@ export class NoteDraft {
     }
     if (!this.rejection && this.baseline && matchesNote(note, this.baseline))
       return "replay";
+    if (
+      (!this.rejection || this.rejection === "stale") &&
+      this.adoptMetadata(note)
+    ) {
+      // None of the submissions landed: the server still holds the baseline's words.
+      this.submissions = [];
+      this.rejection = undefined;
+      return "adopted";
+    }
     return this.fail(
       "conflict",
       "The saved version differs. Review the conflict.",
@@ -500,6 +568,11 @@ export class NoteDraft {
       );
       if (!this.rejection && status !== 404 && status !== 400) return false;
       const result = await this.reconcile();
+      if (result === "adopted" && this.active()) {
+        this.failure = undefined;
+        this.error = "";
+        return true;
+      }
       return result === "acknowledged";
     }
   }

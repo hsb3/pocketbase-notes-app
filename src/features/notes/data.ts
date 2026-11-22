@@ -145,7 +145,7 @@ export async function getNote(
   return note;
 }
 
-function equalJSON(a: unknown, b: unknown): boolean {
+export function equalJSON(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (Array.isArray(a) || Array.isArray(b))
     return (

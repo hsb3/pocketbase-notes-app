@@ -255,8 +255,8 @@ test("folder creation, unique owned default and bounded active note projection u
   const query = list.url.searchParams;
   expect(query.get("page")).toBe("2");
   expect(query.get("perPage")).toBe("20");
-  expect(query.get("fields")).toBe("id,folder,title,updated,excerpt");
-  expect(query.get("sort")).toBe("-updated,-id");
+  expect(query.get("fields")).toBe("id,folder,title,updated,excerpt,pinned");
+  expect(query.get("sort")).toBe("-pinned,-updated,-id");
   expect(query.get("filter")).toContain('deleted = ""');
   expect(query.get("filter")).toContain(folder);
   await reply(2, {
@@ -274,7 +274,7 @@ test("folder creation, unique owned default and bounded active note projection u
   const inactive = getNote("inactive0000001");
   const detail = await call(4);
   expect(detail.url.searchParams.get("fields").split(",").sort()).toEqual(
-    "deleted,id,user,folder,title,body,attachments,revision,updated"
+    "deleted,id,user,folder,title,body,attachments,revision,updated,pinned"
       .split(",")
       .sort(),
   );
