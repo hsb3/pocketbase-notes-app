@@ -64,6 +64,7 @@ for (const verb of ["move", "delete", "restore"]) {
       if (updated.rowsAffected() !== 1) throw new ApiError(409, "Note changed.");
       result = { id, user, folder, deleted, revision: note.revision + 1 };
     });
+    require(`${__hooks}/note-notice.js`).send(e.app, result);
     return e.json(200, result);
   }, $apis.requireAuth("users"));
 }
@@ -98,6 +99,7 @@ routerAdd("POST", "/api/notebook/notes/{id}/pin", (e) => {
       .bind({ id, user, pinned: body.pinned }).execute();
     result = { id, user, folder: note.folder, deleted: "", revision: note.revision, pinned: body.pinned };
   });
+  require(`${__hooks}/note-notice.js`).send(e.app, result);
   return e.json(200, result);
 }, $apis.requireAuth("users"));
 

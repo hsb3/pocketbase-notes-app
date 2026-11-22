@@ -250,6 +250,7 @@ with tempfile.TemporaryDirectory(prefix="r2-upgrade-") as scratch:
                  "entry-validation.js", "folders.pb.js", "mfa.pb.js", "note-search.js", "notes.pb.js", "signup.pb.js"]:
         shutil.copy(Path("/pb/pb_hooks") / name, hooks)
     shutil.copy("/pb/pb_hooks/note-lifecycle.js", hooks)
+    shutil.copy("/pb/pb_hooks/note-notice.js", hooks)
     (hooks / "00-fixture.pb.js").write_text("""
     onRecordsListRequest((e) => {
       for (const note of e.records) note.set("fixture_private", "must stay hidden");

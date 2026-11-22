@@ -112,3 +112,18 @@ onRecordsListRequest((e) => {
   }
   e.next();
 }, "notes");
+
+// Runs only after the save committed, so a refused or rolled-back write sends nothing.
+function noticeSaved(e) {
+  e.next();
+  require(`${__hooks}/note-notice.js`).send(e.app, {
+    id: e.record.id,
+    user: e.record.getString("user"),
+    folder: e.record.getString("folder"),
+    deleted: e.record.getString("deleted"),
+    revision: e.record.getInt("revision"),
+    pinned: e.record.getBool("pinned"),
+  });
+}
+onRecordAfterCreateSuccess(noticeSaved, "notes");
+onRecordAfterUpdateSuccess(noticeSaved, "notes");
