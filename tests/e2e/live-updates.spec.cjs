@@ -1,15 +1,19 @@
 const { test, expect, api } = require("./fixtures.cjs");
 const {
+  blockRealtime,
   button,
+  credentials,
   doc,
   editor,
   latch,
   login,
+  logout,
   notePath,
   ownerData,
   region,
   replaceText,
   saved,
+  secondOwner,
   seedNote,
 } = require("./note-helpers.cjs");
 
@@ -582,3 +586,141 @@ for (const [width, height] of [
     });
   });
 }
+
+const visible = (p) =>
+  p.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+
+for (const [width, height] of [
+  [390, 844],
+  [810, 1080],
+  [1440, 1000],
+]) {
+  test.describe("Live catch-up at " + width + "px", () => {
+    test.use({ viewport: { width, height } });
+
+    test("returning to the tab catches up when live updates are down", async ({
+      page,
+      session,
+    }) => {
+      await blockRealtime(page);
+      const { owner, note } = await setup(page, session);
+      const other = await seedNote(owner, doc("Arrived while hidden"));
+      await save(owner, note, "Changed while hidden");
+      await page.waitForTimeout(500);
+      await expect(editor(page)).toHaveText("Shared start");
+      await visible(page);
+      await expect(editor(page)).toHaveText("Changed while hidden", live);
+      if (width >= 768)
+        await expect(page.locator("#row-" + other.id)).toBeVisible(live);
+      await editor(page).focus();
+      await page.keyboard.press("ControlOrMeta+End");
+      await page.keyboard.insertText(" and saved");
+      await expect(saved(page)).toBeVisible();
+      await expect(conflictDialog(page)).toHaveCount(0);
+    });
+
+    test("coming back online catches up with missed changes", async ({
+      page,
+      browserName,
+      session,
+    }) => {
+      const { owner, note } = await setup(page, session);
+      await page.context().setOffline(true);
+      await save(owner, note, "Changed while offline");
+      await page.waitForTimeout(500);
+      await page.context().setOffline(false);
+      // Playwright's WebKit offline emulation never fires `online`; real browsers do.
+      if (browserName === "webkit")
+        await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      await expect(editor(page)).toHaveText("Changed while offline", live);
+    });
+
+    test("with live updates blocked the R3 conflict and its choices still work", async ({
+      page,
+      session,
+    }) => {
+      await blockRealtime(page);
+      const { owner, note } = await setup(page, session);
+      const failed = await failFirstSave(page, note);
+      await replaceText(page, "Offline words");
+      await expect.poll(failed).toBe(true);
+      await save(owner, note, "Saved elsewhere");
+      await page.waitForTimeout(1000);
+      await expect(conflictDialog(page)).toHaveCount(0);
+      await button(page, "Retry").click();
+      await expect(conflictDialog(page)).toBeVisible();
+      await expect(button(page, "Copy draft")).toBeVisible();
+      await button(page, "Cancel").click();
+      await expect(editor(page)).toHaveText("Offline words");
+      await page.getByRole("button", { name: /review|conflict/i }).click();
+      await button(page, "Reload saved").click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: /reload|replace/i })
+        .click();
+      await expect(editor(page)).toHaveText("Saved elsewhere");
+      expect(await detail(owner, note)).toMatchObject({ revision: 2 });
+    });
+
+    test("an ended session and a new account receive nothing for the old account", async ({
+      page,
+      session,
+    }) => {
+      const { note } = await setup(page, session);
+      const reads = countReads(page, note);
+      const password = crypto.randomUUID();
+      await api(
+        "collections/users/records/" + session.account.id,
+        session.admin.token,
+        "PATCH",
+        { password, passwordConfirm: password },
+      );
+      const renewed = { ...session, password };
+      const owner = await ownerData(renewed);
+      await save(owner, note, "Saved after expiry");
+      await page.waitForTimeout(1500);
+      expect(reads).toEqual([]);
+
+      await page.goto("/folders");
+      await logout(page, session);
+      await expect(page.locator('[name="identity"]')).toBeVisible();
+      await secondOwner(session, async (c) => {
+        await credentials(page, c);
+        await expect(page).toHaveURL(/\/folders\/all$/);
+        await expect(
+          page.getByText("No notes yet", { exact: true }),
+        ).toBeVisible();
+        const lists = countLists(page);
+        await save(owner, note, "Saved for A only");
+        await act(owner, note, "pin", { pinned: true });
+        await page.waitForTimeout(1500);
+        expect(reads).toEqual([]);
+        expect(lists).toEqual([]);
+      });
+    });
+  });
+}
+
+test.describe("SC-001 edit-to-visible timing", () => {
+  test.use({ viewport: { width: 1440, height: 1000 } });
+  test("20 remote saves show within 2 s on the open note", async ({
+    page,
+    session,
+  }, info) => {
+    const { owner, note } = await setup(page, session);
+    const timings = [];
+    for (let i = 1; i <= 20; i++) {
+      const text = "Trial " + i;
+      const start = Date.now();
+      await save(owner, note, text);
+      await expect(editor(page)).toHaveText(text, { timeout: 10_000 });
+      timings.push(Date.now() - start);
+    }
+    await info.attach("SC-001 timings (ms)", {
+      body: JSON.stringify({ engine: info.project.name, timings }),
+      contentType: "application/json",
+    });
+    console.log("SC-001", info.project.name, JSON.stringify(timings));
+    expect(timings.filter((t) => t <= 2000).length).toBeGreaterThanOrEqual(19);
+  });
+});

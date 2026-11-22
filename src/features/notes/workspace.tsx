@@ -182,6 +182,7 @@ function Library({
   const [folderError, setFolderError] = useState("");
   const [refresh, refreshList] = useReducer((value) => value + 1, 0);
   const [live, bumpLive] = useReducer((value) => value + 1, 0);
+  const [folderRead, rereadFolders] = useReducer((value) => value + 1, 0);
   const liveWindow = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [, renderDraft] = useReducer((value) => value + 1, 0);
   const returning = useRef<ListPosition>(undefined);
@@ -229,6 +230,7 @@ function Library({
         ?.focus();
   }, [folderId, selected, locationState.focusTrash]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Catch-up repeats the folder read.
   useEffect(() => {
     let current = true;
     listFolders()
@@ -256,7 +258,7 @@ function Library({
     return () => {
       current = false;
     };
-  }, [user, folderId, navigate, session]);
+  }, [user, folderId, navigate, session, folderRead]);
 
   useEffect(() => {
     // One list re-read per 250 ms window: a steady stream cannot postpone it.
@@ -266,20 +268,41 @@ function Library({
         if (session.current()) bumpLive();
       }, 250);
     }
-    const watch = watchNotebook(
-      (notice) => {
-        if (!session.current()) return;
-        relist();
-        follow.current?.(notice);
-      },
-      () => undefined,
-    );
+    function onNotice(notice: Notice) {
+      if (!session.current()) return;
+      relist();
+      follow.current?.(notice);
+    }
+    // Notices are never replayed, so focus and every reconnect re-read what is shown.
+    function catchUp() {
+      if (!session.current()) return;
+      relist();
+      rereadFolders();
+      const note = active.current;
+      if (note)
+        follow.current?.({
+          id: note.id,
+          folder: note.folder,
+          deleted: false,
+          revision: Number.MAX_SAFE_INTEGER,
+        });
+    }
+    let watch = watchNotebook(onNotice, catchUp);
+    function wake() {
+      if (document.visibilityState !== "visible") return;
+      if (watch.failed) watch = watchNotebook(onNotice, catchUp);
+      catchUp();
+    }
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
     return () => {
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
       watch.stop();
       clearTimeout(liveWindow.current);
       liveWindow.current = undefined;
     };
-  }, [session]);
+  }, [session, active]);
 
   const makeDraft = useCallback(
     (

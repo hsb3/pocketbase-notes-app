@@ -281,7 +281,12 @@ async function heldWrite(page, route, gate) {
   await route.fulfill({ response });
 }
 
+// Keeps a context stale, so it exercises the save and action fallbacks instead of live updates.
+const blockRealtime = (page) =>
+  page.route("**/api/realtime", (route) => route.abort("failed"));
+
 module.exports = {
+  blockRealtime,
   notePath,
   listURL,
   editor,
