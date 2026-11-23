@@ -6,7 +6,7 @@ Use the [development setup](docs/development/setup.md) to start a local notebook
 
 Track bugs and requests in [issues](https://github.com/hsb3/pocketbase-notes-app/issues). Start a feature, schema or API-rule change, or visible design change with a [spec](specs/). Bug fixes, dependency updates and documentation can go straight to a pull request.
 
-The `functionform-gate` Spec Kit extension runs lint, knip and build when a Claude Code or Codex session stops, and adds the contained API and browser suites after `/speckit-implement` or `/speckit-functionform-gate-run`. Its commands are in `.specify/extensions/functionform-gate/functionform-gate-config.yml`.
+The `functionform-gate` Spec Kit extension runs lint, knip and build when a Claude Code or Codex session stops (opencode has no stop event, so run those three yourself there), and adds the contained API and browser suites after `/speckit-implement` or `/speckit-functionform-gate-run`. Its commands are in `.specify/extensions/functionform-gate/functionform-gate-config.yml`.
 
 Change `main` only through a pull request. Link the issue and any spec, and include the commands run and their results.
 

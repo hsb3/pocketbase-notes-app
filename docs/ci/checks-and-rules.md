@@ -64,7 +64,7 @@ python3 scripts/ai-context.py check
 bun run docs:build
 actionlint
 docker run --rm --network none -v "$PWD:/repo:ro" -w /repo lycheeverse/lychee:latest \
-  --offline --include-fragments --no-progress --exclude-path .agents/skills --exclude-path node_modules '**/*.md'
+  --offline --include-fragments --no-progress --exclude-path .agents/skills --exclude-path .claude/skills --exclude-path .opencode/commands --exclude-path .specify/templates --exclude-path node_modules '**/*.md'
 .github/scripts/release-notes.sh "v$(jq -r .version package.json)"
 ```
 
