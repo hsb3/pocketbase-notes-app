@@ -16,6 +16,7 @@ const excluded = [
   ".claude",
   ".codex",
   ".github",
+  ".opencode",
   ".specify",
   "specs",
   "src",

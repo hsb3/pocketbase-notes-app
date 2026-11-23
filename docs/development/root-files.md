@@ -169,10 +169,11 @@ one folder per feature (`spec.md`, `plan.md`, `tasks.md` and supporting notes);
 installs: templates, shell scripts, the workflow definition, integration manifests
 and `memory/constitution.md`, the project's principles summarised from `AGENTS.md`.
 The same CLI installs the `speckit-*` skills into `.claude/skills/` (Claude Code)
-and `.agents/skills/` (Codex); upgrade them with `specify integration upgrade`
+and `.agents/skills/` (Codex), and the `speckit.*` commands into
+`.opencode/commands/` (opencode); upgrade them with `specify integration upgrade`
 instead of editing them. `.specify/.gitignore` keeps per-checkout state out of Git.
-Both folders are left out of the docs site, `.specify/` is left out of Biome, and
-the templates and skills are skipped by the docs link check. How the workflow is used is in
+These folders are left out of the docs site, `.specify/` is left out of Biome, and
+the templates, skills and commands are skipped by the docs link check. How the workflow is used is in
 [CONTRIBUTING.md](../../CONTRIBUTING.md#how-work-flows).
 
 ### `playwright.performance.config.ts`
